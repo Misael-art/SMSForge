@@ -14,7 +14,7 @@ Exit: 0 todas provadas | 1 ha ferramenta sem self-check ou reprovando | 3 uso
 import sys, os, json, argparse, subprocess
 
 # Ferramentas que MEDEM/AUDITAM => self-check obrigatorio.
-PREFIXES = ("audit_", "validate_", "measure_", "capture_")
+PREFIXES = ("audit_", "validate_", "measure_", "capture_", "seal_", "reconcile_")
 SUFFIX_GATES = ("_gate.py",)
 
 # Nao sao ferramentas de medicao: constroem, geram ou orquestram.

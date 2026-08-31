@@ -28,7 +28,7 @@ TRUTH_HIERARCHY = [
     "doc/15-tdd.md",
 ]
 
-MEASURE_PREFIXES = ("audit_", "validate_", "measure_", "capture_")
+MEASURE_PREFIXES = ("audit_", "validate_", "measure_", "capture_", "seal_", "reconcile_")
 DOC_EXEMPT = {  # existem mas nao precisam figurar na tabela de gates
     "validate_measurement_tools.py",  # meta-gate (audita as ferramentas)
     "audit_doc_sync.py",              # este arquivo

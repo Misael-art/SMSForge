@@ -73,7 +73,10 @@ def main():
               "audit_audio.py",
               "measure_fps.py",
               "validate_measurement_tools.py",
-              "audit_doc_sync.py"):
+              "audit_doc_sync.py",
+              "screenshot_semantic_gate.py",
+              "seal_fresh_evidence_bundle.py",
+              "reconcile_claims.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")
