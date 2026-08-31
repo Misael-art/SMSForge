@@ -1,0 +1,9 @@
+{
+  "contract": "asset_contract_v1",
+  "assets": [
+    {"file": "res/bg/block.png", "kind": "bg_tiles", "grid": "8x8", "size_constraint": "8x8",
+     "palette_codes": [[3,3,3],[3,0,0]], "role": "cenario_final", "note": "tile 8x8 para bloco 2x2, cor sólida — NÃO é personagem, é cenário"},
+    {"file": "res/bg/target.png", "kind": "bg_tiles", "grid": "8x8", "size_constraint": "8x8",
+     "palette_codes": [[0,2,0]], "role": "cenario_final", "note": "tile pontilhado para alvo"}
+  ]
+}

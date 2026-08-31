@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "asset_provenance_manifest_v1",
+  "type": "object",
+  "required": ["assets"],
+  "properties": {
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "origin", "author", "tool", "sha256"],
+        "properties": {
+          "file": {"type": "string", "description": "caminho em res/"},
+          "origin": {"type": "string", "description": "arquivo original em rascunho/"},
+          "author": {"type": "string"},
+          "tool": {"type": "string", "description": "'none' ou 'ai_imagegen:<pipeline>'; 'code' so com role fora da lista banida"},
+          "role": {"type": "string", "enum": ["personagem", "inimigo", "boss", "cenario_final", "ui", "fonte", "outro"]},
+          "sha256": {"type": "string"}
+        }
+      }
+    }
+  }
+}

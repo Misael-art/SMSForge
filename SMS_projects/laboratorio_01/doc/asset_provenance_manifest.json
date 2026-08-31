@@ -1,0 +1,31 @@
+{
+  "assets": [
+    {
+      "file": "res/sprites/hero.png",
+      "origin": "rascunho/hero_fixture.png",
+      "author": "SMSForge pipeline fixture",
+      "tool": "code",
+      "role": "ui",
+      "note": "FIXTURE de validacao de pipeline (GDD cena 01); NAO e arte de jogo",
+      "sha256": "c475299143fcc6ba9d1f720a51d01bed5edeb0053d5bebae323e589a4c0fc128"
+    },
+    {
+      "file": "res/bg/block.png",
+      "origin": "rascunho/block.png",
+      "author": "SMSForge F4",
+      "tool": "code",
+      "role": "outro",
+      "sha256": "f9c3fb3c06174d3bc9f6f98a97415c535afee149883da51a8aaa08d081b20ae8",
+      "note": "tile procedural de cena de laboratorio (F4); arte autoral final pendente"
+    },
+    {
+      "file": "res/bg/target.png",
+      "origin": "rascunho/target.png",
+      "author": "SMSForge F4",
+      "tool": "code",
+      "role": "outro",
+      "sha256": "7e3b90bbe86c33a9bc377bfbe98e5e388ca2638262af9ca406566f5eb7653dd0",
+      "note": "tile procedural de cena de laboratorio (F4); arte autoral final pendente"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "token": "60fps",
+  "scope": "laboratorio_01 cena 02 — emulador-reportado",
+  "ceiling": "60fps reportado pelo título da janela Emulicious (amostras 58-60, média 59.0, constante_50_60=true em out/evidence/fps.json)",
+  "approved_by": "humano (via PLANO_CONTINUACAO F2)",
+  "date": "2026-08-29",
+  "evidence_refs": ["out/evidence/fps.json", "out/evidence/tela_funcional.png"]
+}

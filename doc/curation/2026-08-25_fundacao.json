@@ -1,0 +1,104 @@
+{
+  "curation_id": "2026-08-25_fundacao",
+  "date": "2026-08-25",
+  "scope": "workspace_foundation",
+  "lessons": [
+    {
+      "id": "L001",
+      "lesson": "Porte de metodologia entre consoles exige re-derivar limites do hardware alvo, não traduzir números do console de origem (20 sprites H40 -> 8 sprites/scanline; DMA -> janela VBlank medida).",
+      "evidence": "Comparativo README.md seção 'Diferenças estruturais'; leis em .agent/rules/SMS_GLOBAL.md",
+      "tool_that_measures": "audit_sprite_line_sim.py",
+      "rule_section": "SMS_GLOBAL §7"
+    },
+    {
+      "id": "L002",
+      "lesson": "Gate só é confiável quando reprova em teste conhecido e passa em fixture válida (calibração contra falso positivo). Self-check obrigatório antes de qualquer leitura.",
+      "evidence": "selftest.py executa bateria válidos/inválidos por gate",
+      "tool_that_measures": "selftest.py",
+      "rule_section": "SMS_GLOBAL §20, §19"
+    },
+    {
+      "id": "L003",
+      "lesson": "Fato dependente de revisão de hardware (ex.: comportamento de flip de sprite entre VDP SMS1/SMS2) não vira lei até ser pago com evidência de emulador/console.",
+      "evidence": "Seção 'fatos pagos' em SMS_GLOBAL §23",
+      "tool_that_measures": "capture_evidence.py",
+      "rule_section": "SMS_GLOBAL §23"
+    },
+    {
+      "id": "L004",
+      "lesson": "Libs pre-compiladas do devkitSMS foram geradas com SDCC antigo e conflitam de sdcccall com SDCC>=4.2. ensure_toolchain.sh reconstrói SMSlib/PSGlib do fonte SEMPRE; smoke-test compila/linka/rom antes de declarar toolchain OK.",
+      "evidence": "smoke-test falhou com ?ASlink-Warning-Conflicting sdcccall(1) vs -mz80; reconstrucao via make dos fontes eliminou o conflito; primeira ROM buildada depois disso",
+      "tool_that_measures": "ensure_toolchain.sh (verify_smoke)",
+      "rule_section": "SMS_GLOBAL §23"
+    },
+    {
+      "id": "L005",
+      "lesson": "Verificar suporte de plataforma do emulador ANTES de escrever adapter: openMSX nao suporta Master System (apenas MSX/SG-1000); o adapter '-machine sms' era especulacao e foi removido. Gate de evidencia real = Emulicious (Java) + captura de janela via xdotool+spectacle + checagem de luma da JANELA e do VIEWPORT CENTRAL.",
+      "evidence": "api.github.com tree do openMSX RELEASE_21_0 sem nenhum caminho sms/master_system; captura com viewport variancia=0.0 pegou ROM minima sem conteudo visivel -> main.c atualizado para renderizar texto+spinner",
+      "tool_that_measures": "capture_evidence.py (viewport_box + image_informative)",
+      "rule_section": "SMS_GLOBAL §23, §14"
+    },
+    {
+      "id": "L006",
+      "lesson": [
+        "SPRITE RESOLVIDO (causa-raiz = SPRITEMODE_TALL com tiles 16x16): o sprite NAO aparecia com SPRITEMODE_TALL porque os tiles de 16x16 (4 quads em enderecos consecutivos) nao alinhavam com a base de sprite. Com SPRITEMODE_NORMAL (8x8) + SMS_loadTiles(hero,128,N) + SMS_addSprite(120,80,128), o sprite RENDERIZA. Evidencia: f1_sprite_visivel.png. Para sprite 16x16, usar metasprite (4 sprites 8x8) em vez de TALL."
+      ],
+      "evidence": [
+        "f1_sprite_visivel.png: tile 8x8 visivel em (120,80) com cores W/R; jogo principal renderiza limpo"
+      ],
+      "tool_that_measures": [
+        "import -window main + png_io.read_png_rgb"
+      ],
+      "rule_section": "SMS_GLOBAL §7 (metasprite em vez de TALL 16x16)"
+    },
+    {
+      "id": "L007",
+      "lesson": "Harness de evidencia neste host: spectacle exige shim LD_LIBRARY_PATH (libavcodec .62->.63 apos update); x11grab nao ve janelas XWayland (root composto pelo KWin); foco para XTest precisa ser VERIFICADO (getwindowfocus) antes de cada tecla; wallpaper tem vermelhos -> deteccao por cor exige regiao delimitada ou marcador unico.",
+      "evidence": "spectacle falhou sem shim; grab 4737x1458 todo preto; capturas -a oscilaram entre janela e desktop",
+      "tool_that_measures": "capture_evidence.py (proximo passo: modo --fullscreen com recorte por marcador)",
+      "rule_section": "SMS_GLOBAL §19"
+    },
+    {
+      "id": "L008",
+      "lesson": "Cena 01 funcional e sem glitches usando SOMENTE pipeline texto (fonte do renderer): titulo, moldura com glifos, cursor '@' 2x2 e status. Input XTest funciona apos CLIQUE na canvas (foco real); captura confiavel = spectacle fullscreen + recorte pela janela 'sun-awt-X11-XCanvasPeer' 256x192; fps legivel no titulo da janela do emulador.",
+      "evidence": "tela_funcional.png + gameplay.json (Right deslocou cursor); titulos observados 51-60fps",
+      "tool_that_measures": "capture_evidence.py + titulo da janela",
+      "rule_section": "SMS_GLOBAL §23"
+    },
+    {
+      "id": "L009",
+      "lesson": "Tres armadilhas de depuracao pagas: (1) resultados DAP do Emulicious vem prefixados '$' -> int('$A5',16) falha silenciosamente e parece 'DAP morto'; (2) SDCC elimina atribuicoes a variaveis nao-volatile sem leitura -> marcadores de bissecao PRECISAM de volatile e enderecos vem do .map do linker; (3) com sondas confiaveis: a cena trava DENTRO de SMS_loadTiles (marcador B1 alcancado, B2 nunca) — proximo micro-experimento: substituir por SMS_VRAMmemcpy direto.",
+      "evidence": "probe_sprite.c probes/ com magic volatile; out/obj/probe.map (_rb C000, _spr_ret C004, _magic C005)",
+      "tool_that_measures": "probes/probe_sprite.c + DAP repl",
+      "rule_section": "SMS_GLOBAL §10, §23"
+    },
+    {
+      "id": "L010",
+      "lesson": "Captura do frame VIVO do jogo bloqueada no host por 3 canais independentes: (1) DAP readbyte/readword retorna $0 para qualquer endereco (1+1->$0; avaliador repl nao avalia); (2) import -window <canvas> congela no frame X inicial (render Java/OpenGL em camada nao-pixmap; 3 capturas=hash identico); (3) spectacle/root capturam o compositor com contaminacao de cor nas bordas e foco oscila. CONSEQUENCIA: logica de vitoria e renderizacao provadas por outros canais (simulacao exata + capturas 283x282), mas frame transitorio (VITORIA) nao capturavel de forma confiavel.",
+      "evidence": "DAP 1+1=$0; import canvas 3x hash a763c436...; spectacle 2560x1080 com red/green nas bordas",
+      "tool_that_measures": "capture_evidence.py (docstring L010)",
+      "rule_section": "SMS_GLOBAL §23"
+    },
+    {
+      "id": "L011",
+      "lesson": "Texto em linha 26 de uma tela de 192px (24 linhas) fica INVISIVEL (fora da area de render). O jogo SMS em modo 192 linhas tem 24 linhas de tiles (0-23); status/VITORIA na linha 26 = fora. Mover para linha 3 (visivel). Tambem: captura de frame vivo = import -window <main> (canvas Java congela; main captura). png_io estendido p/ bit-depth 4 paletted/grayscale.",
+      "evidence": "gameplay_cena02_vitoria.png mostra 'VITORIA! 1:REINICIA' texto legivel apos mover de linha 26->3",
+      "tool_that_measures": "capture_evidence.py + png_io.read_png_rgb",
+      "rule_section": "SMS_GLOBAL §6 (tiles/linhas), §23"
+    },
+    {
+      "id": "L013",
+      "lesson": "Audio do Emulicious (Java/libjsound ALSA) NAO roteia no Pulse por padrao. Criar ~/.asoundrc com pcm.!default{type pulse} faz o Java aparecer como sink-input 'ALSA plug-in [java]'. Entao gravar o monitor do SINK DEFAULT (nao do alto-falante; neste host o default e hdmi-stereo-extra2). FPS e mensuravel por contador na tela (OCR de digitos hex). Musica PSG: PSGlib com .psg stream (latch >=0x80, dado, 0x38=fim frame, 0x00=loop, 0x01=loopPoint).",
+      "evidence": "audio_psg.wav 100% ativo (peak=613, rms=441.8); sink-input 'ALSA plug-in [java]' presente; fps 59.3 via contador",
+      "tool_that_measures": "parecord monitor + read_png_rgb OCR",
+      "rule_section": "SMS_GLOBAL §12 (audio), §19 (medicao)"
+    },
+    {
+      "id": "L014",
+      "lesson": "Port de boas praticas do SGDK Forge (5 fases A-E). Gate de boot deterministico: ROM ESTATICA passa (estado init identico), ROM de JOGO ANIMADO diverge (esperado). Base para validar 'boot deterministico' = capturar estado de init (apos displayOn), nao gameplay em andamento. Matriz de maestria em camadas (mestre+registry+roadmap) exige nivel >mapped com evidencia, senão e overclaim (audit_mastery_registry).",
+      "evidence": "probe_min.sms deterministico PASS; cena04 animada divergiu (esperado); registry 48 tecnicas validado; selftest 25/25",
+      "tool_that_measures": "audit_deterministic_boot.py + audit_mastery_registry.py",
+      "rule_section": "SMS_GLOBAL §23, §24"
+    }
+  ]
+}

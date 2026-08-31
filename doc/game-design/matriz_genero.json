@@ -1,0 +1,35 @@
+{
+  "especializacao": "matriz de genero do SMSForge. Cada familia define eixos congelados (o que um jogo desse genero DEVE ter) e blockers phase-aware (so disparam em ready_for_aaa/closeout). Um projeto so entra numa especializacao opt-in.",
+  "familias": {
+    "action_shooter": {
+      "label": "acao / tiro",
+      "eixos": ["agencia", "feedback_de_dano", "sprites_8x8", "scroll", "dificuldade_progressiva", "hitstop"],
+      "blockers_aaa": ["sem evidencia de gameplay com input", "sem medicao de frame budget", "sem arvore de inimigos"]
+    },
+    "platformer": {
+      "label": "plataforma",
+      "eixos": ["jump_buffer", "coyote_time", "colisao_1_way", "gravidade", "scrolling"],
+      "blockers_aaa": ["sem coyote/jump-buffer verificados", "sem curva de dificuldade", "sem checkpoint"]
+    },
+    "puzzle": {
+      "label": "puzzle",
+      "eixos": ["logica_deterministica", "estado_por_celula", "undo", "feedback_de_pista"],
+      "blockers_aaa": ["sem solucao verificavel", "sem undo/restart"]
+    },
+    "racers": {
+      "label": "corrida / arcade",
+      "eixos": ["drift", "curva_de_velocidade", "pista", "timing_button"],
+      "blockers_aaa": ["sem medicao de velocidade/fps", "sem modo de 2 jogadores"]
+    },
+    "rpg": {
+      "label": "RPG",
+      "eixos": ["party", "xp", "arquetipos", "stores"],
+      "blockers_aaa": ["sem save", "sem balance de party"]
+    },
+    "strategy": {
+      "label": "estrategia",
+      "eixos": ["towers", "waves", "fog", "economia"],
+      "blockers_aaa": ["sem balance de economia", "sem pathfinding"]
+    }
+  }
+}

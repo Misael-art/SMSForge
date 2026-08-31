@@ -1,0 +1,71 @@
+{
+  "z_teste": "registry machine-readable da matriz de maestria Master System. Escada: mapped -> incorporada -> reproduzivel -> emulador_provado -> default_senior. Tecnica so sobe de nivel com evidencia (emulador/build citada).",
+  "tracks": {
+    "vdp_tiles": {
+      "V01 grid_8x8": {"level": "default_senior", "evidence": "provena em toda cena (grid 8x8)"},
+      "V02 metatile_16x16": {"level": "incorporada", "evidence": "cena02 bloco 2x2 via tiles"},
+      "V03 scroll_xy": {"level": "reproduzivel", "evidence": "cena04 scroll BG horizontal"},
+      "V04 line_interrupt": {"level": "mapped", "evidence": "ainda sem prova; candidata"},
+      "V05 modos_224_240": {"level": "mapped", "evidence": "candidata"},
+      "V06 backdrop_fade": {"level": "reproduzivel", "evidence": "cena02 fade do backdrop"},
+      "V07 tilemap_comprimido": {"level": "mapped", "evidence": "candidata"}
+    },
+    "sprites": {
+      "S01 sat_64_terminador": {"level": "emulador_provado", "evidence": "probe L006 + cena04"},
+      "S02 max_8_por_scanline": {"level": "emulador_provado", "evidence": "gate audit_sprite_line_sim.py"},
+      "S03 tamanho_8x8_16x16": {"level": "emulador_provado", "evidence": "SPRITEMODE_NORMAL 8x8 (L006); 16x16 via metasprite"},
+      "S04 metasprite": {"level": "incorporada", "evidence": "hero_tiles 16x16 em cena02"},
+      "S05 x_offset_32": {"level": "mapped", "evidence": "doc; provar em emulador"},
+      "S06 early_clock": {"level": "mapped", "evidence": "revisao-dependente; pendente"},
+      "S07 rotacao_buffer": {"level": "mapped", "evidence": "candidata"}
+    },
+    "paleta": {
+      "P01 duas_subpaletas": {"level": "emulador_provado", "evidence": "paleta BG+sprite carregada"},
+      "P02 codigo_6bit": {"level": "default_senior", "evidence": "paleta mestra fixa; gate"},
+      "P03 contraste_luma": {"level": "emulador_provado", "evidence": "gate audit_luma_floor.py"},
+      "P04 half_brightness_add_sub": {"level": "mapped", "evidence": "candidata"},
+      "P05 cycle_paleta_vblank": {"level": "reproduzivel", "evidence": "fade do backdrop"}
+    },
+    "vram_vblank": {
+      "M01 escritas_no_vblank": {"level": "emulador_provado", "evidence": "todas escritas dentro do VBlank; fps 59.3"},
+      "M02 orcamento_worstframe": {"level": "emulador_provado", "evidence": "42B medido cena02"},
+      "M03 layout_vram_fixo": {"level": "reproduzivel", "evidence": "tiles 128-132 fixos"},
+      "M04 streaming_tiles_cota": {"level": "mapped", "evidence": "candidata"},
+      "M05 compressao_paged": {"level": "mapped", "evidence": "candidata"}
+    },
+    "z80_sdcc": {
+      "Z01 int_16bit": {"level": "default_senior", "evidence": "gotchas SMS"},
+      "Z02 mult_div_caras": {"level": "emulador_provado", "evidence": "movimento 1 cel/frame"},
+      "Z03 float_proibido": {"level": "default_senior", "evidence": "regra SMS_GLOBAL"},
+      "Z04 sem_malloc": {"level": "default_senior", "evidence": "buffers fixos; RAM 8KB"},
+      "Z05 fastcall_callee": {"level": "reproduzivel", "evidence": "limits de args do SDCC"},
+      "Z06 banked_code": {"level": "mapped", "evidence": "candidata"},
+      "Z07 isr_nmi_curta": {"level": "reproduzivel", "evidence": "pause via NMI"}
+    },
+    "banking": {
+      "B01 48kb_linear": {"level": "default_senior", "evidence": "ROM 16KB atual"},
+      "B02 mapper_sega": {"level": "mapped", "evidence": "candidata"},
+      "B03 header_sega": {"level": "emulador_provado", "evidence": "TMR SEGA @0x3ff0"},
+      "B04 codigo_32kb": {"level": "mapped", "evidence": "candidata"},
+      "B05 sram_fffc": {"level": "mapped", "evidence": "candidata"}
+    },
+    "audio": {
+      "A01 psg_3tone_noise": {"level": "emulador_provado", "evidence": "audio_psg.wav 100%"},
+      "A02 arbitracao_canais": {"level": "reproduzivel", "evidence": "musica battle 4 canais"},
+      "A03 samples_psg": {"level": "mapped", "evidence": "candidata"},
+      "A04 ym2413_opcional": {"level": "mapped", "evidence": "candidata"},
+      "A05 update_audio_frame": {"level": "reproduzivel", "evidence": "PSGFrame por vblank"}
+    },
+    "input_timing": {
+      "I01 joypad_dc_dd": {"level": "emulador_provado", "evidence": "d-pad move sprite"},
+      "I02 pause_nmi": {"level": "reproduzivel", "evidence": "KEY_1 reinicia"},
+      "I03 normalizacao_ntsc_pal": {"level": "mapped", "evidence": "candidata"},
+      "I04 frame_counter": {"level": "emulador_provado", "evidence": "F:xxxx na tela; fps 59.3"}
+    },
+    "raster_fx": {
+      "R01 split_scroll_line": {"level": "mapped", "evidence": "candidata"},
+      "R02 palette_raster": {"level": "mapped", "evidence": "candidata"},
+      "R03 scroll_y_por_coluna": {"level": "mapped", "evidence": "candidata"}
+    }
+  }
+}

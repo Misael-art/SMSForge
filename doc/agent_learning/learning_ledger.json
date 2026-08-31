@@ -1,0 +1,12 @@
+{
+  "ledger_id": "smsforge_learning_ledger_v1",
+  "entries": [
+    {
+      "ts": "2026-08-25",
+      "kind": "foundation",
+      "summary": "Workspace fundado porteando SGDKForge para Master System: toolchain SDCC+devkitSMS, 7 gates executáveis com selftest, framework .agent, modelo de projeto.",
+      "sources": ["README devkitSMS (fetch 2026-08-25)", "SGDKForge/AGENTS.md", "SGDK_GLOBAL.md (38 seções, amostradas)"],
+      "dedup_key": "foundation_2026_08_25"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "scene_budget_v1",
+  "type": "object",
+  "required": ["scene", "bg_tiles_unique", "sprite_peak_per_line", "vblank_bytes_per_frame_measured"],
+  "properties": {
+    "scene": {"type": "string"},
+    "bg_tiles_unique": {"type": "integer", "maximum": 256},
+    "sprite_peak_per_line": {"type": "integer", "maximum": 8},
+    "sat_entries": {"type": "integer", "maximum": 64},
+    "vblank_bytes_per_frame_measured": {
+      "type": "object",
+      "required": ["value", "method"],
+      "properties": {
+        "value": {"type": "integer"},
+        "method": {"type": "string", "description": "como foi medido; 'estimado' e PROIBIDO"}
+      }
+    },
+    "headroom_next_step": {"type": "string", "description": "degrau seguinte medido antes de fechar"}
+  }
+}

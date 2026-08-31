@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "asset_contract_v1",
+  "type": "object",
+  "required": ["file", "kind", "grid", "palette_codes"],
+  "properties": {
+    "file": {"type": "string"},
+    "kind": {"enum": ["bg_tiles", "sprite_metasprite", "font"]},
+    "grid": {"enum": ["8x8"], "description": "todo asset nasce no grid 8x8"},
+    "size_constraint": {"enum": ["any", "8x8", "16x16"]},
+    "palette_codes": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {"type": "integer", "minimum": 0, "maximum": 3},
+        "minItems": 3, "maxItems": 3
+      },
+      "maxItems": 16,
+      "description": "codigos 6-bit; entrada [0,0,0] = indice 0 transparente"
+    }
+  }
+}

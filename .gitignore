@@ -1,0 +1,52 @@
+# SMSForge — .gitignore
+# Exclui toolchain binária, emuladores, artefatos de build e caches.
+# O repo guarda CÓDIGO, DOCUMENTAÇÃO e FRAMEWORK, não binários/toolchain.
+
+# toolchain (binária grande, instalar via ensure_toolchain.sh)
+sdk/sdcc-portable/
+sdk/devkitSMS-upstream/
+sdk/devkitSMS/
+sdk/env.sh
+
+# emuladores (binários grandes; registrar conteúdo via README)
+tools/emuladores/
+tools/ai_imagegen/
+
+# artefatos de build / ROMs versionadas / saídas
+SMS_projects/*/out/
+SMS_projects/*/changelog/roms/
+SMS_Engines/*/build/
+SMS_Engines/*/*.sms
+SMS_projects/*/main.asm
+SMS_projects/*/main.lst
+SMS_projects/*/main.sym
+SMS_projects/*/*.rel
+SMS_projects/*/*.ihx
+
+# pngs de evidencia/referencia (nao sao assets de jogo; as provas ficam no out/ local)
+SMS_projects/*/doc/tela_funcional_referencia.png
+SMS_Engines/*/proto_engine_screenshot.png
+SMS_Engines/*/*screenshot*.png
+doc/tela_funcional_referencia.png
+
+# artefatos de compilacao
+**/*.rel
+**/*.ihx
+**/*.asm
+**/*.lst
+**/*.sym
+**/*.map
+**/*.noi
+**/*.lk
+**/*.bin
+
+# python
+__pycache__/
+*.pyc
+
+# memoria / hooks locais (nao versionar segredos de sessao se houver)
+.ai-memory.toml
+*.local
+
+# temporario
+tmp/

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "sprite_scene_manifest_v1",
+  "type": "object",
+  "required": ["sprite_size", "sprites"],
+  "properties": {
+    "sprite_size": {"enum": ["8x8", "16x16"]},
+    "zoomed": {"type": "boolean", "default": false},
+    "screen_h": {"type": "integer", "enum": [192, 224, 240], "default": 192},
+    "sprites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["y", "x", "tile"],
+        "properties": {
+          "y": {"type": "integer", "minimum": -64, "maximum": 255},
+          "x": {"type": "integer", "minimum": 0, "maximum": 255,
+                 "description": "X logico; armazenado = X+32 pelo driver"},
+          "tile": {"type": "integer", "minimum": 0, "maximum": 255}
+        }
+      }
+    }
+  }
+}

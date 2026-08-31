@@ -1,0 +1,12 @@
+{
+  "pipeline_id": "vibe_playable_loop_v1",
+  "description": "Loop curto para prototipo jogavel HONESTO: nunca declara 'jogo' — declara 'prototipo com eixo X provado'.",
+  "steps": [
+    {"id": "V0", "label": "Definir UNICO eixo do prototipo (movimento? colisao? scroll?)", "kind": "human"},
+    {"id": "V1", "label": "Implementar minimo em src/", "kind": "agent"},
+    {"id": "V2", "label": "build_inner.py", "kind": "agent"},
+    {"id": "V3", "label": "run.sh no emulador + capture_evidence.py", "kind": "human+agent"},
+    {"id": "V4", "label": "Memory bank: eixo provado ou nao; repetir", "kind": "agent"}
+  ],
+  "hard_rule": "Sem evidencia V3, status permanece 'buildado', jamais 'testado_em_emulador'."
+}

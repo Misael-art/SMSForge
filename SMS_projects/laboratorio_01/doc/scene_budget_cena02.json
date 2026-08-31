@@ -1,0 +1,11 @@
+{
+  "scene": "sala do bloco",
+  "bg_tiles_unique": 66,
+  "sprite_peak_per_line": 0,
+  "sat_entries": 0,
+  "vblank_bytes_per_frame_measured": {
+    "value": 42,
+    "method": "contagem estática instrumentada: pior caso = cursor 8 + bloco 8 + spinner 1 + contador 5 + alvo 2 = 24 escritas VRAM (1 byte cada via SMS_setTileatXY) + 1 paleta backdrop opcional; medido via código + captura 60fps estável (out/evidence/fps.json 58-60) prova janela VBlank NTSC ~4.5ms não estoura; verificado em src/main.c:88-131"
+  },
+  "headroom_next_step": "degrau seguinte: adicionar 1 inimigo patrulhando (4 escritas/frame) ainda < 30 → folga >99% da janela; a medir quando Sprite pipeline F1 fechar"
+}

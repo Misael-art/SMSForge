@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "project_manifest_v1 (.mddev/project.json)",
+  "type": "object",
+  "required": ["name", "platform", "skeleton_version"],
+  "properties": {
+    "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "platform": {"const": "sega_master_system"},
+    "region_target": {"type": "array", "items": {"enum": ["NTSC", "PAL"]}},
+    "skeleton_version": {"type": "integer"},
+    "gates": {"type": "array", "minItems": 7}
+  }
+}

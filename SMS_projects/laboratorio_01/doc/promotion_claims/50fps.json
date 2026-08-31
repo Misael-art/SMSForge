@@ -1,0 +1,8 @@
+{
+  "token": "50fps",
+  "scope": "categoria fps_constante (NTSC/PAL) — não claim de 50fps medido",
+  "ceiling": "Categoria do eixo fps_constante; medição real é 58-60 NTSC (fps.json), PAL não medido",
+  "approved_by": "humano",
+  "date": "2026-08-29",
+  "evidence_refs": ["out/evidence/fps.json"]
+}

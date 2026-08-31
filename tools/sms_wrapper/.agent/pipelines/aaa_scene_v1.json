@@ -1,0 +1,36 @@
+{
+  "pipeline_id": "aaa_scene_v1",
+  "description": "Jornada canonica de cena visual: roteiro -> storyboard pixel -> coreografia -> MEDICAO -> orcamento -> contrato -> model sheet -> assets -> runtime -> evidencia.",
+  "steps": [
+    {"id": "S0_scope", "kind": "human", "label": "Escopo e spec",
+     "inputs": ["doc/11-gdd.md", "doc/13-spec-cenas.md"],
+     "outputs": ["briefing da cena aceito"]},
+    {"id": "S1_storyboard", "kind": "agent", "label": "Storyboard planta-baixa em pixel",
+     "skill_path": "skills/sms-vdp-tiles.md",
+     "gate": null,
+     "outputs": ["storyboard grid 8x8 anotado"]},
+    {"id": "S2_choreography", "kind": "agent", "label": "Coreografia medida ANTES da arte",
+     "skill_path": "skills/sms-sprites-metasprite.md",
+     "gate": {"tool": "tools/sms_wrapper/audit_sprite_line_sim.py",
+              "input": "sprite_scene_manifest_v1"},
+     "rule": "SMS_GLOBAL §16"},
+    {"id": "S3_budget", "kind": "agent", "label": "Orcamento por cena",
+     "schema": "schemas/scene_budget_v1.schema.json",
+     "rule": "SMS_GLOBAL §9, §18"},
+    {"id": "S4_asset_contract", "kind": "human+agent", "label": "Contrato de asset",
+     "schema": "schemas/asset_contract_v1.schema.json"},
+    {"id": "S5_model_sheet", "kind": "human", "label": "Model sheet antes do asset final",
+     "inputs": ["doc/08-bible-artistica.md"]},
+    {"id": "S6_assets", "kind": "human", "label": "Producao dos assets",
+     "gates": [
+       {"tool": "audit_validate_resources.py"},
+       {"tool": "audit_luma_floor.py"},
+       {"tool": "audit_provenance.py"}
+     ]},
+    {"id": "S7_runtime", "kind": "agent", "label": "Runtime",
+     "gate": {"tool": "build_inner.py"}},
+    {"id": "S8_evidence", "kind": "agent", "label": "Evidencia em emulador",
+     "gate": {"tool": "capture_evidence.py"},
+     "outputs": ["emulator_evidence_v1"]}
+  ]
+}

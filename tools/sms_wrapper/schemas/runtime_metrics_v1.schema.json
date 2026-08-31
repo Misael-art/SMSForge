@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "runtime_metrics_v1",
+  "description": "Metricas de runtime de uma ROM de Master System, mensuradas no emulador até a validacao. Estas metricas alimentam o gate de entrega.",
+  "type": "object",
+  "required": ["rom", "fps_measured", "audio_active_pct"],
+  "properties": {
+    "rom": {"type": "string"},
+    "fps_measured": {"type": "number", "description": "fps via frame counter na tela (medido)"},
+    "region": {"enum": ["NTSC", "PAL"]},
+    "sprites_per_line_max": {"type": "integer", "maximum": 8},
+    "audio_active_pct": {"type": "number", "description": "% de amostras ativas do audio capturado"},
+    "evidence_wav": {"type": "string"},
+    "evidence_screenshot": {"type": "string"},
+    "boot_deterministic": {"type": "boolean"}
+  }
+}
