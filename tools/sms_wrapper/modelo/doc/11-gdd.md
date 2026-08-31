@@ -1,25 +1,34 @@
 # 11-gdd — __PROJECT_NAME__
 
-> Escopo travado. **Se não está aqui, não entra.** Mudança de escopo exige
-> edição deste arquivo + aprovação humana + atualização do memory bank.
+> Design e escopo. **Autoridade #2 — "se não está no GDD, não entra."**
 
 ## Pitch (1 frase)
-(uma frase)
+_(o jogo inteiro numa frase. Se não cabe, o escopo ainda não está travado.)_
 
-## Core loop
-1. (ação)
-2. (feedback)
-3. (recompensa)
+## Gênero declarado
+_(ex: action_platformer, puzzle, shmup. Precisa bater com `specialization` em
+`.mddev/project.json` — `audit_specialization.py` compara os dois.)_
 
-## 5 Leis Fundamentais — como atendem
-- Agência:
-- Feedback:
-- Fluxo:
-- Consistência:
-- Recompensa:
+## Loop central
+_(o que o jogador faz nos primeiros 10 segundos, repetidamente:
+ação → resposta do sistema → consequência → nova decisão)_
 
-## Golden Path
-(descrição do caminho principal em 3–5 beats)
+## 5 Leis Fundamentais — como este jogo atende
+- **Agência**: _(o input do jogador muda o mundo de forma visível?)_
+- **Feedback**: _(toda ação tem resposta legível em <1 frame de percepção?)_
+- **Fluxo**: _(dificuldade acompanha a competência crescente?)_
+- **Consistência**: _(a mesma entrada produz o mesmo resultado, sempre?)_
+- **Recompensa**: _(o que o jogador ganha por jogar bem?)_
+
+## Cenas planejadas
+| # | Nome | Escopo em 1 linha | Status |
+|---|------|-------------------|--------|
+| 01 | _(nome)_ | _(o que acontece)_ | documentado |
 
 ## Fora de escopo (explícito)
--
+> Escrever o que NÃO entra é o que torna o escopo travável.
+- _(item)_
+
+## Teto de claims aprovado
+_(o superlativo máximo que este projeto pode usar sobre si. `audit_claims.py`
+reprova claim acima do teto. Comece humilde: "protótipo jogável".)_

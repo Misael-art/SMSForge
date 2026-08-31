@@ -122,6 +122,12 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Boot determinístico | `audit_deterministic_boot.py` | ROM animada sem estado inicial estável |
 | Quarentena de placeholder | `audit_placeholder_quarantine.py` | placeholder promovido sem aprovação |
 | Fixture canônica | `canonical_fixture_gate.py` | fixture sem escopo ou com claim amplo |
+| Áudio | `audit_audio.py` | captura de áudio silenciosa/sem sinal |
+| FPS | `measure_fps.py` | <5 amostras ou fps fora de 50–60 |
+| Matriz de maestria | `audit_mastery_registry.py` | técnica acima de `mapped` sem evidência |
+| Especialização | `audit_specialization.py` | gênero declarado sem lastro no GDD |
+| **Ferramentas de medição** | `validate_measurement_tools.py` | ferramenta de medição sem `--self-check` passando (§19) |
+| **Sincronia doc↔repo** | `audit_doc_sync.py` | doc citando gate inexistente, gate invisível na doutrina, hierarquia de verdade incompleta |
 
 ## VOCABULÁRIO DE STATUS
 

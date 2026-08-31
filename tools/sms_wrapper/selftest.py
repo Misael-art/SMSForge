@@ -22,6 +22,43 @@ def run(args, expect_code, label):
     print(f"  {'[OK ]' if ok else '[XX ]'} {label}  ({tail})")
     return ok
 
+BOOTSTRAP_REQUIRED = (
+    ".mddev/project.json", "doc/00-diretrizes-agente.md", "doc/10-memory-bank.md",
+    "doc/11-gdd.md", "doc/12-roteiro.md", "doc/13-spec-cenas.md",
+    "doc/15-tdd.md", "src/main.c", "build.sh",
+)
+
+def _check_bootstrap():
+    """Cria um projeto descartavel e prova que a hierarquia de verdade materializa."""
+    name = "_selftest_bootstrap_tmp"
+    dest = os.path.normpath(os.path.join(HERE, "..", "..", "SMS_projects", name))
+    script = os.path.join(HERE, "new_project.sh")
+    if os.path.exists(dest):
+        shutil.rmtree(dest, ignore_errors=True)
+    try:
+        r = subprocess.run(["bash", script, name], capture_output=True, text=True)
+        if r.returncode != 0:
+            tail = (r.stdout + r.stderr).strip().splitlines()
+            print(f"  [XX ] bootstrap new_project.sh falhou  ({tail[-1][:80] if tail else ''})")
+            return False
+        # ausente OU vazio conta como nao materializado
+        bad = [f for f in BOOTSTRAP_REQUIRED
+               if not (os.path.isfile(os.path.join(dest, f))
+                       and os.path.getsize(os.path.join(dest, f)) > 0)]
+        if bad:
+            print(f"  [XX ] bootstrap sem hierarquia de verdade  (falta: {', '.join(bad[:3])})")
+            return False
+        leftover = subprocess.run(["grep", "-rl", "__PROJECT_NAME__", dest],
+                                  capture_output=True, text=True)
+        if leftover.returncode == 0:
+            print("  [XX ] bootstrap deixou placeholder __PROJECT_NAME__ sem substituir")
+            return False
+        print(f"  [OK ] bootstrap materializa hierarquia de verdade  "
+              f"({len(BOOTSTRAP_REQUIRED)} arquivos, sem placeholder)")
+        return True
+    finally:
+        shutil.rmtree(dest, ignore_errors=True)
+
 def main():
     import gen_fixtures
     results = []
@@ -33,7 +70,10 @@ def main():
               "audit_deterministic_boot.py", "canonical_fixture_gate.py",
               "audit_mastery_registry.py",
               "audit_specialization.py",
-              "audit_audio.py"):
+              "audit_audio.py",
+              "measure_fps.py",
+              "validate_measurement_tools.py",
+              "audit_doc_sync.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")
@@ -61,7 +101,12 @@ def main():
     for args, exp, label in cases:
         results.append(run(args, exp, label))
 
-    print("== Fase 4: build honesto (ambiente sem toolchain) ==")
+    print("== Fase 4: bootstrap materializa a hierarquia de verdade ==")
+    # O contrato do new_project.sh: projeto novo nasce com os niveis 1-7 do
+    # AGENTS.md e capaz de buildar. Provado criando um projeto DESCARTAVEL.
+    results.append(_check_bootstrap())
+
+    print("== Fase 5: build honesto (ambiente sem toolchain) ==")
     proj = os.environ.get("SMSFORGE_PROBE_PROJECT")
     proj_added = False
     if proj and os.path.isdir(proj):

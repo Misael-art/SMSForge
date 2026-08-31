@@ -1,37 +1,31 @@
-/* main.c — ponto de entrada do projeto modelo SMSForge.
- *
- * Usa APENAS API confirmada em SMSlib.h (autoridade #8):
- *   SMS_init / SMS_setSpriteMode / SMS_displayOn / SMS_waitForVBlank
- *   SMS_autoSetUpTextRenderer / SMS_printatXY (macros linhas 117/277)
- *
- * Regra do gate de evidencia: o viewport precisa MOSTRAR VIDA
- * (texto + spinner animado por frame counter) — tela lisa reprova.
- */
+// main.c — __PROJECT_NAME__ (esqueleto do modelo SMSForge)
+//
+// Boot deterministico minimo: tela estavel, sem animacao, sem input.
+// Serve para provar build -> ROM -> boot no emulador ANTES de qualquer arte.
+// Substitua pelo runtime da cena 01 depois que doc/11-gdd.md estiver preenchido.
+//
+// Restricoes sempre ativas (AGENTS.md): sem float, sem malloc, sem API inventada.
+// A autoridade da API e sdk/devkitSMS/SMSlib/SMSlib.h — confira antes de usar.
+
 #include "SMSlib.h"
 
+// Header 16KB => SDSC precisa ser a variante _16KB (combinacao provada em ROM
+// no laboratorio_01; SMSlib.h:460 e :485 sao a autoridade).
 SMS_EMBED_SEGA_ROM_HEADER_16KB(0, 0);
-SMS_EMBED_SDSC_HEADER_AUTO_DATE_16KB(1, 0, "SMSForge", "__PROJECT_NAME__",
-                                     "projeto modelo");
+SMS_EMBED_SDSC_HEADER_AUTO_DATE_16KB(0, 1, "SMSForge", "__PROJECT_NAME__",
+                                     "esqueleto do modelo");
 
-void main (void) {
-    unsigned int frame = 0;
-    unsigned char buf[2];
-    const unsigned char spin[4] = { '|', '/', '-', '\\' };
-
-    SMS_init();
-    SMS_setSpriteMode(SPRITEMODE_NORMAL);
-    SMS_autoSetUpTextRenderer();
-    SMS_setBackdropColor(1);
-    SMS_printatXY(9, 11, (const unsigned char *)"SMSFORGE BOOT OK");
+void main(void) {
+    SMS_displayOff();
+    // indice 0 e transparente/backdrop nas duas subpaletas (lei de paleta §8).
+    SMS_setBGPaletteColor(0, 0x00);   // preto
+    SMS_setBGPaletteColor(1, 0x3F);   // branco (codigo 6-bit: canais 0-3)
+    SMS_useFirstHalfTilesforSprites(0);
     SMS_displayOn();
 
+    // Boot determinístico: estado inicial estavel, sem variacao entre frames.
+    // (audit_deterministic_boot.py reprova ROM animada sem estado estavel.)
     for (;;) {
         SMS_waitForVBlank();
-        frame++;
-        if ((frame & 15) == 0) {          /* spinner a cada 15 frames = vivo */
-            buf[0] = spin[(frame >> 4) & 3];
-            buf[1] = 0;
-            SMS_printatXY(15, 13, buf);
-        }
     }
 }
