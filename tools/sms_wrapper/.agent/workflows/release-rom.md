@@ -8,7 +8,14 @@ Pré-condição: os 7 eixos TRUE simultâneos (schema status_axes_v1).
    ```
    Roda `validate_measurement_tools.py` (§19) + `audit_doc_sync.py` antes de compilar.
    Não roda a cada build por custo (~3s); **na entrega é obrigatório**.
-1. `audit_claims.py` verde (teto de "release" aprovado por humano).
+1. `audit_claims.py` verde (teto de "release" aprovado por humano) **e**
+   quarentena de placeholder vazia:
+   ```sh
+   python3 tools/sms_wrapper/audit_placeholder_quarantine.py --project . --check-release
+   ```
+   Placeholder é legítimo durante o desenvolvimento e **proibido** na entrega.
+   Liberar exige `"release_approved": true` + `"approved_by"` no manifest —
+   campo estruturado, nunca prosa (nota como "arte final pendente" não aprova).
 2. **Evidência recapturada DEPOIS desta ROM** (§26). Relinkou, os eixos de
    runtime caíram — recapture e sele o bundle:
    ```sh

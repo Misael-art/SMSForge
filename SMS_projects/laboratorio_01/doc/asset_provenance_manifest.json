@@ -26,6 +26,24 @@
       "role": "outro",
       "sha256": "7e3b90bbe86c33a9bc377bfbe98e5e388ca2638262af9ca406566f5eb7653dd0",
       "note": "tile procedural de cena de laboratorio (F4); arte autoral final pendente"
+    },
+    {
+      "file": "res/sprites/enemy.png",
+      "origin": "rascunho/enemy.png",
+      "author": "SMSForge metasprite 16x16",
+      "tool": "code",
+      "role": "outro",
+      "sha256": "382fd8183cae02a5f8c2c759c0ea386a97e047ce4688c9b758e0532b1ba6f039",
+      "note": "PLACEHOLDER de inimigo (fixture): tiles proprios para sair dos quadrantes do heroi (L006). Arte autoral com role=inimigo pendente; role=outro mantem em quarentena de release."
+    },
+    {
+      "file": "res/sprites/shot.png",
+      "origin": "rascunho/shot.png",
+      "author": "SMSForge metasprite 16x16",
+      "tool": "code",
+      "role": "outro",
+      "sha256": "160f8dad9d77563263f6337489d9c0b8c205781feff61de9879474db5fa287d2",
+      "note": "PLACEHOLDER de projetil (fixture); arte autoral pendente."
     }
   ]
 }

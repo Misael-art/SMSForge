@@ -3,7 +3,9 @@
 > ESTADO OPERACIONAL REAL. Autoridade #1.
 
 ## Última atualização
-2026-08-30 — auditoria: F4 tiles reais, selftest 18/18, eixos runtime em build_record = false (a reconstruir com prova real).
+2026-08-31 — jogador promovido a METASPRITE 16x16 (§25/L006) + correção da raiz
+profunda do L006 no conversor de tiles. Eixos de runtime REBAIXADOS pelo próprio
+build (§26: ROM relinkada invalida evidência anterior) — recaptura pendente.
 
 ## Eixos de entrega (7)
 | Eixo | Status | Prova |
@@ -55,3 +57,47 @@
 - Reconstruir build_record com eixos provados (nao por edicao).
 - F1: resolver L006 sprite via VRAMmemcpy (probe em probes/).
 - Reconstruir build_record com eixos de runtime provados (não por edição).
+
+
+## Sessão 2026-08-31 — metasprite 16x16 e a raiz profunda do L006
+
+**RAIZ PROFUNDA ENCONTRADA (mais funda que o modo de sprite):**
+`png_to_sms_tiles.py` emitia **2 planos de bits (16 B/tile)** enquanto
+`SMS_loadTiles` copia para `tilefrom*32` — caminho **4bpp, 32 B/tile**
+(SMSlib.h:130 é a autoridade; para 2 planos existe `SMS_load2bppTiles`).
+Cada par de "tiles" de 16 B era lido como UM tile de 32 B: quadrantes e planos
+embaralhados. **A arte 16x16 nunca chegou íntegra à VRAM.** O sintoma foi
+atribuído por semanas ao modo de sprite; o modo era só a camada de cima.
+
+Consequência concreta: `hero_tiles` tinha 64 B (2 tiles) em vez de 128 B (4).
+O jogador desenhava o tile 128 e os "inimigos"/projétil desenhavam os tiles
+129..131 — que eram **fragmentos da arte do herói**.
+
+**Feito nesta sessão:**
+- `png_to_sms_tiles.py` corrigido para 4bpp real (32 B/tile, 4 planos, cores 0..15);
+  self-check com regressão: cor 15 precisa acender os 4 planos.
+- `inc/hero_tiles.h` regenerado: 128 B = 4 tiles (128..131 = TL,TR,BL,BR).
+- Jogador = `SMS_addMetaSprite` com formato autoritativo lido em
+  `devkitSMS/SMSlib/src/SMSlib_metasprite.c`: triplas (dx, dy, tile) + `METASPRITE_END`.
+- Declaração de sprites passou a ser **por frame** (`SMS_initSprites` → adds →
+  `SMS_copySpritestoSAT`): `SMS_addMetaSprite_f` não devolve handle.
+- Inimigo e projétil ganharam tiles próprios (132, 133) com assets declarados
+  em `res/sprites/` — saíram dos quadrantes do herói.
+- `star_tile` corrigido de 16 B para 32 B (mesmo bug do conversor).
+- Física ajustada a 16x16: colisão AABB e limites de tela.
+
+**Orçamento SAT:** 4 (metasprite) + 5 inimigos + 1 projétil = **10 de 64**.
+Pico por scanline continua sob o teto de 8, mas o jogador agora ocupa **2**
+sprites por linha nas suas 16 linhas — margem menor que antes.
+
+**Verificado estaticamente:** round-trip `hero.png → 4 tiles → arte` idêntico,
+e o header casa byte a byte com o conversor. Build OK (16384 B).
+
+**NÃO verificado:** nada disso foi visto rodando. Sem emulador nesta sessão, os
+5 eixos de runtime estão `false` — rebaixados automaticamente pelo build (§26).
+Próximo passo bloqueante: rodar `./run.sh`, capturar evidência contra ESTA ROM
+e selar o bundle.
+
+**Quarentena:** `enemy.png` e `shot.png` são PLACEHOLDERS (`role: outro`), assim
+como `block.png` e `target.png`. Nenhum pode ir para entrega sem arte autoral ou
+aprovação estruturada — `audit_placeholder_quarantine.py --check-release` bloqueia.

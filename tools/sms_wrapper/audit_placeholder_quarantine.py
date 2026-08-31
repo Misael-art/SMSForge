@@ -35,16 +35,27 @@ def audit(project):
         note = (a.get("note", "") + " " + a.get("author", "")).lower()
         # placeholder/procedural sinalizado pode ser promovido apenas com aprovacao
         if role in BANNED_RELEASE_ROLES or "placeholder" in note or "proced" in note:
-            approved = "aprovado" in note or "approved" in note or "final" in note
-            if not approved:
+            # APROVACAO E CAMPO ESTRUTURADO, NUNCA PROSA.
+            # Calibracao 2026-08-31: a deteccao antiga era substring ("final",
+            # "aprovado") e a nota "arte autoral FINAL PENDENTE" — que diz o
+            # OPOSTO — liberava o asset. Falso negativo: block.png e target.png
+            # passaram a quarentena por acidente durante toda a F4.
+            if a.get("release_approved") is not True:
                 problems.append(
                     f"{a['file']}: role='{role}' (placeholder/procedural) sem "
-                    f"aprovacao explicita -> NAO pode ser tratado como asset de entrega")
+                    f"aprovacao explicita -> NAO pode ser tratado como asset de "
+                    f"entrega (exige \"release_approved\": true + approved_by)")
+            elif not a.get("approved_by"):
+                problems.append(
+                    f"{a['file']}: release_approved=true sem 'approved_by' — "
+                    "aprovacao precisa de responsavel nomeado")
     return problems
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--project", default=".")
+    ap.add_argument("--check-release", action="store_true",
+                    help="modo entrega: placeholder em quarentena REPROVA")
     ap.add_argument("--self-check", action="store_true")
     args = ap.parse_args()
     if args.self_check:
@@ -57,20 +68,45 @@ def main():
                                "sha256": "abc"}]},
                   open(os.path.join(d, "doc", "asset_provenance_manifest.json"), "w"))
         assert audit(d), "deveria reprovar placeholder promovido"
-        # case: aprovado explicitamente -> passa
+        # case: aprovacao ESTRUTURADA com responsavel -> passa
         json.dump({"assets": [{"file": "res/bg/block.png", "role": "outro",
-                               "note": "aprovado FINAL pelo lead", "origin": "x",
+                               "note": "revisado", "origin": "x", "author": "y",
+                               "sha256": "abc", "release_approved": True,
+                               "approved_by": "lead de arte"}]},
+                  open(os.path.join(d, "doc", "asset_provenance_manifest.json"), "w"))
+        assert not audit(d), "aprovacao estruturada deveria liberar"
+        # ARMADILHA REAL: nota que diz o OPOSTO de aprovado nao pode liberar.
+        # "arte autoral final pendente" liberava block.png/target.png por substring.
+        json.dump({"assets": [{"file": "res/bg/block.png", "role": "outro",
+                               "note": "arte autoral final pendente", "origin": "x",
                                "author": "y", "sha256": "abc"}]},
                   open(os.path.join(d, "doc", "asset_provenance_manifest.json"), "w"))
-        assert not audit(d), "aprovacao explicita deveria liberar"
-        print("[SELF-CHECK OK] placeholder_quarantine")
+        assert audit(d), "'final pendente' NAO e aprovacao (falso negativo historico)"
+        # aprovado sem responsavel nomeado -> reprova
+        json.dump({"assets": [{"file": "res/bg/block.png", "role": "outro",
+                               "note": "x", "origin": "x", "author": "y",
+                               "sha256": "abc", "release_approved": True}]},
+                  open(os.path.join(d, "doc", "asset_provenance_manifest.json"), "w"))
+        assert audit(d), "aprovacao sem approved_by deveria reprovar"
+        print("[SELF-CHECK OK] placeholder_quarantine (aprovacao estruturada; "
+              "prosa como 'final pendente' nao libera)")
         return 0
     problems = audit(args.project)
-    if problems:
+    if not problems:
+        print("[PASS] nenhum placeholder promovido sem aprovacao")
+        return 0
+    # Placeholder em quarentena e LEGITIMO durante o desenvolvimento; so
+    # reprova quando o projeto se declara pronto para entrega.
+    if args.check_release:
         for p in problems:
             print(f"[FAIL] {p}")
+        print(f"[FAIL] {len(problems)} placeholder(s) em quarentena bloqueiam a "
+              "ENTREGA. Substitua por arte autoral ou aprove explicitamente.")
         return 1
-    print("[PASS] nenhum placeholder promovido sem aprovacao")
+    for p in problems:
+        print(f"[QUARENTENA] {p}")
+    print(f"[PASS] {len(problems)} asset(s) em quarentena — ok em desenvolvimento; "
+          "rode --check-release antes de entregar.")
     return 0
 
 if __name__ == "__main__":
