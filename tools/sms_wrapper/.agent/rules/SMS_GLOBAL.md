@@ -128,3 +128,12 @@ revisões de VDP — pendente de primeira evidência real.
 ## 24. Deterministic boot
 Boot determinístico obrigatório: mesmo estado inicial toda execução; RNG semeado
 por input/frame counter documentado. Evidência comparável exige boot estável.
+
+## 25. Geometria de sprite: nenhum modo é mais largo que 8px
+`SPRITEMODE_TALL` é **8×16**, não 16×16. `ZOOMED` dobra o PIXEL, não a arte.
+Entidade com arte mais larga que 8px exige **metasprite**, em qualquer modo.
+Lição L006 (laboratorio_01): a matriz de maestria S03 afirmava "8×8 ou 16×16" e
+custou dias de sprite invisível — doutrina errada gera bug, não só confusão.
+Corolário: fato de hardware citado na matriz é lei operante; errá-lo é defeito
+de gate, não detalhe de redação.
+Gate: `audit_sprite_mode.py` (cruza modo declarado no fonte com largura do asset).

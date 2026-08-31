@@ -53,6 +53,16 @@ Quando o usuário pedir `menu`, `modo`, `iniciar`, `abrir sessão` ou quando a i
 [CURADORIA]                                   -> curation
 ```
 
+Cada modo tem runbook executável em `tools/sms_wrapper/.agent/workflows/`:
+
+| Modo | Workflow | Onde vive |
+|------|----------|-----------|
+| `create_new_project` | `new-project.md` | `SMS_projects/<slug>/` |
+| `analyze_existing_project` | `analyze-existing-project.md` | projeto existente (não altera) |
+| `train_agent` | `train-agent.md` | `SMS_projects/_treino/` |
+| `laboratory` | `laboratory-mode.md` | `SMS_projects/_laboratorio/` |
+| `curation` | `curation-mode.md` | `tools/sms_wrapper/` ou `doc/` |
+
 Regras:
 - pedido direto e claro não deve ser atrasado pelo menu;
 - troca de modo exige consentimento humano;
@@ -114,6 +124,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Build | `sms_wrapper/build_inner.py` via SDCC + devkitSMS | erro de compilação/link |
 | Recursos | `audit_validate_resources.py` | PNG fora do grid 8×8, cor fora do contrato, >15 úteis |
 | Sprites/scanline | `audit_sprite_line_sim.py` | >8 sprites/linha, >64 na SAT, colisão com 0xD0 |
+| Geometria de sprite | `audit_sprite_mode.py` | arte mais larga que o modo sem metasprite (L006, §25) |
 | Contraste | `audit_luma_floor.py` | contraste < 1 degrau efetivo da paleta mestra |
 | Procedência | `audit_provenance.py` | pixel nascido de código como personagem/cenário |
 | Evidência | `capture_evidence.py` | captura branca/sem informação, emulador ausente |

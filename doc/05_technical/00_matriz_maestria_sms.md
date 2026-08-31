@@ -22,7 +22,7 @@ build + evidência de emulador em algum projeto (`doc/curation/` promove).
 ## 2. Sprites
 | S01 | SAT 64 entradas; terminador Y=0xD0 | escrever 0xD0 cedo corta processamento |
 | S02 | Máximo 8 sprites/scanline | excesso descartado; SMS1 corrompe display |
-| S03 | Tamanho global 8×8 ou 16×16 (+ zoom ×2) | misturar tamanhos é impossível |
+| S03 | Tamanho global **8×8 ou 8×16** (+ zoom ×2 → 16×16 / 16×32) | misturar tamanhos é impossível. **Correção 2026-08-31 (L006):** esta linha dizia "8×8 ou 16×16" e induziu o erro; `SPRITEMODE_TALL` é **8×16**, e o zoom dobra o PIXEL, não a arte. Arte 16×16 exige metasprite. Gate: `audit_sprite_mode.py` |
 | S04 | Metasprites (SMS_addMetaSprite) | composição de tiles por entidade |
 | S05 | X armazenado = X+32 (offset físico) | X<32 esconde sprite à esquerda |
 | S06 | Early Clock (deslocar 32px à esquerda) | revisão-dependente: provar em emulador |

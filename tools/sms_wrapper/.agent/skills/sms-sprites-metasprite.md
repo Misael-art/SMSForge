@@ -2,7 +2,9 @@
 
 ## Verdades duras
 - Máx 64 na SAT; terminador Y=0xD0; máx **8 por scanline** (SMS1 corrompe linha no excesso).
-- Tamanho GLOBAL 8×8 ou 16×16 (+ zoom ×2). Entidade grande = metasprite.
+- Tamanho GLOBAL **8×8 ou 8×16** (+ zoom ×2, que dobra o PIXEL e não a arte).
+  Nenhum modo é mais largo que 8px → entidade larga = metasprite. **Sempre.**
+  Detalhe e armadilhas: [`sms-sprite-geometry-modes.md`](sms-sprite-geometry-modes.md) (§25, L006).
 - X armazenado = X+32. Early clock e flips são revisão-dependentes → §23 (provar).
 - API confirmada: `SMS_initSprites`, `SMS_addMetaSprite_f`, `SMS_copySpritestoSAT` (ver header).
 

@@ -1,0 +1,27 @@
+{
+  "curation_id": "2026-08-31_l006_geometria_sprite",
+  "date": "2026-08-31",
+  "scope": "sprite_geometry",
+  "lessons": [
+    {
+      "id": "L006",
+      "status": "fechada",
+      "lesson": "SPRITEMODE_TALL no VDP do Master System e 8x16, nao 16x16; ZOOMED dobra o pixel e nao a arte. Entidade com arte mais larga que 8px exige metasprite em QUALQUER modo. Sprite ficou invisivel por dias no laboratorio_01 por causa disso.",
+      "root_cause": "A matriz de maestria (doc/05_technical/00_matriz_maestria_sms.md, linha S03) afirmava 'Tamanho global 8x8 ou 16x16'. O projeto seguiu a doutrina, e a doutrina estava errada.",
+      "meta_lesson": "Fato de hardware escrito na matriz e lei operante: um agente age sobre ele. Erro de doutrina produz bug real, nao apenas confusao. Toda linha de fato duro da matriz precisa de gate que a torne verificavel.",
+      "evidence": "PLANO_CONTINUACAO.md F1 (RESOLVIDO 2026-08-30): SPRITEMODE_NORMAL 8x8 + SMS_loadTiles(hero,128) + SMS_addSprite; captura out/evidence/f1_sprite_visivel.png",
+      "tool_that_measures": "audit_sprite_mode.py",
+      "rule_section": "SMS_GLOBAL §25",
+      "skill": ".agent/skills/sms-sprite-geometry-modes.md",
+      "doc_fix": "matriz S03 corrigida para '8x8 ou 8x16 (+ zoom x2)' com nota da correcao"
+    }
+  ],
+  "open_findings": [
+    {
+      "id": "F-L006-residuo",
+      "finding": "laboratorio_01 mantem res/sprites/hero.png em 16x16 enquanto o runtime desenha apenas o tile 128 (8x8) como jogador; os tiles 129-131 (demais quadrantes da arte do heroi) sao reaproveitados como inimigos e projetil. Asset e runtime discordam.",
+      "detected_by": "audit_sprite_mode.py --project SMS_projects/laboratorio_01",
+      "decision": "pendente do dono do projeto: recortar o asset para 8x8 ou promover o jogador a metasprite 16x16"
+    }
+  ]
+}
