@@ -67,6 +67,8 @@ def find_toolchain():
 def pre_gates(project):
     from audit_validate_resources import check_png
     from audit_provenance import audit as provenance_audit
+    from audit_sprite_mode import (analyze as sprite_mode_analyze, declared_mode,
+                                   uses_metasprite, collect_sprites)
     errors = []
     pngs = sorted(glob.glob(os.path.join(project, "res", "**", "*.png"), recursive=True))
     for p in pngs:
@@ -74,7 +76,51 @@ def pre_gates(project):
         errors += [f"recursos/{os.path.relpath(p, project)}: {e}"
                    for e in check_png(p, kind)]
     errors += ["procedencia: " + e for e in provenance_audit(project)]
+    # §25/L006: geometria de sprite (modo declarado no fonte vs largura do asset)
+    srcs = sorted(glob.glob(os.path.join(project, "src", "*.c")))
+    probs, _ = sprite_mode_analyze(declared_mode(srcs),
+                                   collect_sprites(project, []),
+                                   uses_metasprite(srcs))
+    errors += ["geometria de sprite: " + e for e in probs]
     return errors
+
+# Eixo de runtime -> artefato que o sustenta (relativo ao projeto).
+# `None` = qualquer .wav em out/evidence (audit_audio.py e quem julga o conteudo).
+AXIS_EVIDENCE = {
+    "boot_emulador": "out/evidence/evidence.json",
+    "gameplay": "out/evidence/evidence.json",
+    "fps_constante": "out/evidence/fps.json",
+    "audio": None,
+    "memory_bank_atualizado": "doc/10-memory-bank.md",
+}
+
+def demote_stale_axes(project, rom, axes):
+    """Eixo de runtime so sobrevive a um build novo se a evidencia for POSTERIOR
+    a ROM recem-linkada. Binario novo invalida prova de binario velho (§seal).
+
+    Sem isto o merge de eixos carrega para a frente provas de outro executavel —
+    foi assim que a entrega F6 do laboratorio_01 acabou sustentada por capturas
+    6h mais VELHAS que a ROM entregue.
+    """
+    rom_mtime = os.path.getmtime(rom)
+    notes = []
+    for axis, rel in AXIS_EVIDENCE.items():
+        if not axes.get(axis):
+            continue
+        if rel is None:
+            cands = glob.glob(os.path.join(project, "out", "evidence", "*.wav"))
+            newest = max((os.path.getmtime(c) for c in cands), default=None)
+        else:
+            p = os.path.join(project, rel)
+            newest = os.path.getmtime(p) if os.path.exists(p) else None
+        if newest is None:
+            axes[axis] = False
+            notes.append(f"{axis}: sem artefato de evidencia -> rebaixado")
+        elif newest < rom_mtime:
+            axes[axis] = False
+            notes.append(f"{axis}: evidencia ANTERIOR a esta ROM "
+                         f"({rel or 'audio .wav'}) -> rebaixado")
+    return notes
 
 def main():
     ap = argparse.ArgumentParser()
@@ -91,6 +137,18 @@ def main():
 
     os.makedirs(os.path.join(project, "out", "obj"), exist_ok=True)
     record = {"project": name, "date": "", "steps": {}, "axes": {}}
+
+    # SMS_STRICT=1: checagens de WORKSPACE (caras, ~3s) — nao rodam a cada build.
+    # Obrigatorias antes de entrega: ver workflow release-rom.md.
+    if os.environ.get("SMS_STRICT") == "1":
+        for tool, label in (("validate_measurement_tools.py", "§19 ferramentas de medicao"),
+                            ("audit_doc_sync.py", "sincronia doc<->repo")):
+            r = subprocess.run([sys.executable, os.path.join(HERE, tool)],
+                               capture_output=True, text=True)
+            if r.returncode != 0:
+                print(r.stdout + r.stderr, end="")
+                return fail(f"modo estrito: {label} reprovou", 1)
+        print("[STRICT] ferramentas de medicao provadas + doc sincronizada")
 
     if not args.skip_pre_gates:
         errs = pre_gates(project)
@@ -167,23 +225,40 @@ def main():
     shutil.copy2(rom, dest)
     record["changelog"] = dest
 
-    record["axes"] = {"build": True, "validation_report": True,
+    # validation_report so e verdadeiro se os pre-gates REALMENTE rodaram e
+    # passaram: --skip-pre-gates nao pode produzir registro afirmando validacao.
+    record["axes"] = {"build": True,
+                      "validation_report": record["steps"].get("pre_gates") == "pass",
                       "boot_emulador": False, "gameplay": False,
                       "fps_constante": False, "audio": False,
                       "memory_bank_atualizado": False}
-    # PRESERVA eixos de runtime ja conquistados (merge, nao reset):
-    # um build subsequente nao pode apagar boot/gameplay/fps provados antes.
+    # Herda eixos de runtime ja conquistados, mas SO os que continuam com lastro:
+    # demote_stale_axes rebaixa todo eixo cuja evidencia seja anterior a esta ROM.
     prev = os.path.join(project, "out", "build_record.json")
     if os.path.exists(prev):
         try:
             old = json.load(open(prev))
-            for k in record["axes"]:
+            # Somente eixos de RUNTIME se herdam. `build` e `validation_report`
+            # descrevem ESTA execucao e nunca vem do registro anterior.
+            for k in AXIS_EVIDENCE:
                 if old.get("axes", {}).get(k):
                     record["axes"][k] = True
         except (json.JSONDecodeError, OSError):
             pass
+    demoted = demote_stale_axes(project, rom, record["axes"])
+    for n in demoted:
+        print(f"[EIXO REBAIXADO] {n}")
     json.dump(record, open(os.path.join(project, "out", "build_record.json"), "w"),
               indent=2)
+
+    # Pos-gate: o registro que acabamos de escrever tem lastro nos artefatos?
+    from reconcile_claims import reconcile
+    probs, _ = reconcile(project)
+    if probs:
+        for p in probs:
+            print(f"[FAIL] conciliacao: {p}")
+        return fail("build_record afirma eixo sem lastro no artefato", 1)
+
     print(f"[BUILD OK] {rom} ({size}B) | eixos restantes para entrega: "
           f"{[k for k, v in record['axes'].items() if not v]}")
     if os.environ.get("SMS_EVIDENCE") == "1":

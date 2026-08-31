@@ -137,3 +137,12 @@ custou dias de sprite invisível — doutrina errada gera bug, não só confusã
 Corolário: fato de hardware citado na matriz é lei operante; errá-lo é defeito
 de gate, não detalhe de redação.
 Gate: `audit_sprite_mode.py` (cruza modo declarado no fonte com largura do asset).
+
+## 26. Binário novo invalida evidência velha
+Relinkou a ROM? Toda prova de runtime (boot/gameplay/fps/áudio) volta a `false`
+até ser recapturada contra o binário novo. `build_inner.py` rebaixa sozinho:
+eixo só sobrevive se a evidência for POSTERIOR à ROM.
+Corolário: `--skip-pre-gates` nunca produz `validation_report: true`.
+Herança de eixo entre builds vale só para eixos de runtime; `build` e
+`validation_report` descrevem a execução atual e não se herdam.
+Gate: `build_inner.demote_stale_axes` + `reconcile_claims.py` como pós-gate.
