@@ -33,6 +33,22 @@
       "evidence": "cena04_sprites.png (evidencia da F6) e a primeira captura de 2026-08-31 eram telas de ruido aprovadas por capture_evidence.py e screenshot_semantic_gate.py",
       "tool_that_measures": "PENDENTE — nenhuma ferramenta distingue arte de ruido hoje; inspecao humana obrigatoria",
       "rule_section": "SMS_GLOBAL §28"
+    },
+    {
+      "id": "L012",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Captura de evidencia pode fotografar a janela ERRADA (desktop do usuario) e passar em todos os gates. Comparar dois screenshots de desktop produziu 'interacao provada' medindo a area de trabalho mudando.",
+      "evidence": "15 capturas 2560x1080 encontradas em out/evidence/ (varias de sessoes anteriores, incluindo boot_v002.png e gameplay_A.png); todas apagadas",
+      "tool_that_measures": "capture_evidence._shoot_window (valida tamanho, descarta desktop, refaz com re-foco) + guarda de instancia zumbi",
+      "rule_section": "SMS_GLOBAL §30"
+    },
+    {
+      "id": "L013",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Eixo gameplay se prova por DESLOCAMENTO do sprite controlado, nao por fracao de tela alterada. O limiar global de 2% era inalcancavel nesta cena (maximo teorico ~1,2%).",
+      "evidence": "out/evidence/evidence.json: sprite_dx=+89px apos Right; bbox do bloco de 96px rastreado entre capturas",
+      "tool_that_measures": "capture_evidence.largest_sprite_block + sprite_displacement_proven",
+      "rule_section": "SMS_GLOBAL §29"
     }
   ],
   "open_findings": [

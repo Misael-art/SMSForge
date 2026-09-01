@@ -126,20 +126,23 @@ tela ainda em ruído.
 | validation_report | pass | pre-gates verdes |
 | boot_emulador | **testado_em_emulador** | `out/evidence/evidence.png` — tela limpa, HUD legível, campo de estrelas, metasprite 16x16 com cruz atravessando os 4 quadrantes; `bundle.json` selado |
 | fps_constante | **testado_em_emulador** | `out/evidence/fps.json` — 6 amostras, 60/60/60, `constante_50_60=true` |
-| gameplay | **NÃO provado** | ver abaixo |
+| gameplay | **testado_em_emulador** | `evidence.json`: `sprite_dx=+89px` após `Right` — bloco de 96px rastreado entre capturas; `sprite_displacement_proven=true` |
 | audio | **NÃO provado** | `.wav` existente é de build anterior |
 | memory_bank_atualizado | este arquivo | — |
 
-### Por que gameplay NÃO fechou (honesto)
-Duas razões, nenhuma resolvida:
-- A cena chega a **GAME OVER** antes da captura (settle de 300 frames), e o
-  input é ignorado nesse estado — `gameplay_meta_step4.png` mostra o texto.
-- O limiar de 2% de mudança de viewport é **mal calibrado para cena esparsa**:
-  jogador (256 px) + 5 inimigos (320 px) = ~1,2% do viewport no máximo teórico.
-  O gate mede luma global; deveria medir a POSIÇÃO do jogador.
+### Gameplay FECHADO (2026-08-31) — e o que foi preciso
+As duas razões do fracasso anterior eram reais e foram resolvidas:
+- **Game over antes da captura**: settle reduzido (`--frames 5`) captura com o
+  jogo vivo. Botão 1 = tecla **`z`** (descoberto empiricamente: mudou 53,9% da
+  tela ao sair do game over).
+- **Limiar global mal calibrado**: substituído por rastreamento do sprite (§29).
+  `largest_sprite_block` acha o maior aglomerado com FORMA de sprite (6..40 px
+  por lado, razão < 3 — sem isso, colunas de estrela sequestravam a medição) e
+  compara com a última posição conhecida (o jogador some em frames de flash de
+  invulnerabilidade).
 
-Não forcei o eixo. Fechar exige: capturar antes do game over (ou reiniciar via
-botão 1) **e** recalibrar o detector de interação para rastrear o sprite.
+**Prova:** `sprite_dx=+89px` após `Right`. Medição independente anterior no par
+`mv.png → mv_step1.png`: mesmo bloco de 96px indo de x[54..67] para x[191..204].
 
 ### Aviso de harness (L012)
 Uma captura pegou a **janela errada** (área de trabalho 2560x1080, conteúdo
@@ -147,3 +150,23 @@ pessoal) e passou no detector de vacuidade — variância 401 > 40. Foi apagada.
 `screenshot_semantic_gate.py` reprovou corretamente pela regra de desktop.
 Causa: instância anterior do emulador viva (`--keep`) confundiu a busca de
 janela. Encerrar o emulador entre capturas é obrigatório.
+
+
+## L012 — 15 capturas de desktop no acervo (privacidade + evidência falsa)
+
+`spectacle -a` fotografa a janela ATIVA. Com o emulador sem foco (ou instância
+zumbi), a "evidência" virava um screenshot da área de trabalho — que passa no
+detector de vacuidade. Duas dessas comparadas entre si produziram
+**"interação provada" medindo o desktop mudando**, não o jogo.
+
+Encontradas **15** capturas 2560x1080 em `out/evidence/`, várias de sessões
+anteriores (`boot_v002.png`, `gameplay_A.png`, `tela_base_final2.png`…).
+Todas apagadas — podiam conter conteúdo pessoal do usuário.
+
+`capture_evidence.py` agora: (a) recusa iniciar com outra instância viva;
+(b) valida o tamanho de CADA captura (principal e de passo), descarta o arquivo
+se for desktop e refaz com re-foco. Regra: SMS_GLOBAL §30.
+
+## Estado final dos eixos
+6 de 7 fechados. **áudio segue `false`** — o `.wav` do acervo é de build
+anterior e não foi recapturado contra esta ROM. É o único eixo em aberto.

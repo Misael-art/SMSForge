@@ -166,3 +166,23 @@ não-vacuidade**, nunca correção. Toda captura que sustente claim visual exige
 inspeção do conteúdo — humana ou por comparação com referência esperada.
 Fato pago: a evidência da F6 (`cena04_sprites.png`) era uma tela de ruído
 aprovada por dois gates e aceita como entrega de "7 eixos true".
+
+## 29. Interação se prova pelo DESLOCAMENTO do objeto controlado
+"Fração da tela que mudou" não distingue o jogador obedecendo de um inimigo
+caindo, de uma morte, nem (antes do §30) do desktop do usuário. Prova de
+gameplay = **o sprite controlado se deslocou na direção comandada**, medido em
+pixels. Sinal fraco (luma global) só complementa; nunca fecha o eixo sozinho.
+Gate: `capture_evidence.largest_sprite_block` + `sprite_dx/dy` por passo.
+Fato pago: no laboratorio_01 o d-pad mexe ~8px/frame e a mudança global máxima
+teórica da cena é ~1,2% — abaixo do limiar de 2% que existia. O eixo gameplay
+ficou reprovado por meses por limiar mal calibrado, não por bug de jogo.
+
+## 30. Captura tem que provar QUE JANELA fotografou
+`spectacle -a` fotografa a janela ATIVA. Emulador sem foco (ou instância zumbi)
+produz screenshot do DESKTOP — que passa no detector de vacuidade, pode conter
+conteúdo pessoal do usuário e, comparado com outro screenshot de desktop, gera
+"interação provada" medindo a área de trabalho mudando.
+Regra: toda captura valida o tamanho contra a janela do emulador, descarta o
+arquivo se for desktop e refaz com re-foco; `capture_evidence` recusa iniciar
+com outra instância viva. Foram encontradas **15 capturas de desktop** no
+acervo do laboratorio_01, de sessões anteriores — todas apagadas.
