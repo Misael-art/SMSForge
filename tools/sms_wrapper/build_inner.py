@@ -82,6 +82,10 @@ def pre_gates(project):
                                    collect_sprites(project, []),
                                    uses_metasprite(srcs))
     errors += ["geometria de sprite: " + e for e in probs]
+    # L009: marcador __at() sem volatile pode ser apagado pelo SDCC — a leitura
+    # dele nao e evidencia e o diagnostico se inverte.
+    from audit_debug_markers import audit as markers_audit
+    errors += ["marcador de depuracao: " + e for e in markers_audit(project)]
     return errors
 
 # Eixo de runtime -> artefato que o sustenta (relativo ao projeto).

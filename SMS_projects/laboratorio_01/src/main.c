@@ -64,9 +64,9 @@ static const unsigned char star_tile[32] = {
 __sfr __at(0x7F) PSGPort;
 static void psg_send(unsigned char b){ PSGPort = b; }
 
-unsigned char __at(0xC7F0) probe_hp;
-unsigned char __at(0xC7F1) probe_score;
-unsigned char __at(0xC7F2) probe_over;
+volatile unsigned char __at(0xC7F0) probe_hp;
+volatile unsigned char __at(0xC7F1) probe_score;
+volatile unsigned char __at(0xC7F2) probe_over;
 unsigned int g_frame = 0;      /* g_frame em escopo de arquivo (p/ HUD) */
 
 #define putat(x,y,s)  SMS_printatXY((x),(y),(const unsigned char *)(s))

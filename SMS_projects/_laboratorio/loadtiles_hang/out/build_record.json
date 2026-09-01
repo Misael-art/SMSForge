@@ -1,0 +1,20 @@
+{
+  "project": "loadtiles_hang",
+  "date": "",
+  "steps": {
+    "pre_gates": "pass",
+    "toolchain": "ok",
+    "compile": "1 objeto(s)",
+    "rom": "/mnt/sdcard/Projects/SMSForge/SMS_projects/_laboratorio/loadtiles_hang/out/rom/loadtiles_hang.sms (16384 bytes)"
+  },
+  "axes": {
+    "build": true,
+    "validation_report": true,
+    "boot_emulador": false,
+    "gameplay": false,
+    "fps_constante": false,
+    "audio": false,
+    "memory_bank_atualizado": false
+  },
+  "changelog": "/mnt/sdcard/Projects/SMSForge/SMS_projects/_laboratorio/loadtiles_hang/changelog/roms/build_v002/rom.sms"
+}

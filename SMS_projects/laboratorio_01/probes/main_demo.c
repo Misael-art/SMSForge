@@ -26,12 +26,12 @@ static void beep_off(void){ psg_send(0xCF); }
 static void fanfarra(void){ psg_send(0x90|8); psg_send(0x00); psg_send(0x80); }
 
 /* endereco fixo p/ leitura via debugger: win=1 => VITORIA alcancada */
-unsigned char __at(0xC7F0) probe_win;
-unsigned char __at(0xC7F1) probe_bx;
-unsigned char __at(0xC7F2) probe_by;
+volatile unsigned char __at(0xC7F0) probe_win;
+volatile unsigned char __at(0xC7F1) probe_bx;
+volatile unsigned char __at(0xC7F2) probe_by;
 /* modo DEMO (fixture de logica): setar este byte p/ >0 via debugger roda a
  * sequencia vencedora automaticamente -> prova VITORIA sem depender de teclado. */
-unsigned char __at(0xC7F3) demo_mode;
+volatile unsigned char __at(0xC7F3) demo_mode;
 
 /* estado do jogo em escopo de arquivo (usado por apply_move e main) */
 static signed char cx, cy, bx, by;

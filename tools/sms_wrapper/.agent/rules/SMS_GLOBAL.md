@@ -236,3 +236,15 @@ afirmou sprite "16×16" (L006, dias de sprite invisível) e "X+32 / early clock
 32px" (L003, refutado em emulador). As duas eram números do Mega Drive.
 Prosa não impediu; agora um gate lê os documentos e confere as grandezas.
 Gate: `audit_hardware_constants.py`.
+
+## 33. Instrumento quebrado inverte o diagnóstico
+Antes de acusar a função sob teste, prove o INSTRUMENTO contra um caso conhecido.
+L009 concluiu que `SMS_loadTiles` travava; em 2026-09-01 o probe
+`_laboratorio/loadtiles_hang` mostrou que a função completa nas duas condições
+(display ligado e desligado, 4 chamadas seguidas). O que falhava era a medição:
+marcador `__at()` **sem `volatile`** é eliminado pelo SDCC (a escrita não é lida
+em lugar nenhum do C) e a leitura DAP do Emulicious vem prefixada com `$`.
+Mesmo padrão do falso negativo de áudio (§31) e do "sprite invisível" (§27).
+Regra: marcador de endereço fixo é sempre `volatile`; prefira ler o marcador
+**na tela** a depender do depurador.
+Gate: `audit_debug_markers.py`, no pré-gate do build.

@@ -1,0 +1,3 @@
+$ /mnt/sdcard/Projects/SMSForge/sdk/sdcc-portable/bin/sdcc -c -mz80 -o out/obj/main.rel -I/mnt/sdcard/Projects/SMSForge/sdk/devkitSMS/SMSlib -I/mnt/sdcard/Projects/SMSForge/sdk/devkitSMS/PSGlib -I/mnt/sdcard/Projects/SMSForge/SMS_projects/_laboratorio/loadtiles_hang/inc src/main.c
+
+$ /mnt/sdcard/Projects/SMSForge/sdk/sdcc-portable/bin/sdcc -o out/obj/loadtiles_hang.ihx -mz80 --no-std-crt0 --data-loc 0xC000 /mnt/sdcard/Projects/SMSForge/sdk/devkitSMS/crt0/crt0_sms.rel out/obj/main.rel /mnt/sdcard/Projects/SMSForge/sdk/devkitSMS/SMSlib/SMSlib.lib /mnt/sdcard/Projects/SMSForge/sdk/devkitSMS/PSGlib/PSGlib.lib

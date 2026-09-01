@@ -82,8 +82,13 @@
       "id": "L009",
       "lesson": "Tres armadilhas de depuracao pagas: (1) resultados DAP do Emulicious vem prefixados '$' -> int('$A5',16) falha silenciosamente e parece 'DAP morto'; (2) SDCC elimina atribuicoes a variaveis nao-volatile sem leitura -> marcadores de bissecao PRECISAM de volatile e enderecos vem do .map do linker; (3) com sondas confiaveis: a cena trava DENTRO de SMS_loadTiles (marcador B1 alcancado, B2 nunca) — proximo micro-experimento: substituir por SMS_VRAMmemcpy direto.",
       "evidence": "probe_sprite.c probes/ com magic volatile; out/obj/probe.map (_rb C000, _spr_ret C004, _magic C005)",
-      "tool_that_measures": "probes/probe_sprite.c + DAP repl",
-      "rule_section": "SMS_GLOBAL §10, §23"
+      "tool_that_measures": "audit_debug_markers.py (variavel __at() sem volatile REPROVA, ja no pre-gate do build) + probe com marcadores impressos NA TELA, que dispensa o DAP",
+      "rule_section": "SMS_GLOBAL §10, §23, §33",
+      "status": "fechada_com_evidencia",
+      "closed_date": "2026-09-01",
+      "verdict_item_3": "REFUTADO. SMS_loadTiles NAO trava: probe _laboratorio/loadtiles_hang mediu M1=A1, M2=B2, M3=C3 e imprimiu \"LOADTILES OK\" nas DUAS variantes (display ligado — a condicao historica — e desligado), inclusive com 4 chamadas seguidas.",
+      "root_cause": "O \"travamento\" era artefato dos itens (1) e (2) da propria licao: marcador sem volatile eliminado pelo SDCC + leitura DAP quebrada pelo prefixo \"$\". O INSTRUMENTO mentia, nao a funcao. Diagnostico invertido por instrumentacao quebrada.",
+      "found_when_closing": "O gate novo achou 7 marcadores sem volatile no laboratorio_01 (probe_hp/score/over e 4 em probes/main_demo.c) — todos sob o mesmo risco de elisao que causou o diagnostico errado. Corrigidos."
     },
     {
       "id": "L010",

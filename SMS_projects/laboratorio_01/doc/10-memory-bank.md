@@ -212,3 +212,31 @@ estrutura de `res/sprites/hero.png` e a procura na captura.
 
 Prova registrada em `out/evidence/render_fidelity.json`: a arte autoral do
 herói está na tela, em [53, 156], com 100,0%.
+
+
+## L009 fechada (2026-09-01) — o instrumento é que mentia
+
+L009 concluía que a cena travava **dentro de `SMS_loadTiles`**. Probe
+`_laboratorio/loadtiles_hang` com marcadores `volatile` impressos NA TELA
+(dispensa o DAP, evitando a armadilha do prefixo `$` do item 1 da própria lição):
+
+| variante | M1 | M2 | M3 | texto |
+|---|---|---|---|---|
+| display LIGADO no load (condição histórica) | A1 | B2 | C3 | `LOADTILES OK` |
+| display DESLIGADO | A1 | B2 | C3 | `LOADTILES OK` |
+
+**`SMS_loadTiles` nunca travou.** O diagnóstico se inverteu porque o marcador
+sem `volatile` era eliminado pelo SDCC — exatamente o item (2) da mesma lição.
+
+`audit_debug_markers.py` entrou no pré-gate do build e encontrou **7 marcadores
+sem `volatile`** neste projeto (`probe_hp/score/over` + 4 em `probes/main_demo.c`),
+todos sob o mesmo risco. Corrigidos.
+
+### Eixos recapturados contra a ROM com os marcadores corrigidos
+O rebuild rebaixou tudo (§26) e a evidência foi refeita: boot limpo,
+`sprite_dx=+49px`, fps média **59,8** (`constante_50_60=true`), áudio peak 4973 /
+94% ativo. Bundle selado com 4 artefatos.
+
+A captura de áudio veio silenciosa 3× e a ferramenta **se recusou a concluir**,
+mandando confirmar contra ROM histórica (§31) — na repetição veio com som.
+O gate preferiu não afirmar a afirmar errado.

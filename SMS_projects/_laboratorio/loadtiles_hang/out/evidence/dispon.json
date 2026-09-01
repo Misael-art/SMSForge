@@ -1,0 +1,14 @@
+{
+  "project": "loadtiles_hang",
+  "rom": "/tmp/claude-1000/-mnt-sdcard-Projects-SMSForge/f04e100e-9431-4295-96f5-dd98952e227a/scratchpad/lt_dispon.sms",
+  "screenshot": "SMS_projects/_laboratorio/loadtiles_hang/out/evidence/dispon.png",
+  "informative": true,
+  "detail": "janela: variancia de luma=6491.0 (min 40.0) | viewport central: variancia de luma=4530.0 (min 40.0)",
+  "tool": "emulicious-2026-03-27+xdotool+spectacle",
+  "chain_of_custody": [
+    "launch: java -jar Emulicious.jar -remotedebug 4901",
+    "window: xdotool search/activate 'Emulicious'",
+    "capture: spectacle -a (janela ativa)",
+    "check: luma da janela INTEIRA e do VIEWPORT CENTRAL"
+  ]
+}
