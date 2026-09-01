@@ -20,7 +20,10 @@ void main(void) {
     // indice 0 e transparente/backdrop nas duas subpaletas (lei de paleta §8).
     SMS_setBGPaletteColor(0, 0x00);   // preto
     SMS_setBGPaletteColor(1, 0x3F);   // branco (codigo 6-bit: canais 0-3)
-    SMS_useFirstHalfTilesforSprites(0);
+    /* Sprites leem padroes da PRIMEIRA metade da VRAM (tiles 0..255).
+     * Sem isto o VDP le em tile+256 e sprites viram ruido colorido — causa-raiz
+     * real do L006. SMSlib.h:53. Gate: audit_sprite_mode.py. */
+    SMS_useFirstHalfTilesforSprites(1);
     SMS_displayOn();
 
     // Boot determinístico: estado inicial estavel, sem variacao entre frames.

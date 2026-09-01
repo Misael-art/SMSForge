@@ -57,7 +57,53 @@ def uses_metasprite(sources):
             return True
     return False
 
-def analyze(mode, sprite_sizes, has_metasprite):
+def sprite_tile_base(sources):
+    """(declara_base, usa_primeira_metade, menor_tile_referenciado).
+
+    O VDP escolhe de qual METADE da VRAM os sprites leem seus padroes (reg 6).
+    Sem `SMS_useFirstHalfTilesforSprites(1)`, um sprite que cita o tile 128 le
+    na verdade o 256+128=384 — VRAM nunca escrita = ruido colorido.
+    """
+    declares, first_half, tiles = False, None, []
+    for src in sources:
+        try:
+            text = open(src, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        m = re.search(r"SMS_useFirstHalfTilesforSprites\s*\(\s*([^)]*)\)", text)
+        if m:
+            declares = True
+            arg = m.group(1).strip().lower()
+            first_half = arg not in ("0", "false")
+        for mm in re.finditer(r"SMS_addSprite\w*\s*\([^;]*?,\s*(\w+)\s*\)", text):
+            tok = mm.group(1)
+            if tok.isdigit():
+                tiles.append(int(tok))
+            else:  # constante simbolica: procura o #define
+                dm = re.search(rf"#define\s+{re.escape(tok)}\s+(\d+)", text)
+                if dm:
+                    tiles.append(int(dm.group(1)))
+        for mm in re.finditer(r"#define\s+(\w*TILE\w*)\s+(\d+)", text):
+            tiles.append(int(mm.group(2)))
+    return declares, first_half, (min(tiles) if tiles else None)
+
+def check_tile_base(declares, first_half, min_tile, has_sprites):
+    """Regra pura: sprite citando tile < 256 exige primeira metade declarada."""
+    if not has_sprites or min_tile is None:
+        return []
+    if min_tile >= 256:
+        return []          # ja mira a segunda metade: coerente com o default
+    if not declares:
+        return ["sprites citam tiles < 256 mas o projeto NAO chama "
+                "SMS_useFirstHalfTilesforSprites(1): o VDP le os padroes na "
+                "SEGUNDA metade da VRAM (tile+256), que nunca foi escrita — "
+                "resultado e ruido colorido (causa-raiz real do L006)"]
+    if first_half is False:
+        return ["SMS_useFirstHalfTilesforSprites(0) com sprites em tiles < 256: "
+                "os padroes serao lidos em tile+256 (VRAM vazia)"]
+    return []
+
+def analyze(mode, sprite_sizes, has_metasprite, tile_base=None):
     """(problems, report). Pura — o self-check exercita ESTA funcao."""
     problems = []
     report = {"mode": mode, "has_metasprite": has_metasprite,
@@ -85,6 +131,12 @@ def analyze(mode, sprite_sizes, has_metasprite):
             problems.append(
                 f"{name}: arte {w}x{h} mais alta que o modo {mode} ({mw}x{mh}) "
                 "e sem metasprite — a metade de baixo nao sera desenhada.")
+    if tile_base is not None:
+        declares, first_half, min_tile = tile_base
+        problems += check_tile_base(declares, first_half, min_tile,
+                                    bool(sprite_sizes) or has_metasprite)
+        report["tile_base"] = {"declares": declares, "first_half": first_half,
+                               "min_tile": min_tile}
     report["coherent"] = not problems
     return problems, report
 
@@ -130,8 +182,22 @@ def _self_check():
 
     # Sem sprites nao reprova (nao inventa problema)
     assert not analyze(None, [], False)[0]
-    print("[SELF-CHECK OK] sprite_mode (reprova o caso L006, altura excedente e "
-          "a ilusao do ZOOMED; aceita metasprite e uso correto de TALL)")
+
+    # BASE DE TILES (causa-raiz real do L006, provada em emulador 2026-08-31)
+    # sprite no tile 128 sem declarar a primeira metade -> ruido
+    p, _ = analyze("SPRITEMODE_NORMAL", [("h.png", 8, 8)], False, (False, None, 128))
+    assert any("SEGUNDA metade" in x for x in p), f"faltou pegar base de tiles: {p}"
+    # declarando a primeira metade -> ok
+    assert not analyze("SPRITEMODE_NORMAL", [("h.png", 8, 8)], False,
+                       (True, True, 128))[0]
+    # declarando explicitamente a segunda metade com tiles baixos -> reprova
+    p, _ = analyze("SPRITEMODE_NORMAL", [("h.png", 8, 8)], False, (True, False, 128))
+    assert any("tile+256" in x for x in p), f"faltou pegar first_half=0: {p}"
+    # projeto que ja mira tiles >= 256 nao e incomodado
+    assert not analyze("SPRITEMODE_NORMAL", [("h.png", 8, 8)], False,
+                       (False, None, 300))[0]
+    print("[SELF-CHECK OK] sprite_mode (reprova o caso L006, altura excedente, "
+          "a ilusao do ZOOMED e a base de tiles na metade errada)")
     return 0
 
 def main():
@@ -147,7 +213,8 @@ def main():
     sources = sorted(glob.glob(os.path.join(a.project, "src", "*.c")))
     sprites = collect_sprites(a.project, a.sprite)
     problems, report = analyze(declared_mode(sources), sprites,
-                               uses_metasprite(sources))
+                               uses_metasprite(sources),
+                               sprite_tile_base(sources))
     if a.json:
         json.dump({"problems": problems, **report}, open(a.json, "w"), indent=2)
     if problems:

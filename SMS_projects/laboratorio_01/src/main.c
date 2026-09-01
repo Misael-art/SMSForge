@@ -102,12 +102,33 @@ int main(void){
     SMS_loadBGPalette(palette_bg);
     SMS_loadSpritePalette(palette_bg);
     SMS_autoSetUpTextRenderer();
+    /* §9: SMS_autoSetUpTextRenderer LIGA a tela (SMSlib README). Escrever VRAM
+     * em massa com display ligado e fora do VBlank corrompe a escrita — nao ha
+     * DMA. Toda carga de tiles/name table abaixo roda com a tela DESLIGADA.
+     * Era a segunda causa do L006: mesmo com dados corretos, a arte chegava
+     * corrompida a VRAM. */
+    SMS_displayOff();
+    /* CAUSA-RAIZ REAL DO L006 (2026-08-31): o VDP escolhe de QUAL METADE da VRAM
+     * os sprites leem seus padroes (reg 6). O padrao NAO e a primeira metade:
+     * sem esta chamada, SMS_addSprite(...,128) le o tile 256+128=384 — VRAM
+     * nunca escrita = ruido colorido. O BG saia limpo porque usa outra base.
+     * Sintoma identico ao "sprite invisivel/corrompido" investigado por semanas.
+     * SMSlib.h:53 e a autoridade. */
+    SMS_useFirstHalfTilesforSprites(1);
     SMS_loadTiles(hero_tiles, TILE_HERO, HERO_TILES_SIZE);    /* 128..131 (128B) */
     SMS_loadTiles(enemy_tiles, TILE_ENEMY, ENEMY_TILES_SIZE); /* 132 (32B) */
     SMS_loadTiles(shot_tiles, TILE_SHOT, SHOT_TILES_SIZE);    /* 133 (32B) */
     SMS_loadTiles(star_tile, TILE_STAR, 32);                  /* 134 (32B) */
     SMS_setBackdropColor(9);
-    /* preenche name table com estrelas (TILE_STAR) em posicoes pseudo-aleatorias */
+    /* LIMPEZA OBRIGATORIA da name table inteira (32x24 visiveis).
+     * A VRAM nao nasce zerada: o que nao for escrito exibe lixo. O runtime
+     * so preenchia 4..27 x 4..24, e a moldura de ruido apareceu em TODA
+     * captura desde a cena 04 — inclusive na evidencia que sustentou a F6.
+     * Tile 0 = espaco (SMS_configureTextRenderer(-32), SMSlib_autotext.c:68). */
+    for(register unsigned char row=0;row<24;row++)
+        for(register unsigned char col=0;col<32;col++)
+            SMS_setTileatXY(col,row,0);
+    /* campo de estrelas (TILE_STAR) em posicoes pseudo-aleatorias */
     for(register unsigned char row=4;row<25;row++)
         for(register unsigned char col=4;col<28;col++)
             SMS_setTileatXY(col,row, ((row*12+col*7)&3)==0 ? TILE_STAR : 0);

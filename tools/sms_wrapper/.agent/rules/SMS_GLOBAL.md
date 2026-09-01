@@ -146,3 +146,23 @@ Corolário: `--skip-pre-gates` nunca produz `validation_report: true`.
 Herança de eixo entre builds vale só para eixos de runtime; `build` e
 `validation_report` descrevem a execução atual e não se herdam.
 Gate: `build_inner.demote_stale_axes` + `reconcile_claims.py` como pós-gate.
+
+## 27. Base de tiles de sprite: o VDP lê na metade que VOCÊ escolher
+Sprite não lê o tile que você cita, e sim o tile que a **base do reg 6** manda.
+Sem `SMS_useFirstHalfTilesforSprites(1)`, `SMS_addSprite(...,128)` lê o tile
+**384** — VRAM nunca escrita = ruído colorido. BG sai limpo porque usa outra base:
+**"BG certo + sprite corrompido" é assinatura deste erro.**
+Corolário do L006: a causa-raiz REAL era esta, provada em emulador em 2026-08-31.
+As duas leis anteriores estavam certas mas eram camadas de cima:
+§25 (geometria/metasprite) e o conversor 4bpp. Três defeitos empilhados sobre o
+mesmo sintoma — por isso "corrigir a causa" não resolvia.
+Gate: `audit_sprite_mode.py` (sprite citando tile < 256 exige a base declarada).
+
+## 28. Tela de emulador com informação não é tela CORRETA
+Variância de luma alta e conformidade de paleta **não distinguem arte de ruído**:
+lixo de VRAM usa as mesmas cores da CRAM e tem variância altíssima.
+`capture_evidence.py` e `screenshot_semantic_gate.py` provam **origem e
+não-vacuidade**, nunca correção. Toda captura que sustente claim visual exige
+inspeção do conteúdo — humana ou por comparação com referência esperada.
+Fato pago: a evidência da F6 (`cena04_sprites.png`) era uma tela de ruído
+aprovada por dois gates e aceita como entrega de "7 eixos true".

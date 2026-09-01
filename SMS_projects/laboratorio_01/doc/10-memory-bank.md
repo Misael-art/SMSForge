@@ -93,11 +93,57 @@ sprites por linha nas suas 16 linhas — margem menor que antes.
 **Verificado estaticamente:** round-trip `hero.png → 4 tiles → arte` idêntico,
 e o header casa byte a byte com o conversor. Build OK (16384 B).
 
-**NÃO verificado:** nada disso foi visto rodando. Sem emulador nesta sessão, os
-5 eixos de runtime estão `false` — rebaixados automaticamente pelo build (§26).
-Próximo passo bloqueante: rodar `./run.sh`, capturar evidência contra ESTA ROM
-e selar o bundle.
+**VISTO RODANDO (2026-08-31)** — a sessão tinha emulador; minha afirmação
+anterior de que não tinha estava errada. Ao rodar, apareceram MAIS DUAS causas:
 
 **Quarentena:** `enemy.png` e `shot.png` são PLACEHOLDERS (`role: outro`), assim
 como `block.png` e `target.png`. Nenhum pode ir para entrega sem arte autoral ou
 aprovação estruturada — `audit_placeholder_quarantine.py --check-release` bloqueia.
+
+
+## L006 FECHADO COM EVIDÊNCIA — três defeitos empilhados
+
+Rodar no emulador revelou que a arte 16x16 correta **ainda** saía como ruído.
+Duas causas adicionais, achadas nesta ordem:
+
+1. **Name table nunca limpa.** O runtime só preenchia `4..27 x 4..24`; o resto
+   exibia lixo de VRAM. É a moldura de ruído presente em TODA captura desde a
+   cena 04 — inclusive na evidência que sustentou a F6.
+2. **Base de tiles de sprite (§27) — A CAUSA-RAIZ REAL.** Sem
+   `SMS_useFirstHalfTilesforSprites(1)`, o VDP lê os padrões de sprite na
+   SEGUNDA metade da VRAM: `SMS_addSprite(...,128)` lê o tile **384**, nunca
+   escrito. Assinatura do erro: **BG limpo + sprite corrompido**.
+
+Somadas às duas já corrigidas (conversor 2bpp→4bpp e a geometria §25), eram
+**quatro** defeitos sobre o mesmo sintoma. Por isso "corrigir a causa" nunca
+limpava a tela, e por isso o L006 foi declarado RESOLVIDO em 2026-08-30 com a
+tela ainda em ruído.
+
+### Estado dos eixos (contra a ROM atual, bundle selado)
+| Eixo | Status | Prova |
+|------|--------|-------|
+| build | buildado | 16384 B |
+| validation_report | pass | pre-gates verdes |
+| boot_emulador | **testado_em_emulador** | `out/evidence/evidence.png` — tela limpa, HUD legível, campo de estrelas, metasprite 16x16 com cruz atravessando os 4 quadrantes; `bundle.json` selado |
+| fps_constante | **testado_em_emulador** | `out/evidence/fps.json` — 6 amostras, 60/60/60, `constante_50_60=true` |
+| gameplay | **NÃO provado** | ver abaixo |
+| audio | **NÃO provado** | `.wav` existente é de build anterior |
+| memory_bank_atualizado | este arquivo | — |
+
+### Por que gameplay NÃO fechou (honesto)
+Duas razões, nenhuma resolvida:
+- A cena chega a **GAME OVER** antes da captura (settle de 300 frames), e o
+  input é ignorado nesse estado — `gameplay_meta_step4.png` mostra o texto.
+- O limiar de 2% de mudança de viewport é **mal calibrado para cena esparsa**:
+  jogador (256 px) + 5 inimigos (320 px) = ~1,2% do viewport no máximo teórico.
+  O gate mede luma global; deveria medir a POSIÇÃO do jogador.
+
+Não forcei o eixo. Fechar exige: capturar antes do game over (ou reiniciar via
+botão 1) **e** recalibrar o detector de interação para rastrear o sprite.
+
+### Aviso de harness (L012)
+Uma captura pegou a **janela errada** (área de trabalho 2560x1080, conteúdo
+pessoal) e passou no detector de vacuidade — variância 401 > 40. Foi apagada.
+`screenshot_semantic_gate.py` reprovou corretamente pela regra de desktop.
+Causa: instância anterior do emulador viva (`--keep`) confundiu a busca de
+janela. Encerrar o emulador entre capturas é obrigatório.
