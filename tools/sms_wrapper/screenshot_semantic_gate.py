@@ -32,6 +32,19 @@ sys.path.insert(0, HERE)
 from png_io import read_png_rgb, png_size, PngError          # noqa: E402
 from sms_palette import nearest_code, code_rgb               # noqa: E402
 
+# LIXO DE VRAM (L011/§28): tela de ruido tem variancia de luma altissima e usa
+# as cores da CRAM — passa em image_informative E em conformidade de paleta.
+# O que a denuncia e a estrutura de TILE: arte real vem de um conjunto pequeno
+# de padroes autorais e usa poucas cores por bloco 8x8; lixo de VRAM produz
+# indices quase aleatorios, enchendo cada bloco de cores.
+# Calibrado 2026-09-01 contra o acervo REAL do laboratorio_01:
+#   0.000          -> todas as capturas apos a correcao da name table
+#   0.005..0.023   -> ruido fino de borda (f1_sprite_visivel, cena03)
+#   0.132..0.274   -> ruido grosseiro (tela_funcional da F6, cena04_sprites)
+# Limiar 0.05 fica na folga entre as faixas.
+RICH_BLOCK_COLORS = 8          # cores distintas num bloco 8x8 que o tornam "rico"
+NOISE_BLOCK_RATIO_MAX = 0.05   # fracao de blocos ricos aceita
+
 # Tolerancia por canal entre a cor capturada e a cor de contrato mais proxima.
 # Emulador + escala de janela + compressao do screenshot deslocam a cor; um
 # mockup/foto erra MUITO mais que isso.
@@ -87,6 +100,37 @@ def _sample_pixels(path, max_px=20000):
             i += 1
     return out, w, h
 
+
+def garbage_block_ratio(path):
+    """Fracao de blocos 8x8 com muitas cores distintas -> assinatura de lixo de VRAM.
+
+    Funcao PURA sobre a imagem; o self-check a exercita com arte e com ruido.
+    """
+    try:
+        w, h, rows = read_png_rgb(path)
+    except (PngError, OSError):
+        return None
+    x0, y0 = w // 8, int(h * 0.30)          # area de jogo (fora da barra de titulo)
+    x1, y1 = w - w // 8, h - 8
+    cache, n, rich = {}, 0, 0
+    for by in range(y0, y1 - 8, 8):
+        for bx in range(x0, x1 - 8, 8):
+            cols = set()
+            for dy in range(8):
+                row = rows[by + dy]
+                for dx in range(8):
+                    px = tuple(row[bx + dx])
+                    if px not in cache:
+                        cache[px] = nearest_code(px)
+                    cols.add(cache[px])
+                    if len(cols) >= RICH_BLOCK_COLORS:
+                        break
+                if len(cols) >= RICH_BLOCK_COLORS:
+                    break
+            n += 1
+            rich += (len(cols) >= RICH_BLOCK_COLORS)
+    return (rich / n) if n else None
+
 def evaluate(path, claim=None, against=()):
     """Retorna (problems, report). Funcao pura o suficiente para self-check."""
     problems = []
@@ -136,6 +180,16 @@ def evaluate(path, claim=None, against=()):
             f"conformidade de paleta {conf:.1%} < {PALETTE_CONFORMANCE_MIN:.0%} — "
             "cores fora da paleta mestra 6-bit; isto nao parece captura de "
             "Master System (mockup/render/foto?)")
+
+    # 3b. lixo de VRAM (L011): estrutura de tile denuncia o que a cor nao denuncia
+    ratio = garbage_block_ratio(path)
+    report["garbage_block_ratio"] = round(ratio, 4) if ratio is not None else None
+    if ratio is not None and ratio > NOISE_BLOCK_RATIO_MAX:
+        problems.append(
+            f"{ratio:.1%} dos blocos 8x8 tem >={RICH_BLOCK_COLORS} cores "
+            f"(max {NOISE_BLOCK_RATIO_MAX:.0%}) — assinatura de LIXO DE VRAM. "
+            "Tela com informacao nao e tela correta: variancia de luma e "
+            "conformidade de paleta nao distinguem arte de ruido.")
 
     # 4. anti-reuso
     reused = []
@@ -202,6 +256,19 @@ def _self_check():
                 f"faltou reprovar captura nao recortada: {p}"
         finally:
             DESKTOP_PIXELS = original
+
+        # REPROVA: lixo de VRAM (ruido por pixel, cores da paleta mestra)
+        import random
+        rnd = random.Random(7)
+        pal = [code_rgb((r, g, b)) for r in range(4) for g in range(4) for b in range(4)]
+        noise = os.path.join(d, "noise.png")
+        write_png_rgb(noise, W, H, rows_from(lambda x, y: rnd.choice(pal)))
+        p, r = evaluate(noise)
+        assert any("LIXO DE VRAM" in x for x in p), \
+            f"ruido com cores da CRAM tem que reprovar (L011): {p} {r}"
+        # e o inverso: arte com poucas cores por tile NAO pode ser acusada
+        assert (garbage_block_ratio(good) or 0) <= NOISE_BLOCK_RATIO_MAX, \
+            "arte de poucas cores por bloco nao pode contar como lixo"
 
         # REPROVA: tela praticamente lisa
         flat = os.path.join(d, "flat.png")

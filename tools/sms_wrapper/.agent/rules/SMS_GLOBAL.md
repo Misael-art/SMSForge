@@ -167,6 +167,15 @@ inspeção do conteúdo — humana ou por comparação com referência esperada.
 Fato pago: a evidência da F6 (`cena04_sprites.png`) era uma tela de ruído
 aprovada por dois gates e aceita como entrega de "7 eixos true".
 
+**Atualização 2026-09-01 (L011 fechada em parte):** o que a COR não denuncia, a
+estrutura de TILE denuncia. Arte real usa poucas cores por bloco 8×8; lixo de
+VRAM enche cada bloco. `screenshot_semantic_gate` mede a fração de blocos com
+≥8 cores — 0,000 em toda captura limpa do acervo, 0,132–0,274 nas telas de
+ruído (a evidência da F6 dá 0,149 e agora REPROVA).
+**Limite que permanece:** pega lixo grosseiro, não ruído fino de borda (<5% dos
+blocos), e não prova que a arte é a CERTA — uma tela coerente com o sprite
+errado passa. Para corretude, o olho humano continua obrigatório.
+
 ## 29. Interação se prova pelo DESLOCAMENTO do objeto controlado
 "Fração da tela que mudou" não distingue o jogador obedecendo de um inimigo
 caindo, de uma morte, nem (antes do §30) do desktop do usuário. Prova de

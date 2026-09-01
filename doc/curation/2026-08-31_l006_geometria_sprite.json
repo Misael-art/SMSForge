@@ -28,11 +28,22 @@
     },
     {
       "id": "L011",
-      "status": "aberta",
+      "status": "fechada_com_ferramenta_parcial",
       "lesson": "Gate de captura prova origem e nao-vacuidade, NAO correcao. Ruido de VRAM tem variancia de luma altissima e usa as cores da CRAM: passa em image_informative E em conformidade de paleta.",
       "evidence": "cena04_sprites.png (evidencia da F6) e a primeira captura de 2026-08-31 eram telas de ruido aprovadas por capture_evidence.py e screenshot_semantic_gate.py",
-      "tool_that_measures": "PENDENTE — nenhuma ferramenta distingue arte de ruido hoje; inspecao humana obrigatoria",
-      "rule_section": "SMS_GLOBAL §28"
+      "tool_that_measures": "screenshot_semantic_gate.garbage_block_ratio — estrutura de TILE denuncia o que a cor nao denuncia: arte real usa poucas cores por bloco 8x8; lixo de VRAM enche cada bloco",
+      "rule_section": "SMS_GLOBAL §28",
+      "closed_date": "2026-09-01",
+      "calibration": {
+        "metrica": "fracao de blocos 8x8 com >=8 cores distintas (quantizadas na paleta mestra)",
+        "limiar": 0.05,
+        "limpo_medido": "0.000 em TODAS as capturas posteriores a correcao da name table",
+        "ruido_fino_borda": "0.005..0.023 (cena03_sprites, f1_sprite_visivel, gameplay_cena02_vitoria)",
+        "ruido_grosseiro": "0.132 (f4_tela_inicial) .. 0.274 (cena04_sprites); tela_funcional da F6 = 0.149",
+        "amostras": "44 capturas reais do acervo do laboratorio_01"
+      },
+      "residual_limitation": "Pega lixo GROSSEIRO. Ruido fino de borda (<5% dos blocos) passa — f1_sprite_visivel tem moldura de ruido e e aprovada. E nao prova que a arte e a CERTA: uma tela coerente com o sprite errado passa. §28 continua valendo para corretude.",
+      "retroactive_finding": "Aplicado ao acervo, o gate reprova a evidencia que sustentou a entrega F6 (tela_funcional.png, 14.9%) — confirmando por medicao o que a inspecao visual ja tinha mostrado."
     },
     {
       "id": "L012",
