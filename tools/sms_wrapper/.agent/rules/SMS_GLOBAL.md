@@ -186,3 +186,15 @@ Regra: toda captura valida o tamanho contra a janela do emulador, descarta o
 arquivo se for desktop e refaz com re-foco; `capture_evidence` recusa iniciar
 com outra instância viva. Foram encontradas **15 capturas de desktop** no
 acervo do laboratorio_01, de sessões anteriores — todas apagadas.
+
+## 31. Evidência de áudio: isolada do usuário e datada pela ROM
+Gravar o monitor do sink padrão captura TODO o áudio da máquina — música,
+chamadas, notificações do usuário. Proibido. `capture_audio.py` move o fluxo do
+emulador para um sink NULO dedicado, grava só esse monitor e o remove ao final.
+`.wav` ANTERIOR à ROM não prova o binário atual (§26): `reconcile_claims`
+passou a exigir captura posterior — existir um wav no acervo não basta.
+**Falso negativo conhecido:** gravar antes de a música entrar em regime produz
+WAV 100% silencioso, indistinguível de "o jogo é mudo". Isso quase levou a
+"consertar" um bug inexistente. O gate repete com warmup crescente e, se
+insistir em silêncio, manda confirmar contra uma ROM histórica com som antes de
+tocar no código de áudio.

@@ -49,6 +49,15 @@
       "evidence": "out/evidence/evidence.json: sprite_dx=+89px apos Right; bbox do bloco de 96px rastreado entre capturas",
       "tool_that_measures": "capture_evidence.largest_sprite_block + sprite_displacement_proven",
       "rule_section": "SMS_GLOBAL §29"
+    },
+    {
+      "id": "L014",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Captura de audio adiantada produz WAV silencioso identico a 'ROM muda'. Diagnostico errado quase levou a alterar codigo de audio que estava correto: a ROM tinha som (peak 5039, 91% ativo) e a captura e que estava adiantada.",
+      "evidence": "bisseccao em ROMs historicas (v042..v047) — TODAS com som; recaptura da ROM atual passou a ter som. Nenhuma linha de audio foi alterada.",
+      "meta_lesson": "Antes de 'consertar' o alvo, confirme a ferramenta de medicao contra um caso conhecido bom. Bisseccao em artefatos historicos e mais barata que editar codigo no escuro.",
+      "tool_that_measures": "capture_audio.py (retry com warmup crescente + mensagem que manda comparar com ROM historica)",
+      "rule_section": "SMS_GLOBAL §31"
     }
   ],
   "open_findings": [

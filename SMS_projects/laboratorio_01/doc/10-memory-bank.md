@@ -127,7 +127,7 @@ tela ainda em ruído.
 | boot_emulador | **testado_em_emulador** | `out/evidence/evidence.png` — tela limpa, HUD legível, campo de estrelas, metasprite 16x16 com cruz atravessando os 4 quadrantes; `bundle.json` selado |
 | fps_constante | **testado_em_emulador** | `out/evidence/fps.json` — 6 amostras, 60/60/60, `constante_50_60=true` |
 | gameplay | **testado_em_emulador** | `evidence.json`: `sprite_dx=+89px` após `Right` — bloco de 96px rastreado entre capturas; `sprite_displacement_proven=true` |
-| audio | **NÃO provado** | `.wav` existente é de build anterior |
+| audio | **testado_em_emulador** | `out/evidence/audio_metasprite.wav` — peak 5039, 91% ativo, gravado ISOLADO do emulador (sink dedicado) e posterior à ROM |
 | memory_bank_atualizado | este arquivo | — |
 
 ### Gameplay FECHADO (2026-08-31) — e o que foi preciso
@@ -167,6 +167,32 @@ Todas apagadas — podiam conter conteúdo pessoal do usuário.
 (b) valida o tamanho de CADA captura (principal e de passo), descarta o arquivo
 se for desktop e refaz com re-foco. Regra: SMS_GLOBAL §30.
 
-## Estado final dos eixos
-6 de 7 fechados. **áudio segue `false`** — o `.wav` do acervo é de build
-anterior e não foi recapturado contra esta ROM. É o único eixo em aberto.
+## Estado final dos eixos: 7 de 7 fechados
+
+Todos com artefato posterior à ROM `bacf9993f2de` e bundle selado.
+
+### Áudio (2026-08-31) — e o falso negativo que quase virou "conserto"
+Primeira captura veio **100% silenciosa**. Diagnóstico inicial: "quebrei o
+áudio ao mexer nos sprites". Antes de tocar em qualquer linha, bisseccionei as
+ROMs históricas do changelog:
+
+| ROM | peak | ativo |
+|-----|------|-------|
+| v042 (pré-mudanças) | 5060 | 93% |
+| v043 | 5096 | 92% |
+| v045 | 4880 | 99% |
+| v046 | 5098 | 88% |
+| v047 (= ROM atual, mesmo sha256) | 4985 | 95% |
+
+**Todas com som, inclusive a atual.** A ROM nunca esteve muda: a captura é que
+estava adiantada — gravou antes de a música entrar em regime. Recaptura da mesma
+ROM: peak 5039, 91% ativo. **Nenhuma linha de áudio foi alterada.**
+
+Lição L014 / §31: antes de "consertar" o alvo, confirme a ferramenta de medição
+contra um caso conhecido bom. Bissecção em artefatos históricos é mais barata
+que editar código no escuro.
+
+### Privacidade na captura de áudio
+Gravar o monitor do sink padrão capturaria TODO o áudio da máquina. A ferramenta
+move o fluxo do emulador para um sink NULO dedicado, grava só esse monitor e o
+remove ao final (verificado: 0 módulos residuais).

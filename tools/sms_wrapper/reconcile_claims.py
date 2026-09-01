@@ -64,9 +64,17 @@ def reconcile(project):
     check("fps_constante",
           bool(fps.get("constante_50_60")),
           "fps.json nao tem constante_50_60=true")
-    check("audio",
-          bool(glob.glob(os.path.join(project, "out", "evidence", "*.wav"))),
-          "nao ha captura de audio (.wav) em out/evidence/")
+    # §26: wav ANTERIOR a ROM e prova de outro binario. O acervo costuma ter
+    # .wav de builds antigas; existir nao basta, precisa ser desta ROM.
+    wavs = glob.glob(os.path.join(project, "out", "evidence", "*.wav"))
+    roms = glob.glob(os.path.join(project, "out", "rom", "*.sms"))
+    fresh_wav = False
+    if wavs and roms:
+        newest_rom = max(os.path.getmtime(r) for r in roms)
+        fresh_wav = any(os.path.getmtime(w) > newest_rom for w in wavs)
+    check("audio", fresh_wav,
+          "nao ha captura de audio (.wav) POSTERIOR a ROM em out/evidence/ "
+          "(wav de build antiga nao prova o binario atual)")
     check("memory_bank_atualizado",
           os.path.isfile(os.path.join(project, "doc", "10-memory-bank.md")),
           "doc/10-memory-bank.md nao existe")
@@ -123,6 +131,17 @@ def _self_check():
                                ev={"informative": True,
                                    "gameplay": {"interaction_proven": True}}))
         assert any("fps_constante" in x for x in p), "faltou pegar fps sem lastro"
+
+        # REPROVA: audio=true com wav ANTERIOR a ROM (prova de outro binario)
+        stale = build(all_true, ev={"informative": True,
+                                    "gameplay": {"interaction_proven": True}},
+                      fps={"constante_50_60": True})
+        import time as _t
+        _rom = glob.glob(os.path.join(stale, "out", "rom", "*.sms"))[0]
+        _wav = glob.glob(os.path.join(stale, "out", "evidence", "*.wav"))[0]
+        os.utime(_wav, (1000, 1000)); os.utime(_rom, (2000, 2000))
+        p, _ = reconcile(stale)
+        assert any("'audio'" in x for x in p), f"wav anterior a ROM deveria reprovar: {p}"
 
         # REPROVA: build=true sem ROM; audio=true sem wav
         p, _ = reconcile(build(all_true,
