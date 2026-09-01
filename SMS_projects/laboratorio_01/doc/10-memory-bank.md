@@ -196,3 +196,19 @@ que editar código no escuro.
 Gravar o monitor do sink padrão capturaria TODO o áudio da máquina. A ferramenta
 move o fluxo do emulador para um sink NULO dedicado, grava só esse monitor e o
 remove ao final (verificado: 0 módulos residuais).
+
+
+## L011 fechada (2026-09-01) — corretude da tela vira medição
+
+A dúvida que restava: "a tela mostra a arte CERTA?". Duas tentativas de detector
+universal de ruído falharam e estão registradas para não serem repetidas
+(riqueza de cor por bloco, entropia de adjacência, unicidade de bloco — todas
+reprovam arte autoral detalhada ou não separam o ruído real).
+
+O que funciona é comparar com a FONTE: `audit_render_fidelity.py` extrai a
+estrutura de `res/sprites/hero.png` e a procura na captura.
+- Capturas limpas: **100,0%** de coincidência estrutural.
+- Telas de ruído: 46,1% (`tela_funcional`, a evidência da F6), 53,3%, 56,7%.
+
+Prova registrada em `out/evidence/render_fidelity.json`: a arte autoral do
+herói está na tela, em [53, 156], com 100,0%.

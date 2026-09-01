@@ -128,6 +128,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Contraste | `audit_luma_floor.py` | contraste < 1 degrau efetivo da paleta mestra |
 | Procedência | `audit_provenance.py` | pixel nascido de código como personagem/cenário |
 | Evidência | `capture_evidence.py` | captura branca/sem informação, emulador ausente |
+| Fidelidade de render | `audit_render_fidelity.py` | tela que NÃO mostra a arte autoral (ruído, sprite errado, arte corrompida) — compara a estrutura da fonte com a captura |
 | Semântica da captura | `screenshot_semantic_gate.py` | cor fora da paleta mestra (mockup/render), desktop não recortado, reuso da mesma imagem em dois claims, claim que screenshot não prova |
 | Frescor da evidência | `seal_fresh_evidence_bundle.py` | artefato **anterior** à ROM (mostra outro binário) ou de outra sessão |
 | Conciliação de claims | `reconcile_claims.py` | eixo declarado `true` sem lastro no artefato de evidência |

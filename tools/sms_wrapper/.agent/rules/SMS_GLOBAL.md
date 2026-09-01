@@ -172,9 +172,16 @@ estrutura de TILE denuncia. Arte real usa poucas cores por bloco 8×8; lixo de
 VRAM enche cada bloco. `screenshot_semantic_gate` mede a fração de blocos com
 ≥8 cores — 0,000 em toda captura limpa do acervo, 0,132–0,274 nas telas de
 ruído (a evidência da F6 dá 0,149 e agora REPROVA).
-**Limite que permanece:** pega lixo grosseiro, não ruído fino de borda (<5% dos
-blocos), e não prova que a arte é a CERTA — uma tela coerente com o sprite
-errado passa. Para corretude, o olho humano continua obrigatório.
+**Cuidado:** esse limiar é ESPECÍFICO DE CENA ESPARSA. Arte autoral detalhada
+(120 tiles de 8–15 cores) mede 1,000 na mesma métrica — usá-la como detector
+universal reprovaria o jogo inteiro. Experimento registrado em L011.
+
+**Corretude, essa sim, se prova (L011 fechada 2026-09-01):** compare a captura
+com a FONTE. `audit_render_fidelity.py` extrai a ESTRUTURA da arte autoral
+(quais pixels compartilham cor, independente de qual cor a paleta atribuiu) e a
+procura na tela. Índice 0 é transparente e fica FORA da comparação — ali a tela
+mostra o cenário, não o sprite. Medido: 100,0% nas capturas limpas, 46–57% nas
+telas de ruído. Isso independe da densidade da cena.
 
 ## 29. Interação se prova pelo DESLOCAMENTO do objeto controlado
 "Fração da tela que mudou" não distingue o jogador obedecendo de um inimigo

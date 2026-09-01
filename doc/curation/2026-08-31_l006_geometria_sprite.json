@@ -28,10 +28,10 @@
     },
     {
       "id": "L011",
-      "status": "fechada_com_ferramenta_parcial",
+      "status": "fechada_com_ferramenta",
       "lesson": "Gate de captura prova origem e nao-vacuidade, NAO correcao. Ruido de VRAM tem variancia de luma altissima e usa as cores da CRAM: passa em image_informative E em conformidade de paleta.",
       "evidence": "cena04_sprites.png (evidencia da F6) e a primeira captura de 2026-08-31 eram telas de ruido aprovadas por capture_evidence.py e screenshot_semantic_gate.py",
-      "tool_that_measures": "screenshot_semantic_gate.garbage_block_ratio — estrutura de TILE denuncia o que a cor nao denuncia: arte real usa poucas cores por bloco 8x8; lixo de VRAM enche cada bloco",
+      "tool_that_measures": "audit_render_fidelity.py — compara a ESTRUTURA da arte autoral (quais pixels compartilham cor, independente da paleta) com a captura",
       "rule_section": "SMS_GLOBAL §28",
       "closed_date": "2026-09-01",
       "calibration": {
@@ -42,8 +42,19 @@
         "ruido_grosseiro": "0.132 (f4_tela_inicial) .. 0.274 (cena04_sprites); tela_funcional da F6 = 0.149",
         "amostras": "44 capturas reais do acervo do laboratorio_01"
       },
-      "residual_limitation": "Pega lixo GROSSEIRO. Ruido fino de borda (<5% dos blocos) passa — f1_sprite_visivel tem moldura de ruido e e aprovada. E nao prova que a arte e a CERTA: uma tela coerente com o sprite errado passa. §28 continua valendo para corretude.",
-      "retroactive_finding": "Aplicado ao acervo, o gate reprova a evidencia que sustentou a entrega F6 (tela_funcional.png, 14.9%) — confirmando por medicao o que a inspecao visual ja tinha mostrado."
+      "residual_limitation": "Prova que A ARTE CITADA esta na tela, na posicao encontrada. Nao varre a tela inteira atras de ruido em outras regioes — para isso vale a heuristica de cena esparsa. Nao julga qualidade artistica.",
+      "retroactive_finding": "Aplicado ao acervo, o gate reprova a evidencia que sustentou a entrega F6 (tela_funcional.png, 14.9%) — confirmando por medicao o que a inspecao visual ja tinha mostrado.",
+      "failed_attempt": {
+        "metrica": "fracao de blocos 8x8 com >=8 cores como detector UNIVERSAL de ruido",
+        "porque_falhou": "separa bem no acervo esparso deste projeto (0.000 limpo x 0.274 ruido), mas arte AUTORAL detalhada sintetizada (120 tiles de 8..15 cores, com estrutura) mede 1.000 — o detector reprovaria o jogo inteiro. Tentativas com entropia de adjacencia (0.003 na tela mais ruidosa, pior) e com unicidade de bloco (0.018, pior) tambem falharam.",
+        "status": "mantida apenas como heuristica DECLARADA para cena esparsa, em screenshot_semantic_gate"
+      },
+      "method": "Indice 0 e transparente por contrato e fica FORA da comparacao (ali a tela mostra cenario). Uma classe da arte pode ocupar ate 3 tons na tela (a escala do emulador mistura cores nas bordas), mas classes diferentes nao podem compartilhar tom, e cada classe tem de se concentrar em poucos tons — sem esse fator de compactacao, ruido dava 100%.",
+      "measured": {
+        "capturas_limpas": "100.0% (evidence.png, metasprite16.png, gameplay.png)",
+        "telas_de_ruido": "46.1% (tela_funcional da F6), 53.3% (cena04_sprites), 56.7% (f1_sprite_visivel)",
+        "limiar": 0.9
+      }
     },
     {
       "id": "L012",
