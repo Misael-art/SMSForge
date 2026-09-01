@@ -165,10 +165,11 @@ def find_art(shot_path, art_path, at=None, min_match=DEFAULT_MIN_MATCH):
             cands = [(bx0 + dx, by0 + dy)
                      for dy in range(-6, 4) for dx in range(-6, 4)]
         else:
-            x_ini, y_ini = sw // 10, int(sh * 0.28)
+            from capture_evidence import game_area
+            gx0, gy0, gx1, gy1 = game_area(sw, sh)
             cands = [(x, y)
-                     for y in range(y_ini, sh - ah, 4)
-                     for x in range(x_ini, sw - aw - sw // 10, 4)]
+                     for y in range(gy0, gy1 - ah, 4)
+                     for x in range(gx0, gx1 - aw, 4)]
     best, best_at, best_scale = 0.0, None, None
     for (x, y) in cands:
         for scale in SCALES:

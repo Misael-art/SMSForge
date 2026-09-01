@@ -110,8 +110,9 @@ def garbage_block_ratio(path):
         w, h, rows = read_png_rgb(path)
     except (PngError, OSError):
         return None
-    x0, y0 = w // 8, int(h * 0.30)          # area de jogo (fora da barra de titulo)
-    x1, y1 = w - w // 8, h - 8
+    from capture_evidence import game_area   # adapta a captura com/sem moldura
+    x0, y0, x1, y1 = game_area(w, h)
+    y1 -= 8
     cache, n, rich = {}, 0, 0
     for by in range(y0, y1 - 8, 8):
         for bx in range(x0, x1 - 8, 8):

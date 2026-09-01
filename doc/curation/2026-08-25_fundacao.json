@@ -68,15 +68,23 @@
       "id": "L007",
       "lesson": "Harness de evidencia neste host: spectacle exige shim LD_LIBRARY_PATH (libavcodec .62->.63 apos update); x11grab nao ve janelas XWayland (root composto pelo KWin); foco para XTest precisa ser VERIFICADO (getwindowfocus) antes de cada tecla; wallpaper tem vermelhos -> deteccao por cor exige regiao delimitada ou marcador unico.",
       "evidence": "spectacle falhou sem shim; grab 4737x1458 todo preto; capturas -a oscilaram entre janela e desktop",
-      "tool_that_measures": "capture_evidence.py (proximo passo: modo --fullscreen com recorte por marcador)",
-      "rule_section": "SMS_GLOBAL §19"
+      "tool_that_measures": "capture_evidence._shoot_window (alvo por ID + validacao de tamanho) + press_keys (foco verificado)",
+      "rule_section": "SMS_GLOBAL §19, §30, §34",
+      "status": "fechada_com_ferramenta",
+      "closed_date": "2026-09-01",
+      "closure": "Os dois itens abertos viraram codigo. (a) \"proximo passo: modo com recorte por marcador\" -> resolvido melhor: `import -window <id>` alveja a janela por ID, logo e IMPOSSIVEL capturar outra janela; e vem sem a moldura (256x217 contra 283x282 do spectacle). (b) \"foco precisa ser VERIFICADO antes de cada tecla\" -> press_keys agora confere `xdotool getwindowfocus` e reativa ate concordar, falhando alto se nao conseguir.",
+      "still_true": "O shim de libavcodec (.62 -> .63) CONTINUA necessario, mas so para o fallback spectacle: verificado que ~/.local/smsforge-shim/libavcodec.so.62 aponta para a .63 e o sistema so tem a .63. Com `import` como primario, o caminho padrao nao depende do shim. x11grab seguir sem ver XWayland nao foi retestado — nao e mais usado."
     },
     {
       "id": "L008",
       "lesson": "Cena 01 funcional e sem glitches usando SOMENTE pipeline texto (fonte do renderer): titulo, moldura com glifos, cursor '@' 2x2 e status. Input XTest funciona apos CLIQUE na canvas (foco real); captura confiavel = spectacle fullscreen + recorte pela janela 'sun-awt-X11-XCanvasPeer' 256x192; fps legivel no titulo da janela do emulador.",
       "evidence": "tela_funcional.png + gameplay.json (Right deslocou cursor); titulos observados 51-60fps",
-      "tool_that_measures": "capture_evidence.py + titulo da janela",
-      "rule_section": "SMS_GLOBAL §23"
+      "tool_that_measures": "screenshot_semantic_gate.garbage_block_ratio + audit_render_fidelity.py",
+      "rule_section": "SMS_GLOBAL §28, §30, §34",
+      "status": "fechada_com_correcao",
+      "closed_date": "2026-09-01",
+      "closure": "A prescricao \"captura confiavel = recorte pela janela da canvas\" foi IMPLEMENTADA (import -window). A area de jogo deixou de ser fracao chutada da imagem e passou a ser DERIVADA do hardware: canvas 256x192 ancorada embaixo da moldura — exato nos dois metodos (spectacle 283x282 -> canvas em 13,90; import 256x217 -> canvas em 0,25).",
+      "correction": "A licao afirmava \"cena 01 funcional e SEM GLITCHES\" citando tela_funcional.png como evidencia. FALSO: essa captura e uma tela de RUIDO — 26.8% dos blocos 8x8 com >=8 cores e apenas 46.1% de coincidencia com a arte autoral. A moldura de lixo de VRAM estava la desde sempre (name table nunca limpa, §30) e ninguem olhou. O claim \"sem glitches\" era falso quando foi escrito."
     },
     {
       "id": "L009",

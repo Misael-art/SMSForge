@@ -42,7 +42,7 @@
         "ruido_grosseiro": "0.132 (f4_tela_inicial) .. 0.274 (cena04_sprites); tela_funcional da F6 = 0.149",
         "amostras": "44 capturas reais do acervo do laboratorio_01"
       },
-      "residual_limitation": "Prova que A ARTE CITADA esta na tela, na posicao encontrada. Nao varre a tela inteira atras de ruido em outras regioes — para isso vale a heuristica de cena esparsa. Nao julga qualidade artistica.",
+      "residual_limitation": "Prova que A ARTE CITADA esta na tela, na posicao encontrada; nao julga qualidade artistica. O limite \"ruido FINO de borda passa\" CAIU em 2026-09-01: com a area de jogo derivada do hardware (canvas 256x192 sob a moldura) em vez de fracao chutada, f1_sprite_visivel foi de 2.3% (passava) para 26.1% (reprova).",
       "retroactive_finding": "Aplicado ao acervo, o gate reprova a evidencia que sustentou a entrega F6 (tela_funcional.png, 14.9%) — confirmando por medicao o que a inspecao visual ja tinha mostrado.",
       "failed_attempt": {
         "metrica": "fracao de blocos 8x8 com >=8 cores como detector UNIVERSAL de ruido",

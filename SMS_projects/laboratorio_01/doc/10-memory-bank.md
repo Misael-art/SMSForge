@@ -240,3 +240,28 @@ O rebuild rebaixou tudo (§26) e a evidência foi refeita: boot limpo,
 A captura de áudio veio silenciosa 3× e a ferramenta **se recusou a concluir**,
 mandando confirmar contra ROM histórica (§31) — na repetição veio com som.
 O gate preferiu não afirmar a afirmar errado.
+
+
+## L007/L008 fechadas (2026-09-01) — e uma correção incômoda
+
+**L007** tinha dois itens abertos, agora em código:
+- *"próximo passo: recorte por marcador"* → resolvido melhor com
+  `import -window <id>`: alveja a janela por ID, então capturar o desktop deixa
+  de ser possível. E vem sem moldura (256×217 contra 283×282).
+- *"foco precisa ser VERIFICADO antes de cada tecla"* → `press_keys` confere
+  `xdotool getwindowfocus` e reativa até concordar; falha alto se não conseguir.
+
+O shim de libavcodec **continua necessário**, mas só para o fallback `spectacle`
+(verificado: `.62 → .63`, e o sistema só tem a `.63`). O caminho padrão não
+depende mais dele.
+
+**L008 — correção do próprio claim.** A lição afirmava *"cena 01 funcional e SEM
+GLITCHES"* citando `tela_funcional.png`. É falso: essa captura é uma tela de
+**ruído** — 26,8% dos blocos 8×8 com ≥8 cores e só 46,1% de coincidência com a
+arte autoral. A moldura de lixo de VRAM estava lá desde sempre (name table nunca
+limpa) e ninguém olhou. O claim era falso quando foi escrito, e sustentou a F6.
+
+**Ganho colateral:** com a área de jogo derivada do hardware (canvas 256×192
+ancorada sob a moldura) em vez de fração chutada, o gate de lixo passou a pegar
+também o ruído FINO — `f1_sprite_visivel` foi de 2,3% (passava) para 26,1%
+(reprova). Era o limite residual declarado na L011.

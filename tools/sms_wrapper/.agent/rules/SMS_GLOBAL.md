@@ -248,3 +248,17 @@ Mesmo padrão do falso negativo de áudio (§31) e do "sprite invisível" (§27)
 Regra: marcador de endereço fixo é sempre `volatile`; prefira ler o marcador
 **na tela** a depender do depurador.
 Gate: `audit_debug_markers.py`, no pré-gate do build.
+
+## 34. Captura alveja a JANELA; foco se verifica, não se supõe
+`spectacle -a` fotografa a janela **ativa** — e já fotografou o desktop do
+usuário (§30/L012). `import -window <id>` alveja por ID: capturar outra coisa
+deixa de ser possível, em vez de ser detectável depois. É também mais limpo
+(256×217, sem barra de título) e dispensa o shim de libavcodec, que passa a
+valer só para o fallback.
+`xdotool windowactivate` **não garante foco**: verifique com
+`getwindowfocus` antes de CADA tecla e reative até concordar; se não conseguir,
+falhe alto — tecla enviada para outra janela vira "input que não mudou nada".
+**Área de jogo se deriva do hardware, não se chuta:** a canvas é 256×192,
+ancorada embaixo da moldura e centrada na horizontal. A fração fixa de 28% que
+existia antes cortava 60px de jogo na captura sem moldura.
+Gate: `capture_evidence.game_area` + `_shoot_window` + `press_keys`.

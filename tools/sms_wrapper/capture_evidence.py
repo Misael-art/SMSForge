@@ -89,6 +89,27 @@ def image_informative(path, min_variance=40.0, box=None):
     var = sum((v - mean) ** 2 for v in vals) / n
     return var >= min_variance, f"variancia de luma={var:.1f} (min {min_variance})"
 
+SMS_W, SMS_H = 256, 192          # canvas do VDP; a moldura fica FORA dela
+
+def game_area(w, h):
+    """(x0, y0, x1, y1) da area de JOGO, para captura com ou sem moldura.
+
+    `spectacle -a` fotografa a janela inteira (283x282: ~28% do topo e barra de
+    titulo). `import -window` fotografa so a canvas (256x217, sem moldura). Usar
+    fracao fixa do topo nos dois casos cortaria 60px de jogo na captura limpa.
+    A razao h/w separa os dois: janela com moldura fica ~quadrada (0.996),
+    canvas do SMS fica ~0.85. Medido em capturas reais deste acervo.
+    """
+    # DERIVADO DO HARDWARE, nao chutado: a canvas do SMS e 256x192 e fica
+    # embaixo da moldura (barra de titulo/menu), centrada na horizontal.
+    #   spectacle -a  283x282 -> canvas em (13, 90)
+    #   import -window 256x217 -> canvas em (0, 25)  [217-192 = barra de menu]
+    # A fracao fixa de 28% que existia aqui cortava 60px de jogo na captura
+    # sem moldura, e nao acertava a barra de menu na com moldura.
+    x0 = max(0, (w - SMS_W) // 2)
+    y0 = max(0, h - SMS_H)
+    return (x0, y0, min(w, x0 + SMS_W), min(h, y0 + SMS_H))
+
 def viewport_box(path):
     """Metade central da imagem = viewport do jogo dentro da janela do emulador."""
     w, h = png_size(path)
@@ -122,8 +143,19 @@ def press_keys(window_id, spec):
     for step in [s.strip() for s in spec.split(",") if s.strip()]:
         key, _, ms = step.partition("=")
         ms = int(ms or 400)
-        _run(["xdotool", "windowactivate", str(window_id)])
-        time.sleep(0.3)
+        # L007: ativar NAO garante foco. Sem verificar, a tecla vai para outra
+        # janela e o passo parece "input que nao mudou nada" — foi assim que a
+        # deteccao de gameplay ficou instavel. Verifica e reativa ate concordar.
+        for _tent in range(5):
+            _run(["xdotool", "windowactivate", str(window_id)])
+            time.sleep(0.3)
+            f = _run(["xdotool", "getwindowfocus"])
+            if f and f.stdout.strip() == str(window_id):
+                break
+        else:
+            print(f"[FAIL] foco nao ficou na janela do emulador para '{key}' — "
+                  "tecla iria para outra janela (L007)")
+            return done
         _run(["xdotool", "keydown", key], timeout=max(10, ms // 1000 + 10))
         time.sleep(ms / 1000.0)
         _run(["xdotool", "keyup", key])
@@ -143,8 +175,8 @@ def largest_sprite_block(path, min_px=25):
         w, h, rows = read_png_rgb(path)
     except (PngError, OSError):
         return None
-    y_ini = int(h * 0.28)                      # abaixo da barra de titulo/HUD
-    pts = {(x, y) for y in range(y_ini, h - 8) for x in range(12, w - 12)
+    gx0, gy0, gx1, gy1 = game_area(w, h)       # adapta-se a captura com/sem moldura
+    pts = {(x, y) for y in range(gy0, gy1 - 8) for x in range(gx0 + 4, gx1 - 4)
            if max(rows[y][x]) - min(rows[y][x]) > 60 and max(rows[y][x]) > 110}
     seen, best = set(), None
     for pt in pts:
@@ -181,12 +213,19 @@ def _shoot_window(shot, wid, tries=4):
     conteudo pessoal. Aqui isso e detectado, o arquivo e descartado e a captura
     e refeita depois de reativar a janela.
     """
+    usa_import = shutil.which("import") is not None
     for attempt in range(tries):
         _run(["xdotool", "windowactivate", str(wid)])
         time.sleep(1.2 if attempt == 0 else 2.0)
         if os.path.exists(shot):
             os.remove(shot)
-        r = _run(["spectacle", "-a", "-b", "-n", "-o", shot], timeout=60)
+        if usa_import:
+            # ALVO POR ID (L007/L008): `spectacle -a` fotografa a janela ATIVA e
+            # ja capturou o desktop do usuario (L012). `import -window` nao tem
+            # como pegar outra janela — e ainda vem sem a moldura.
+            r = _run(["import", "-window", str(wid), shot], timeout=60)
+        else:
+            r = _run(["spectacle", "-a", "-b", "-n", "-o", shot], timeout=60)
         if not os.path.exists(shot):
             continue
         try:
@@ -206,9 +245,16 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
               "tools/emuladores/emulicious/ ou registre 'emulicious_jar' em "
               "tools/emuladores/emulators.json. Gate NAO simula evidencia.")
         return 2
-    missing = [t for t in ("java", "xdotool", "spectacle") if not shutil.which(t)]
+    missing = [t for t in ("java", "xdotool") if not shutil.which(t)]
     if missing:
         print(f"[FAIL_AMBIENTE] ferramentas ausentes: {', '.join(missing)}")
+        return 2
+    # `import` (ImageMagick) e o caminho primario: alveja a janela por ID.
+    # `spectacle` fica como fallback — e so ele precisa do shim de libavcodec
+    # (L007). Sem nenhum dos dois nao ha captura.
+    if not (shutil.which("import") or shutil.which("spectacle")):
+        print("[FAIL_AMBIENTE] nenhuma ferramenta de captura: instale "
+              "ImageMagick (import) ou spectacle")
         return 2
     # L012: com outra instancia viva, xdotool acha a janela errada e o
     # spectacle -a captura a janela ATIVA (ja capturou o desktop do usuario).
