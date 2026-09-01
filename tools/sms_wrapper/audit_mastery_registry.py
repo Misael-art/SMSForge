@@ -15,6 +15,39 @@ import sys, os, json, argparse
 VALID_LEVELS = {"mapped", "incorporada", "reproduzivel",
                 "emulador_provado", "default_senior"}
 
+def cross_check(registry_path, matrix_path):
+    """Toda tecnica citada na matriz HUMANA existe no registry?
+
+    L003: o registry mantinha S05/S06 honestamente em `mapped` ("provar em
+    emulador"), mas a matriz .md afirmava os numeros como NOTA DURA. Como
+    nenhum gate lia o .md, dois fatos do Mega Drive circularam como lei do SMS
+    ate serem refutados em emulador. Fato afirmado na matriz sem entrada no
+    registry e claim invisivel.
+    """
+    import re
+    if not os.path.exists(matrix_path):
+        return []
+    try:
+        d = json.load(open(registry_path))
+    except (json.JSONDecodeError, OSError):
+        return []          # audit() ja reporta registry ilegivel
+    ids = set()
+    for _, m in (d.get("tracks", d)).items():
+        for tech in (m if isinstance(m, dict) else {}):
+            mm = re.match(r"([A-Z]\d{2})", tech)
+            if mm:
+                ids.add(mm.group(1))
+    texto = open(matrix_path, encoding="utf-8", errors="replace").read()
+    citadas = set(re.findall(r"^\|\s*([A-Z]\d{2})\s*\|", texto, re.M))
+    # So cobra as FAMILIAS que o registry conhece (V/S/P/M/Z/B/A/I...). As secoes
+    # de processo da matriz (E = estetica, Q = verificacao) nao sao tecnicas de
+    # hardware, nao tem escada de proficiencia e sao governadas por outros gates.
+    familias = {t[0] for t in ids}
+    faltando = {t for t in citadas - ids if t[0] in familias}
+    return [f"matriz cita '{t}' que NAO existe no registry "
+            "(fato afirmado sem escada de proficiencia = claim invisivel)"
+            for t in sorted(faltando)]
+
 def audit(registry_path):
     try:
         d = json.load(open(registry_path))
@@ -50,9 +83,23 @@ def main():
         bp = os.path.join(d, "bad.json")
         json.dump({"trilhaA": {"T1": {"level": "default_senior"}}}, open(bp, "w"))
         assert audit(bp), "default_senior sem evidence deveria reprovar"
-        print("[SELF-CHECK OK] mastery_registry")
+        # cross-check: tecnica citada na matriz sem entrada no registry reprova
+        import tempfile as _tf
+        d2 = _tf.mkdtemp(prefix="smsmx_")
+        reg = os.path.join(d2, "01_registry_maestria_sms.json")
+        mtx = os.path.join(d2, "00_matriz_maestria_sms.md")
+        json.dump({"sprites": {"S01 x": {"level": "mapped", "evidence": "e"}}},
+                  open(reg, "w"))
+        open(mtx, "w").write("| S01 | ok |\n")
+        assert not cross_check(reg, mtx), "tecnica presente nos dois nao reprova"
+        open(mtx, "w").write("| S01 | ok |\n| S09 | fato duro sem registry |\n")
+        assert cross_check(reg, mtx), "faltou pegar tecnica citada fora do registry"
+        print("[SELF-CHECK OK] mastery_registry (overclaim + tecnica citada na "
+              "matriz sem entrada no registry)")
         return 0
     problems = audit(args.registry)
+    problems += cross_check(args.registry, os.path.join(
+        os.path.dirname(args.registry), "00_matriz_maestria_sms.md"))
     if problems:
         for p in problems:
             print(f"[FAIL] {p}")

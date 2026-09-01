@@ -4,6 +4,9 @@ Técnicas por domínio. Cada técnica listada aqui é CANDIDATA até ter sido pa
 build + evidência de emulador em algum projeto (`doc/curation/` promove).
 
 > **Versão machine-readable:** `01_registry_maestria_sms.json` (escada por técnica).
+> Toda técnica citada aqui PRECISA existir no registry — `audit_mastery_registry.py`
+> cruza os dois. Nota dura sem entrada no registry é fato não pago passando por lei
+> (foi assim que S05/S06 carregaram números do Mega Drive por semanas).
 > **Roadmap:** `02_roadmap_waves.md`. A matriz abaixo é a leitura humana.
 > Escada de proficiência: `mapped → incorporada → reproduzível → emulador_provado → default_senior`.
 > O nível real de cada técnica está no registry JSON; aqui ficam o conteúdo e a nota dura.
@@ -24,8 +27,8 @@ build + evidência de emulador em algum projeto (`doc/curation/` promove).
 | S02 | Máximo 8 sprites/scanline | excesso descartado; SMS1 corrompe display |
 | S03 | Tamanho global **8×8 ou 8×16** (+ zoom ×2 → 16×16 / 16×32) | misturar tamanhos é impossível. **Correção 2026-08-31 (L006):** esta linha dizia "8×8 ou 16×16" e induziu o erro; `SPRITEMODE_TALL` é **8×16**, e o zoom dobra o PIXEL, não a arte. Arte 16×16 exige metasprite. Gate: `audit_sprite_mode.py` |
 | S04 | Metasprites (SMS_addMetaSprite) | composição de tiles por entidade |
-| S05 | X armazenado = X+32 (offset físico) | X<32 esconde sprite à esquerda |
-| S06 | Early Clock (deslocar 32px à esquerda) | revisão-dependente: provar em emulador |
+| S05 | X é armazenado **sem offset**: X=0 desenha na borda esquerda | **Corrigido 2026-09-01 (L003):** dizia "X+32 / X<32 esconde" — herança do Mega Drive, REFUTADA em emulador (probe `_laboratorio/early_clock`) |
+| S06 | `VDPFEATURE_SHIFTSPRITES` (reg 0, bit 3) desloca **8px** à esquerda | **Corrigido 2026-09-01 (L003):** dizia 32px — REFUTADO em emulador (114→106 medido). Sprite em X<8 sai da tela com o bit ligado |
 | S07 | Rotação de buffer de sprites p/ reduzir flicker | ordenar prioridades na SAT |
 
 ## 3. Paleta / cor

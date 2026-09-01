@@ -20,9 +20,13 @@
     {
       "id": "L003",
       "lesson": "Fato dependente de revisão de hardware (ex.: comportamento de flip de sprite entre VDP SMS1/SMS2) não vira lei até ser pago com evidência de emulador/console.",
-      "evidence": "Seção 'fatos pagos' em SMS_GLOBAL §23",
-      "tool_that_measures": "capture_evidence.py",
-      "rule_section": "SMS_GLOBAL §23"
+      "evidence": "SMS_projects/_laboratorio/early_clock/out/evidence/shift_off.png e shift_on.png; duas ROMs identicas exceto pelo feature (sha256 2944188cb623 / 78f9f9a9009f)",
+      "tool_that_measures": "audit_mastery_registry.cross_check — toda tecnica citada na matriz HUMANA precisa existir no registry. Era essa a brecha: o registry mantinha S05/S06 honestamente em \"mapped (provar em emulador)\", mas o .md afirmava os numeros como NOTA DURA e nenhum gate lia o .md.",
+      "rule_section": "SMS_GLOBAL §23",
+      "status": "fechada_com_evidencia",
+      "closed_date": "2026-09-01",
+      "closure": "Fato revisao-dependente pago com evidencia real pela primeira vez: probe _laboratorio/early_clock mediu VDPFEATURE_SHIFTSPRITES = 8px (114->106) e provou que NAO existe offset +32 (X=0 e X=16 visiveis). REFUTOU S05/S06, que carregavam numeros do Mega Drive — recorrencia da L001.",
+      "residual_limitation": "Medido em emulador (Emulicious), nao em console real. Variacao entre revisoes SMS1/SMS2 permanece NAO testada — §23 continua valendo para isso."
     },
     {
       "id": "L004",

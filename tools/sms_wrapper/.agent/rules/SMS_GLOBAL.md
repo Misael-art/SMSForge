@@ -122,8 +122,20 @@ entra em doc de projeto; entra como risco.
 
 ## 23. Fatos pagos com evidência
 Fato hardware/software só vira lei quando pago com build + emulador. Enquanto
-isso: hipótese marcada, teste agendado. Ex.: comportamento early-clock entre
-revisões de VDP — pendente de primeira evidência real.
+isso: hipótese marcada, teste agendado.
+
+**Primeiro fato pago (2026-09-01, L003):** `VDPFEATURE_SHIFTSPRITES` desloca
+**8 px** (medido 114→106 em duas ROMs idênticas exceto pelo bit) e **não existe
+offset +32** — X=0 e X=16 desenham visíveis. A matriz afirmava "32px" e
+"X<32 esconde": números do **Mega Drive**, refutados. Probe:
+`_laboratorio/early_clock`. Ainda não testado em console real nem entre
+revisões SMS1/SMS2 — para isso a lei continua valendo.
+
+**A brecha que permitia isso:** o registry mantinha as duas técnicas
+honestamente em `mapped` ("provar em emulador"), mas a matriz `.md` afirmava os
+números como NOTA DURA e nenhum gate lia o `.md`. Fato afirmado na leitura
+humana sem entrada no registry é claim invisível.
+Gate: `audit_mastery_registry.cross_check`.
 
 ## 24. Deterministic boot
 Boot determinístico obrigatório: mesmo estado inicial toda execução; RNG semeado
