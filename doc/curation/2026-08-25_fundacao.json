@@ -7,8 +7,17 @@
       "id": "L001",
       "lesson": "Porte de metodologia entre consoles exige re-derivar limites do hardware alvo, não traduzir números do console de origem (20 sprites H40 -> 8 sprites/scanline; DMA -> janela VBlank medida).",
       "evidence": "Comparativo README.md seção 'Diferenças estruturais'; leis em .agent/rules/SMS_GLOBAL.md",
-      "tool_that_measures": "audit_sprite_line_sim.py",
-      "rule_section": "SMS_GLOBAL §7"
+      "tool_that_measures": "audit_hardware_constants.py (+ audit_sprite_line_sim.py para o runtime)",
+      "rule_section": "SMS_GLOBAL §7, §32",
+      "status": "fechada_com_ferramenta",
+      "closed_date": "2026-09-01",
+      "recurrences": [
+        "L006 (2026-08-31): matriz S03 afirmava sprite '8x8 ou 16x16'; SMS e 8x8 ou 8x16. Custou dias de sprite invisivel.",
+        "L003 (2026-09-01): matriz S05/S06 afirmavam 'X+32' e 'early clock 32px' (Mega Drive usa offset 128). Refutados em emulador."
+      ],
+      "closure": "A licao existia como PROSA desde a fundacao e recorreu duas vezes. So fecha com ferramenta que le os documentos: audit_hardware_constants.py confere as grandezas afirmadas contra a tabela canonica do SMS. Verificado que pega o exemplo literal da propria licao (20 sprites/scanline) e mais cinco formas de contaminacao.",
+      "calibration": "Calibrado contra o acervo real: 9 falsos positivos na primeira execucao, todos virados caso de self-check — \"dma\" casando dentro de \"Roadmap\"; \">8 sprites/linha\" que afirma o limite CORRETO; \"4 entradas na SAT por entidade\" (custo, nao capacidade); lista de fixtures reprovadas quebrada em linhas de markdown.",
+      "residual_limitation": "Cobre as grandezas da tabela canonica em .md de doc/ e .agent/. Nao le codigo-fonte nem JSON, e nao detecta contaminacao CONCEITUAL sem numero (ex.: \"use o plano B\" ou \"shadow/highlight\"). Grandeza nova exige entrada nova na tabela."
     },
     {
       "id": "L002",

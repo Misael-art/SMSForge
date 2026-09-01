@@ -79,7 +79,8 @@ def main():
               "reconcile_claims.py",
               "audit_sprite_mode.py",
               "capture_audio.py",
-              "audit_render_fidelity.py"):
+              "audit_render_fidelity.py",
+              "audit_hardware_constants.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")

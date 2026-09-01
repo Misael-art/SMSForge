@@ -226,3 +226,13 @@ WAV 100% silencioso, indistinguível de "o jogo é mudo". Isso quase levou a
 "consertar" um bug inexistente. O gate repete com warmup crescente e, se
 insistir em silêncio, manda confirmar contra uma ROM histórica com som antes de
 tocar no código de áudio.
+
+## 32. Grandeza do SMS se re-deriva, não se traduz
+Portar metodologia de outro console é portar **método**, nunca número. Cada
+grandeza — 8 sprites/scanline, SAT de 64, 2 subpaletas, 256×192, VRAM 16 KB,
+RAM 8 KB, **sem DMA** — vale porque foi re-derivada do Master System.
+A L001 dizia isso desde a fundação e mesmo assim recorreu duas vezes: a matriz
+afirmou sprite "16×16" (L006, dias de sprite invisível) e "X+32 / early clock
+32px" (L003, refutado em emulador). As duas eram números do Mega Drive.
+Prosa não impediu; agora um gate lê os documentos e confere as grandezas.
+Gate: `audit_hardware_constants.py`.
