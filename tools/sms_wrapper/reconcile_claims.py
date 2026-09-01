@@ -68,13 +68,23 @@ def reconcile(project):
     # .wav de builds antigas; existir nao basta, precisa ser desta ROM.
     wavs = glob.glob(os.path.join(project, "out", "evidence", "*.wav"))
     roms = glob.glob(os.path.join(project, "out", "rom", "*.sms"))
+    # Fresco NAO basta: um .wav novo e SILENCIOSO sustentava o eixo. Aconteceu
+    # em 2026-09-01 — captura adiantada gerou wav com peak=0 e o eixo passou.
+    # Exigir tambem que o audio tenha SINAL (audit_audio e quem julga o mix).
     fresh_wav = False
     if wavs and roms:
         newest_rom = max(os.path.getmtime(r) for r in roms)
-        fresh_wav = any(os.path.getmtime(w) > newest_rom for w in wavs)
+        import audit_audio
+        for w in wavs:
+            if os.path.getmtime(w) <= newest_rom:
+                continue
+            st = audit_audio.read_wav_stats(w)
+            if st and st[1] > 0:          # peak > 0
+                fresh_wav = True
+                break
     check("audio", fresh_wav,
-          "nao ha captura de audio (.wav) POSTERIOR a ROM em out/evidence/ "
-          "(wav de build antiga nao prova o binario atual)")
+          "nao ha captura de audio (.wav) POSTERIOR a ROM e COM SINAL em "
+          "out/evidence/ (wav antigo, ou novo porem silencioso, nao prova nada)")
     check("memory_bank_atualizado",
           os.path.isfile(os.path.join(project, "doc", "10-memory-bank.md")),
           "doc/10-memory-bank.md nao existe")
@@ -94,7 +104,11 @@ def _self_check():
             if rom:
                 open(os.path.join(p, "out", "rom", "a.sms"), "wb").write(b"\0")
             if wav:
-                open(os.path.join(p, "out", "evidence", "a.wav"), "wb").write(b"\0")
+                # WAV valido COM sinal (16-bit mono, amostras nao-zero)
+                import wave as _w, struct as _s
+                with _w.open(os.path.join(p, "out", "evidence", "a.wav"), "wb") as _f:
+                    _f.setnchannels(1); _f.setsampwidth(2); _f.setframerate(8000)
+                    _f.writeframes(b"".join(_s.pack("<h", 9000) for _ in range(800)))
             if mb:
                 open(os.path.join(p, "doc", "10-memory-bank.md"), "w").write("x")
             json.dump({"axes": axes, "steps": {"pre_gates": "pass"}},
@@ -131,6 +145,18 @@ def _self_check():
                                ev={"informative": True,
                                    "gameplay": {"interaction_proven": True}}))
         assert any("fps_constante" in x for x in p), "faltou pegar fps sem lastro"
+
+        # REPROVA: audio=true com wav novo porem SILENCIOSO
+        mudo = build(all_true, ev={"informative": True,
+                                   "gameplay": {"interaction_proven": True}},
+                     fps={"constante_50_60": True})
+        import wave as _w2
+        _wp = glob.glob(os.path.join(mudo, "out", "evidence", "*.wav"))[0]
+        with _w2.open(_wp, "wb") as _f:
+            _f.setnchannels(1); _f.setsampwidth(2); _f.setframerate(8000)
+            _f.writeframes(b"\x00\x00" * 800)
+        p, _ = reconcile(mudo)
+        assert any("'audio'" in x for x in p), f"wav silencioso deveria reprovar: {p}"
 
         # REPROVA: audio=true com wav ANTERIOR a ROM (prova de outro binario)
         stale = build(all_true, ev={"informative": True,

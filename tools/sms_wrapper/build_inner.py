@@ -98,7 +98,15 @@ AXIS_EVIDENCE = {
     "memory_bank_atualizado": "doc/10-memory-bank.md",
 }
 
-def demote_stale_axes(project, rom, axes):
+def _sha256(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for c in iter(lambda: f.read(1 << 20), b""):
+            h.update(c)
+    return h.hexdigest()
+
+def demote_stale_axes(project, rom, axes, prev_sha=None):
     """Eixo de runtime so sobrevive a um build novo se a evidencia for POSTERIOR
     a ROM recem-linkada. Binario novo invalida prova de binario velho (§seal).
 
@@ -106,6 +114,12 @@ def demote_stale_axes(project, rom, axes):
     foi assim que a entrega F6 do laboratorio_01 acabou sustentada por capturas
     6h mais VELHAS que a ROM entregue.
     """
+    # §26 fala em binario NOVO. Rebuild que produz o MESMO binario (mesmo
+    # sha256) nao invalida evidencia: o que a evidencia mostra continua sendo
+    # este executavel. Comparar so mtime rebaixava eixos a cada build no vazio.
+    if prev_sha and _sha256(rom) == prev_sha:
+        return [("PRESERVADO", "binario identico ao anterior (sha inalterado): "
+                 "a evidencia continua mostrando ESTE executavel")]
     rom_mtime = os.path.getmtime(rom)
     notes = []
     for axis, rel in AXIS_EVIDENCE.items():
@@ -119,11 +133,11 @@ def demote_stale_axes(project, rom, axes):
             newest = os.path.getmtime(p) if os.path.exists(p) else None
         if newest is None:
             axes[axis] = False
-            notes.append(f"{axis}: sem artefato de evidencia -> rebaixado")
+            notes.append(("REBAIXADO", f"{axis}: sem artefato de evidencia"))
         elif newest < rom_mtime:
             axes[axis] = False
-            notes.append(f"{axis}: evidencia ANTERIOR a esta ROM "
-                         f"({rel or 'audio .wav'}) -> rebaixado")
+            notes.append(("REBAIXADO", f"{axis}: evidencia ANTERIOR a esta ROM "
+                          f"({rel or 'audio .wav'})"))
     return notes
 
 def main():
@@ -146,7 +160,11 @@ def main():
     # Obrigatorias antes de entrega: ver workflow release-rom.md.
     if os.environ.get("SMS_STRICT") == "1":
         for tool, label in (("validate_measurement_tools.py", "§19 ferramentas de medicao"),
-                            ("audit_doc_sync.py", "sincronia doc<->repo")):
+                            ("audit_doc_sync.py", "sincronia doc<->repo"),
+                            # L001: sem rodar em lugar nenhum, o gate de grandezas
+                            # nao pegou uma regressao introduzida no proprio
+                            # AGENTS.md horas depois de ser escrito.
+                            ("audit_hardware_constants.py", "grandezas de hardware")):
             r = subprocess.run([sys.executable, os.path.join(HERE, tool)],
                                capture_output=True, text=True)
             if r.returncode != 0:
@@ -239,9 +257,11 @@ def main():
     # Herda eixos de runtime ja conquistados, mas SO os que continuam com lastro:
     # demote_stale_axes rebaixa todo eixo cuja evidencia seja anterior a esta ROM.
     prev = os.path.join(project, "out", "build_record.json")
+    prev_sha = None
     if os.path.exists(prev):
         try:
             old = json.load(open(prev))
+            prev_sha = old.get("rom_sha256")
             # Somente eixos de RUNTIME se herdam. `build` e `validation_report`
             # descrevem ESTA execucao e nunca vem do registro anterior.
             for k in AXIS_EVIDENCE:
@@ -249,9 +269,10 @@ def main():
                     record["axes"][k] = True
         except (json.JSONDecodeError, OSError):
             pass
-    demoted = demote_stale_axes(project, rom, record["axes"])
-    for n in demoted:
-        print(f"[EIXO REBAIXADO] {n}")
+    demoted = demote_stale_axes(project, rom, record["axes"], prev_sha)
+    record["rom_sha256"] = _sha256(rom)
+    for tag, n in demoted:
+        print(f"[EIXO {tag}] {n}")
     json.dump(record, open(os.path.join(project, "out", "build_record.json"), "w"),
               indent=2)
 

@@ -265,3 +265,27 @@ limpa) e ninguém olhou. O claim era falso quando foi escrito, e sustentou a F6.
 ancorada sob a moldura) em vez de fração chutada, o gate de lixo passou a pegar
 também o ruído FINO — `f1_sprite_visivel` foi de 2,3% (passava) para 26,1%
 (reprova). Era o limite residual declarado na L011.
+
+
+## Correções de governança (2026-09-01, ao fechar L007/L008)
+
+**Colisão de IDs de lição.** As lições novas nasceram com IDs `L010..L014` que o
+arquivo da fundação já usava para OUTRAS lições — citações como "§27 (L010)"
+apontavam para duas coisas diferentes. Renumeradas para **L015..L019**;
+`audit_doc_sync` passou a exigir unicidade de ID entre arquivos de curadoria, e
+o gate imediatamente pegou uma duplicata restante (L006 nos dois arquivos, agora
+fundida na original).
+
+**§26 estava estrita demais.** Rebuild que produz o **mesmo binário** (sha256
+idêntico) rebaixava os eixos — mas evidência de um binário idêntico continua
+mostrando aquele executável. A demoção passou a comparar **conteúdo**, não mtime.
+
+**Brecha fechada em `reconcile_claims`.** O eixo áudio aceitava qualquer `.wav`
+posterior à ROM, mesmo **silencioso**. Eu mesmo caí nisso: marquei `audio: true`
+com um wav de `peak=0` e o gate aprovou. Agora exige sinal (`peak > 0`), com
+caso no self-check. Áudio recapturado de verdade: peak 5031, 93% ativo.
+
+**Regressão pega pelo gate de grandezas.** A linha que eu escrevi no `AGENTS.md`
+para descrever o próprio gate listava os números do Mega Drive como exemplos, e
+o gate — corretamente — os leu como afirmação. Reescrita. Como o gate não rodava
+automaticamente, entrou no `SMS_STRICT`.

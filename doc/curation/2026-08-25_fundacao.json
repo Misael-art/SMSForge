@@ -59,10 +59,13 @@
       "evidence": [
         "f1_sprite_visivel.png: tile 8x8 visivel em (120,80) com cores W/R; jogo principal renderiza limpo"
       ],
-      "tool_that_measures": [
-        "import -window main + png_io.read_png_rgb"
-      ],
-      "rule_section": "SMS_GLOBAL §7 (metasprite em vez de TALL 16x16)"
+      "tool_that_measures": "audit_sprite_mode.py (geometria + base de tiles)",
+      "rule_section": "SMS_GLOBAL §7 (metasprite em vez de TALL 16x16)",
+      "status": "fechada_com_evidencia",
+      "closed_date": "2026-09-01",
+      "continuation_2026_08_31": "SPRITEMODE_TALL no VDP do Master System e 8x16, nao 16x16; ZOOMED dobra o pixel e nao a arte. Entidade com arte mais larga que 8px exige metasprite em QUALQUER modo. Sprite ficou invisivel por dias no laboratorio_01 por causa disso.",
+      "superseded_by": "L015 (causa-raiz real: base de tiles de sprite)",
+      "final_verdict": "A causa-raiz declarada aqui (SPRITEMODE_TALL) era a camada de cima. Foram QUATRO defeitos empilhados: base de tiles de sprite nao declarada (L015), conversor emitindo 2bpp onde SMS_loadTiles espera 4bpp, name table nunca limpa, e a geometria de modo. Fechada com o metasprite 16x16 renderizando limpo em emulador."
     },
     {
       "id": "L007",
@@ -103,7 +106,10 @@
       "lesson": "Captura do frame VIVO do jogo bloqueada no host por 3 canais independentes: (1) DAP readbyte/readword retorna $0 para qualquer endereco (1+1->$0; avaliador repl nao avalia); (2) import -window <canvas> congela no frame X inicial (render Java/OpenGL em camada nao-pixmap; 3 capturas=hash identico); (3) spectacle/root capturam o compositor com contaminacao de cor nas bordas e foco oscila. CONSEQUENCIA: logica de vitoria e renderizacao provadas por outros canais (simulacao exata + capturas 283x282), mas frame transitorio (VITORIA) nao capturavel de forma confiavel.",
       "evidence": "DAP 1+1=$0; import canvas 3x hash a763c436...; spectacle 2560x1080 com red/green nas bordas",
       "tool_that_measures": "capture_evidence.py (docstring L010)",
-      "rule_section": "SMS_GLOBAL §23"
+      "rule_section": "SMS_GLOBAL §23",
+      "status": "escopada_com_evidencia",
+      "scoped_date": "2026-09-01",
+      "scoping": "Item (2) — \"import -window congela no frame X inicial\" — vale para a CANVAS interna (sun-awt-X11-XCanvasPeer), NAO para a janela de topo. Medido em 2026-09-01: tres capturas consecutivas de `import -window <janela principal>` de ROM animada deram tres hashes DISTINTOS (52b2afdd, bd5ce871, 3a25c246). A captura por ID da janela principal virou o caminho primario (§34) justamente por isso."
     },
     {
       "id": "L011",

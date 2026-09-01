@@ -4,30 +4,19 @@
   "scope": "sprite_geometry",
   "lessons": [
     {
-      "id": "L006",
-      "status": "fechada_parcial_superseded",
-      "lesson": "SPRITEMODE_TALL no VDP do Master System e 8x16, nao 16x16; ZOOMED dobra o pixel e nao a arte. Entidade com arte mais larga que 8px exige metasprite em QUALQUER modo. Sprite ficou invisivel por dias no laboratorio_01 por causa disso.",
-      "root_cause": "A matriz de maestria (doc/05_technical/00_matriz_maestria_sms.md, linha S03) afirmava 'Tamanho global 8x8 ou 16x16'. O projeto seguiu a doutrina, e a doutrina estava errada.",
-      "meta_lesson": "Fato de hardware escrito na matriz e lei operante: um agente age sobre ele. Erro de doutrina produz bug real, nao apenas confusao. Toda linha de fato duro da matriz precisa de gate que a torne verificavel.",
-      "evidence": "PLANO_CONTINUACAO.md F1 (RESOLVIDO 2026-08-30): SPRITEMODE_NORMAL 8x8 + SMS_loadTiles(hero,128) + SMS_addSprite; captura out/evidence/f1_sprite_visivel.png",
-      "tool_that_measures": "audit_sprite_mode.py",
-      "rule_section": "SMS_GLOBAL §25",
-      "skill": ".agent/skills/sms-sprite-geometry-modes.md",
-      "doc_fix": "matriz S03 corrigida para '8x8 ou 8x16 (+ zoom x2)' com nota da correcao",
-      "superseded_by": "L010"
-    },
-    {
-      "id": "L010",
+      "id": "L015",
       "status": "fechada_com_evidencia",
       "lesson": "Causa-raiz REAL do sprite corrompido: o VDP le os padroes de sprite da metade da VRAM selecionada pelo reg 6. Sem SMS_useFirstHalfTilesforSprites(1), SMS_addSprite(...,128) le o tile 384 (VRAM vazia) = ruido colorido. BG limpo + sprite corrompido e a assinatura.",
       "root_cause": "Tres defeitos empilhados sobre o mesmo sintoma: (1) base de tiles de sprite nao declarada; (2) png_to_sms_tiles.py emitindo 2bpp/16B onde SMS_loadTiles espera 4bpp/32B; (3) doutrina S03 afirmando TALL=16x16. Corrigir um so nunca limpava a tela, o que sustentou a hipotese errada por semanas.",
       "meta_lesson": "Sintoma unico pode ter causas empilhadas. Fechar a lição no primeiro fato plausivel produz doutrina errada com aparencia de resolvida — o L006 foi declarado RESOLVIDO em 2026-08-30 e a tela seguia em ruido.",
       "evidence": "out/evidence/metasprite16.png (2026-08-31): metasprite 16x16 renderiza limpo, cruz ciano atravessando as fronteiras dos 4 quadrantes; inimigos como losangos 8x8 conforme a arte gerada",
       "tool_that_measures": "audit_sprite_mode.py (check_tile_base)",
-      "rule_section": "SMS_GLOBAL §27"
+      "rule_section": "SMS_GLOBAL §27",
+      "renumbered_from": "L010",
+      "renumber_reason": "COLISAO DE ID: doc/curation/2026-08-25_fundacao.json ja usava L010 para outra licao. IDs sao globais entre arquivos de curadoria — citacoes como \"SMS_GLOBAL §27 (L010)\" ficavam ambiguas. Renumerada em 2026-09-01."
     },
     {
-      "id": "L011",
+      "id": "L016",
       "status": "fechada_com_ferramenta",
       "lesson": "Gate de captura prova origem e nao-vacuidade, NAO correcao. Ruido de VRAM tem variancia de luma altissima e usa as cores da CRAM: passa em image_informative E em conformidade de paleta.",
       "evidence": "cena04_sprites.png (evidencia da F6) e a primeira captura de 2026-08-31 eram telas de ruido aprovadas por capture_evidence.py e screenshot_semantic_gate.py",
@@ -54,32 +43,40 @@
         "capturas_limpas": "100.0% (evidence.png, metasprite16.png, gameplay.png)",
         "telas_de_ruido": "46.1% (tela_funcional da F6), 53.3% (cena04_sprites), 56.7% (f1_sprite_visivel)",
         "limiar": 0.9
-      }
+      },
+      "renumbered_from": "L011",
+      "renumber_reason": "COLISAO DE ID: doc/curation/2026-08-25_fundacao.json ja usava L011 para outra licao. IDs sao globais entre arquivos de curadoria — citacoes como \"SMS_GLOBAL §27 (L010)\" ficavam ambiguas. Renumerada em 2026-09-01."
     },
     {
-      "id": "L012",
+      "id": "L017",
       "status": "fechada_com_ferramenta",
       "lesson": "Captura de evidencia pode fotografar a janela ERRADA (desktop do usuario) e passar em todos os gates. Comparar dois screenshots de desktop produziu 'interacao provada' medindo a area de trabalho mudando.",
       "evidence": "15 capturas 2560x1080 encontradas em out/evidence/ (varias de sessoes anteriores, incluindo boot_v002.png e gameplay_A.png); todas apagadas",
       "tool_that_measures": "capture_evidence._shoot_window (valida tamanho, descarta desktop, refaz com re-foco) + guarda de instancia zumbi",
-      "rule_section": "SMS_GLOBAL §30"
+      "rule_section": "SMS_GLOBAL §30",
+      "renumbered_from": "L012",
+      "renumber_reason": "COLISAO DE ID: doc/curation/2026-08-25_fundacao.json ja usava L012 para outra licao. IDs sao globais entre arquivos de curadoria — citacoes como \"SMS_GLOBAL §27 (L010)\" ficavam ambiguas. Renumerada em 2026-09-01."
     },
     {
-      "id": "L013",
+      "id": "L018",
       "status": "fechada_com_ferramenta",
       "lesson": "Eixo gameplay se prova por DESLOCAMENTO do sprite controlado, nao por fracao de tela alterada. O limiar global de 2% era inalcancavel nesta cena (maximo teorico ~1,2%).",
       "evidence": "out/evidence/evidence.json: sprite_dx=+89px apos Right; bbox do bloco de 96px rastreado entre capturas",
       "tool_that_measures": "capture_evidence.largest_sprite_block + sprite_displacement_proven",
-      "rule_section": "SMS_GLOBAL §29"
+      "rule_section": "SMS_GLOBAL §29",
+      "renumbered_from": "L013",
+      "renumber_reason": "COLISAO DE ID: doc/curation/2026-08-25_fundacao.json ja usava L013 para outra licao. IDs sao globais entre arquivos de curadoria — citacoes como \"SMS_GLOBAL §27 (L010)\" ficavam ambiguas. Renumerada em 2026-09-01."
     },
     {
-      "id": "L014",
+      "id": "L019",
       "status": "fechada_com_ferramenta",
       "lesson": "Captura de audio adiantada produz WAV silencioso identico a 'ROM muda'. Diagnostico errado quase levou a alterar codigo de audio que estava correto: a ROM tinha som (peak 5039, 91% ativo) e a captura e que estava adiantada.",
       "evidence": "bisseccao em ROMs historicas (v042..v047) — TODAS com som; recaptura da ROM atual passou a ter som. Nenhuma linha de audio foi alterada.",
       "meta_lesson": "Antes de 'consertar' o alvo, confirme a ferramenta de medicao contra um caso conhecido bom. Bisseccao em artefatos historicos e mais barata que editar codigo no escuro.",
       "tool_that_measures": "capture_audio.py (retry com warmup crescente + mensagem que manda comparar com ROM historica)",
-      "rule_section": "SMS_GLOBAL §31"
+      "rule_section": "SMS_GLOBAL §31",
+      "renumbered_from": "L014",
+      "renumber_reason": "COLISAO DE ID: doc/curation/2026-08-25_fundacao.json ja usava L014 para outra licao. IDs sao globais entre arquivos de curadoria — citacoes como \"SMS_GLOBAL §27 (L010)\" ficavam ambiguas. Renumerada em 2026-09-01."
     }
   ],
   "open_findings": [
@@ -89,5 +86,7 @@
       "detected_by": "audit_sprite_mode.py --project SMS_projects/laboratorio_01",
       "decision": "RESOLVIDO 2026-08-31: jogador virou metasprite 16x16 usando os 4 quadrantes; inimigo/projetil ganharam tiles proprios (132/133)"
     }
-  ]
+  ],
+  "note_ids": "IDs de licao sao GLOBAIS entre arquivos de curadoria; audit_doc_sync verifica unicidade.",
+  "continues": "L006 de 2026-08-25_fundacao.json (mesma licao; ID nao se duplica entre arquivos)"
 }

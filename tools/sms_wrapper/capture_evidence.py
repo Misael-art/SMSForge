@@ -15,7 +15,12 @@ o adapter anterior (-machine sms) era especulacao e foi removido.
 LIMITACOES DO HOST (L010, 2026-08-30) — captura do frame VIVO do jogo:
   1. DAP readbyte/readword retorna '$0' para QUALQUER endereco (até 1+1 -> $0):
      o avaliador do contexto 'repl' nao avalia de verdade -> NAO usar p/ estado.
-  2. import -window <canvas> congela no frame X inicial (render via Java/OpenGL
+  2. import -window <CANVAS INTERNA> congela no frame X inicial (Java/OpenGL
+     numa camada nao-pixmap). ESCOPADO em 2026-09-01: na JANELA DE TOPO nao
+     congela — 3 capturas consecutivas de ROM animada deram 3 hashes distintos.
+     Por isso o caminho primario e `import -window <janela principal>` (§34).
+     (texto original abaixo)
+     import -window <canvas> congela no frame X inicial (render via Java/OpenGL
      em camada nao-pixmap): 3 capturas = hash identico. NAO reflete o estado vivo.
   3. spectacle -a / -f capturam o compositor: janela do jogo misturada com
      interface (contaminacao de cor nas bordas) e foco via windowactivate oscila.
@@ -73,7 +78,7 @@ def _main_window_id():
             return i
     return None
 
-# Acima disto a "captura" e a tela inteira, nao a janela do emulador (L012).
+# Acima disto a "captura" e a tela inteira, nao a janela do emulador (L017).
 DESKTOP_PIXELS = 1_500_000
 
 def image_informative(path, min_variance=40.0, box=None):
@@ -169,7 +174,7 @@ def largest_sprite_block(path, min_px=25):
 
     Serve para medir DESLOCAMENTO do objeto controlado, em vez de "quanto da tela
     mudou". A metrica global de luma nao distingue o jogador obedecendo de um
-    inimigo caindo, de uma morte, ou (antes do L012) do desktop do usuario.
+    inimigo caindo, de uma morte, ou (antes do L017) do desktop do usuario.
     """
     try:
         w, h, rows = read_png_rgb(path)
@@ -207,7 +212,7 @@ def largest_sprite_block(path, min_px=25):
 def _shoot_window(shot, wid, tries=4):
     """Captura a JANELA do emulador, provando pelo tamanho que nao pegou o desktop.
 
-    L012: `spectacle -a` fotografa a janela ATIVA. Se o emulador perde o foco
+    L017: `spectacle -a` fotografa a janela ATIVA. Se o emulador perde o foco
     (dialogo, outra app, instancia zumbi), a "evidencia" vira um screenshot do
     desktop do usuario — que passa no detector de vacuidade e pode conter
     conteudo pessoal. Aqui isso e detectado, o arquivo e descartado e a captura
@@ -221,7 +226,7 @@ def _shoot_window(shot, wid, tries=4):
             os.remove(shot)
         if usa_import:
             # ALVO POR ID (L007/L008): `spectacle -a` fotografa a janela ATIVA e
-            # ja capturou o desktop do usuario (L012). `import -window` nao tem
+            # ja capturou o desktop do usuario (L017). `import -window` nao tem
             # como pegar outra janela — e ainda vem sem a moldura.
             r = _run(["import", "-window", str(wid), shot], timeout=60)
         else:
@@ -256,7 +261,7 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
         print("[FAIL_AMBIENTE] nenhuma ferramenta de captura: instale "
               "ImageMagick (import) ou spectacle")
         return 2
-    # L012: com outra instancia viva, xdotool acha a janela errada e o
+    # L017: com outra instancia viva, xdotool acha a janela errada e o
     # spectacle -a captura a janela ATIVA (ja capturou o desktop do usuario).
     stale = subprocess.run(["pgrep", "-f", "Emulicious.jar"],
                            capture_output=True, text=True)
@@ -264,7 +269,7 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
         print("[FAIL_AMBIENTE] ja existe Emulicious rodando (pid "
               f"{', '.join(stale.stdout.split())}). Encerre antes: "
               "pkill -f Emulicious.jar. Captura com instancia zumbi pega a "
-              "janela errada e vira evidencia falsa (L012).")
+              "janela errada e vira evidencia falsa (L017).")
         return 2
     out_dir = os.path.join(project, "out", "evidence")
     os.makedirs(out_dir, exist_ok=True)
@@ -296,7 +301,7 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
         if not ok_win:
             print("[FAIL] nao foi possivel capturar a JANELA do emulador (so o "
                   "desktop). Arquivos descartados — podem conter conteudo "
-                  "pessoal. Verifique foco/instancias (L012).")
+                  "pessoal. Verifique foco/instancias (L017).")
             return 1
         ok, why = image_informative(shot)
         ok_vp, why_vp = image_informative(shot, box=viewport_box(shot))
@@ -336,14 +341,14 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
             for i, (key, ms) in enumerate(press_keys(wid, press_spec), 1):
                 time.sleep(0.5)
                 step_shot = os.path.join(out_dir, f"{out_name}_step{i}.png")
-                # L012: passo tambem precisa provar que fotografou a JANELA.
+                # L017: passo tambem precisa provar que fotografou a JANELA.
                 # Era exatamente aqui que o desktop vazava: a comparacao entre
                 # dois screenshots de desktop dava "interacao provada" medindo
                 # a area de trabalho do usuario mudando, nao o jogo.
                 ok_step, _ = _shoot_window(step_shot, wid)
                 if not ok_step:
                     print(f"[FAIL] passo {i}: so foi possivel capturar o desktop, "
-                          "nao a janela do emulador (L012). Descartado.")
+                          "nao a janela do emulador (L017). Descartado.")
                     return 1
                 frac = viewport_diff(prev, step_shot)
                 blk = largest_sprite_block(step_shot)

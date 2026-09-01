@@ -32,7 +32,7 @@ sys.path.insert(0, HERE)
 from png_io import read_png_rgb, png_size, PngError          # noqa: E402
 from sms_palette import nearest_code, code_rgb               # noqa: E402
 
-# LIXO DE VRAM (L011/§28): tela de ruido tem variancia de luma altissima e usa
+# LIXO DE VRAM (L016/§28): tela de ruido tem variancia de luma altissima e usa
 # as cores da CRAM — passa em image_informative E em conformidade de paleta.
 # O que a denuncia e a estrutura de TILE: arte real vem de um conjunto pequeno
 # de padroes autorais e usa poucas cores por bloco 8x8; lixo de VRAM produz
@@ -182,7 +182,7 @@ def evaluate(path, claim=None, against=()):
             "cores fora da paleta mestra 6-bit; isto nao parece captura de "
             "Master System (mockup/render/foto?)")
 
-    # 3b. lixo de VRAM (L011): estrutura de tile denuncia o que a cor nao denuncia
+    # 3b. lixo de VRAM (L016): estrutura de tile denuncia o que a cor nao denuncia
     ratio = garbage_block_ratio(path)
     report["garbage_block_ratio"] = round(ratio, 4) if ratio is not None else None
     if ratio is not None and ratio > NOISE_BLOCK_RATIO_MAX:
@@ -266,7 +266,7 @@ def _self_check():
         write_png_rgb(noise, W, H, rows_from(lambda x, y: rnd.choice(pal)))
         p, r = evaluate(noise)
         assert any("LIXO DE VRAM" in x for x in p), \
-            f"ruido com cores da CRAM tem que reprovar (L011): {p} {r}"
+            f"ruido com cores da CRAM tem que reprovar (L016): {p} {r}"
         # e o inverso: arte com poucas cores por tile NAO pode ser acusada
         assert (garbage_block_ratio(good) or 0) <= NOISE_BLOCK_RATIO_MAX, \
             "arte de poucas cores por bloco nao pode contar como lixo"

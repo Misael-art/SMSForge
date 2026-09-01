@@ -5,7 +5,7 @@ Antes deste gate o acervo tinha .wav sem procedencia: alguem gravou de algum
 jeito, em algum momento, de alguma ROM. Nao dava para saber se o som era da
 build citada — nem se era do emulador.
 
-PRIVACIDADE (licao L012, agora no dominio do audio): gravar o *monitor* do sink
+PRIVACIDADE (licao L017, agora no dominio do audio): gravar o *monitor* do sink
 padrao capturaria TODO o audio da maquina — musica, chamadas, notificacoes.
 Aqui o fluxo do emulador e movido para um sink NULO dedicado e so o monitor
 desse sink e gravado. Nenhum outro aplicativo entra na captura. O sink e

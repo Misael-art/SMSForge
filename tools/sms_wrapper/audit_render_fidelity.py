@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""audit_render_fidelity.py — a tela mostra A ARTE AUTORAL? (fecha o L011)
+"""audit_render_fidelity.py — a tela mostra A ARTE AUTORAL? (fecha o L016)
 
 O degrau que faltava. As checagens anteriores provam ORIGEM (veio de um SMS) e
 NAO-VACUIDADE (nao e tela lisa), mas nao corretude: uma tela coerente com o

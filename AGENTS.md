@@ -144,7 +144,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Matriz de maestria | `audit_mastery_registry.py` | técnica acima de `mapped` sem evidência |
 | Especialização | `audit_specialization.py` | gênero declarado sem lastro no GDD |
 | **Ferramentas de medição** | `validate_measurement_tools.py` | ferramenta de medição sem `--self-check` passando (§19) |
-| **Grandezas de hardware** | `audit_hardware_constants.py` | número de outro console afirmado como lei do SMS (L001: 20 sprites/linha, SAT 80, 4 subpaletas, 320px, DMA, VRAM 64KB) |
+| **Grandezas de hardware** | `audit_hardware_constants.py` | número de outro console afirmado como lei do SMS — sprites/scanline, capacidade da SAT, subpaletas, largura da tela, VRAM/RAM, uso de DMA (L001) |
 | **Sincronia doc↔repo** | `audit_doc_sync.py` | doc citando gate inexistente, gate invisível na doutrina, hierarquia de verdade incompleta |
 
 ## VOCABULÁRIO DE STATUS

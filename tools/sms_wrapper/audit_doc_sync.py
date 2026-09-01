@@ -15,7 +15,7 @@ Verifica (fatos checaveis, nao estilo):
 Uso: audit_doc_sync.py [--root <workspace>] [--json <saida>] [--self-check]
 Exit: 0 sincronizado | 1 deriva detectada | 3 uso
 """
-import sys, os, re, json, argparse
+import sys, os, re, json, glob, argparse
 
 # Hierarquia de verdade que o AGENTS.md declara (niveis 1-7).
 TRUTH_HIERARCHY = [
@@ -40,6 +40,33 @@ def _tools_in_wrapper(wrapper):
     return {fn for fn in os.listdir(wrapper)
             if fn.endswith(".py") and fn not in TOOL_EXEMPT
             and (fn.startswith(MEASURE_PREFIXES) or fn.endswith("_gate.py"))}
+
+def curation_ids(root):
+    """IDs de licao sao GLOBAIS entre arquivos de curadoria.
+
+    Defeito real (2026-09-01): licoes novas nasceram num arquivo com IDs
+    L010..L014 que o arquivo da fundacao ja usava para OUTRAS licoes. Citacoes
+    na doutrina ("§27 ... L010") viraram ambiguas — apontavam para duas licoes
+    diferentes. Renumeradas para L015..L019; este gate impede a recorrencia.
+    """
+    vistos, problems = {}, []
+    for f in sorted(glob.glob(os.path.join(root, "doc", "curation", "*.json"))):
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            problems.append(f"curadoria ilegivel {os.path.basename(f)}: {e}")
+            continue
+        for l in d.get("lessons", []):
+            lid = l.get("id")
+            if not lid:
+                continue
+            base = os.path.basename(f)
+            if lid in vistos and vistos[lid] != base:
+                problems.append(
+                    f"licao '{lid}' duplicada entre {vistos[lid]} e {base} — "
+                    "citacao na doutrina fica ambigua")
+            vistos.setdefault(lid, base)
+    return problems
 
 def audit(root):
     problems = []
@@ -130,10 +157,20 @@ def _self_check():
         assert any("hierarquia de verdade" in x for x in p), f"faltou pegar (C): {p}"
         # (D) doc_authority apontando para arquivo removido
         assert any("doc_authority" in x for x in p), f"faltou pegar (D): {p}"
+
+        # (E) ID de licao duplicado ENTRE arquivos de curadoria
+        cur = os.path.join(d, "doc", "curation")
+        os.makedirs(cur, exist_ok=True)
+        json.dump({"lessons": [{"id": "L001"}]}, open(os.path.join(cur, "a.json"), "w"))
+        json.dump({"lessons": [{"id": "L002"}]}, open(os.path.join(cur, "b.json"), "w"))
+        assert not curation_ids(d), "IDs distintos nao podem reprovar"
+        json.dump({"lessons": [{"id": "L001"}]}, open(os.path.join(cur, "b.json"), "w"))
+        assert any("duplicada" in x for x in curation_ids(d)), \
+            "faltou pegar ID de licao duplicado entre arquivos"
     finally:
         shutil.rmtree(d, ignore_errors=True)
-    print("[SELF-CHECK OK] doc_sync (pega gate fantasma, gate invisivel, "
-          "hierarquia incompleta e doc_authority quebrada)")
+    print("[SELF-CHECK OK] doc_sync (gate fantasma, gate invisivel, hierarquia "
+          "incompleta, doc_authority quebrada e ID de licao duplicado)")
     return 0
 
 def main():
@@ -148,6 +185,7 @@ def main():
         return _self_check()
 
     problems = audit(args.root)
+    problems += curation_ids(args.root)
     if args.json:
         json.dump({"problems": problems, "in_sync": not problems},
                   open(args.json, "w"), indent=2)
