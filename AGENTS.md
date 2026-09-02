@@ -140,7 +140,9 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Fixture canônica | `canonical_fixture_gate.py` | fixture sem escopo ou com claim amplo |
 | Áudio (captura) | `capture_audio.py` | grava o áudio **isolado** do emulador (sink dedicado); repete se vier silêncio adiantado |
 | Áudio (mix) | `audit_audio.py` | captura de áudio silenciosa/sem sinal |
-| FPS | `measure_fps.py` | <5 amostras ou fps fora de 50–60 |
+| FPS (emulador) | `measure_fps.py` | <5 amostras ou fps fora de 50–60 — mede a velocidade de **emulação** relatada no título |
+| FPS (loop da ROM) | `measure_frame_advance.py` | contador de frames da própria ROM parado ou em ritmo irregular; o título diria 60fps numa ROM travada (L013) |
+| Limites da name table | `audit_tilemap_bounds.py` | escrita em linha fora das 24 renderizadas (invisível) ou além da PNT, na SAT (L011) |
 | Matriz de maestria | `audit_mastery_registry.py` | técnica acima de `mapped` sem evidência |
 | Especialização | `audit_specialization.py` | gênero declarado sem lastro no GDD |
 | **Ferramentas de medição** | `validate_measurement_tools.py` | ferramenta de medição sem `--self-check` passando (§19) |

@@ -86,6 +86,14 @@ def pre_gates(project):
     # dele nao e evidencia e o diagnostico se inverte.
     from audit_debug_markers import audit as markers_audit
     errors += ["marcador de depuracao: " + e for e in markers_audit(project)]
+    # L011: coordenada literal fora das 24 linhas renderizadas. XYtoADDR nao
+    # checa limite: y=26 escreve na cauda nao renderizada da PNT (invisivel) e
+    # y>=28 invade a SAT (corrompe sprites).
+    from audit_tilemap_bounds import check_source as tilemap_check
+    for c in srcs:
+        f, _ = tilemap_check(open(c, encoding="utf-8", errors="replace").read(), c)
+        errors += [f"name table: {os.path.relpath(p, project)}:{ln} {mc} — {why}"
+                   for p, ln, mc, why in f]
     return errors
 
 # Eixo de runtime -> artefato que o sustenta (relativo ao projeto).
@@ -105,6 +113,31 @@ def _sha256(path):
         for c in iter(lambda: f.read(1 << 20), b""):
             h.update(c)
     return h.hexdigest()
+
+def rom_birth_mtime(project, rom):
+    """Data de NASCIMENTO deste executavel, nao a do ultimo `sdcc`.
+
+    Recompilar sem mudar uma linha reescreve a ROM com conteudo identico e
+    mtime novo. Toda checagem por data passa a ver a evidencia como velha e
+    rebaixa eixos sem que nada tenha mudado — foi o que reprovou o eixo de
+    audio num rebuild no vazio. O §26 ja comparava conteudo na democao; aqui a
+    correcao vai a RAIZ, para que todo consumidor de mtime (inclusive o
+    reconcile_claims, que e outro processo) fique correto de graca.
+
+    As copias em changelog/roms/ sao feitas com shutil.copy2, que preserva a
+    data. A copia MAIS ANTIGA com o mesmo sha256 e o instante em que este
+    binario passou a existir. E mais honesto que a data do compilador.
+    """
+    try:
+        sha = _sha256(rom)
+    except OSError:
+        return None
+    times = [os.path.getmtime(c)
+             for c in glob.glob(os.path.join(project, "changelog", "roms",
+                                             "*", "rom.sms"))
+             if _sha256(c) == sha]
+    return min(times) if times else None
+
 
 def demote_stale_axes(project, rom, axes, prev_sha=None):
     """Eixo de runtime so sobrevive a um build novo se a evidencia for POSTERIOR
@@ -257,11 +290,12 @@ def main():
     # Herda eixos de runtime ja conquistados, mas SO os que continuam com lastro:
     # demote_stale_axes rebaixa todo eixo cuja evidencia seja anterior a esta ROM.
     prev = os.path.join(project, "out", "build_record.json")
-    prev_sha = None
+    prev_sha, prev_mtime = None, None
     if os.path.exists(prev):
         try:
             old = json.load(open(prev))
             prev_sha = old.get("rom_sha256")
+            prev_mtime = old.get("rom_mtime")
             # Somente eixos de RUNTIME se herdam. `build` e `validation_report`
             # descrevem ESTA execucao e nunca vem do registro anterior.
             for k in AXIS_EVIDENCE:
@@ -269,8 +303,19 @@ def main():
                     record["axes"][k] = True
         except (json.JSONDecodeError, OSError):
             pass
+    # Binario IDENTICO = o mesmo artefato. Recompilar renova o mtime sem mudar
+    # uma linha do executavel, e toda checagem por data passa a ver a evidencia
+    # como "velha" — foi o que reprovou o eixo de audio num rebuild sem
+    # alteracao nenhuma. O §26 ja tinha sido corrigido para comparar conteudo;
+    # devolver o mtime anterior corrige na RAIZ, e de quebra e mais honesto:
+    # a data passa a dizer quando este executavel surgiu, nao quando o
+    # compilador rodou de novo.
+    born = rom_birth_mtime(project, rom)
+    if born and born < os.path.getmtime(rom):
+        os.utime(rom, (born, born))
     demoted = demote_stale_axes(project, rom, record["axes"], prev_sha)
     record["rom_sha256"] = _sha256(rom)
+    record["rom_mtime"] = os.path.getmtime(rom)
     for tag, n in demoted:
         print(f"[EIXO {tag}] {n}")
     json.dump(record, open(os.path.join(project, "out", "build_record.json"), "w"),

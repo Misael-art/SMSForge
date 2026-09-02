@@ -81,7 +81,9 @@ def main():
               "capture_audio.py",
               "audit_render_fidelity.py",
               "audit_hardware_constants.py",
-              "audit_debug_markers.py"):
+              "audit_debug_markers.py",
+              "audit_tilemap_bounds.py",
+              "measure_frame_advance.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")

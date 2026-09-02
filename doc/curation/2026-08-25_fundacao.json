@@ -114,23 +114,45 @@
     {
       "id": "L011",
       "lesson": "Texto em linha 26 de uma tela de 192px (24 linhas) fica INVISIVEL (fora da area de render). O jogo SMS em modo 192 linhas tem 24 linhas de tiles (0-23); status/VITORIA na linha 26 = fora. Mover para linha 3 (visivel). Tambem: captura de frame vivo = import -window <main> (canvas Java congela; main captura). png_io estendido p/ bit-depth 4 paletted/grayscale.",
-      "evidence": "gameplay_cena02_vitoria.png mostra 'VITORIA! 1:REINICIA' texto legivel apos mover de linha 26->3",
-      "tool_that_measures": "capture_evidence.py + png_io.read_png_rgb",
-      "rule_section": "SMS_GLOBAL §6 (tiles/linhas), §23"
+      "evidence": "self-check reprova o defeito historico literal putat(2,26,\"VITORIA!\") pelo caller do wrapper do projeto; reprova y=29 (SAT), x=33 e altura que estoura em loadTileMapArea; aprova a mesma linha 26 sob VDPFEATURE_224LINES; coordenada em variavel vira 'nao provado', nunca aprovada em silencio.",
+      "tool_that_measures": "audit_tilemap_bounds.py (pre-gate do build_inner.py)",
+      "rule_section": "SMS_GLOBAL §35",
+      "status": "fechada_com_ferramenta_e_correcao",
+      "veredito": "O fato central (linha 26 invisivel) CONFIRMADO e agora medido. O mecanismo estava incompleto: a licao tratava como um caso o que sao dois. Os outros dois itens que ela empacotava foram separados.",
+      "mecanismo": "XYtoADDR e aritmetica pura (SMSlib.h:112), sem checagem. PNT = 0x3800..0x3EFF (28 linhas). Modo 192 renderiza 0..23. y=24..27 escreve na cauda nao renderizada (INVISIVEL); y>=28 invade 0x3F00 = SAT (CORROMPE sprites); x>=32 vaza para a linha seguinte porque <<5 nao satura.",
+      "escopo": "As 24 linhas valem para o modo padrao. Com VDPFEATURE_224LINES a linha 26 e legitima — o gate distingue.",
+      "itens_separados": [
+        "'canvas Java congela, main captura' — nao pertencia a esta licao; e a L010, ja escopada com evidencia (a canvas INTERNA congela; a janela de topo nao).",
+        "'png_io estendido p/ bit-depth 4 paletted/grayscale' — VERIFICADO presente (png_io.py:64,99)."
+      ]
     },
     {
       "id": "L013",
       "lesson": "Audio do Emulicious (Java/libjsound ALSA) NAO roteia no Pulse por padrao. Criar ~/.asoundrc com pcm.!default{type pulse} faz o Java aparecer como sink-input 'ALSA plug-in [java]'. Entao gravar o monitor do SINK DEFAULT (nao do alto-falante; neste host o default e hdmi-stereo-extra2). FPS e mensuravel por contador na tela (OCR de digitos hex). Musica PSG: PSGlib com .psg stream (latch >=0x80, dado, 0x38=fim frame, 0x00=loop, 0x01=loopPoint).",
-      "evidence": "audio_psg.wav 100% ativo (peak=613, rms=441.8); sink-input 'ALSA plug-in [java]' presente; fps 59.3 via contador",
-      "tool_that_measures": "parecord monitor + read_png_rgb OCR",
-      "rule_section": "SMS_GLOBAL §12 (audio), §19 (medicao)"
+      "evidence": "laboratorio_01.sms: contador de frames avancou com duracao mediana de estado 2.15s para um digito de periodo 128 => 59.5 fps, 13 estados completos, ZERO fora da tolerancia de 10%, sobreamostragem 25.1x sobre o intervalo MEDIDO. Concorda com o 59.8 do titulo por caminho independente.",
+      "tool_that_measures": "capture_audio.py (audio) + measure_frame_advance.py (fps do loop da ROM), ao lado de measure_fps.py",
+      "rule_section": "SMS_GLOBAL §31, §36",
+      "status": "fechada_com_ferramenta_e_refutacao_parcial",
+      "veredito": "Roteamento CONFIRMADO. Metodo de captura SUPERSEDIDO por motivo de privacidade. Metodo de fps: a licao propunha o instrumento CERTO e ele havia sido substituido por um mais fraco — agora restaurado.",
+      "confirmado": "~/.asoundrc com pcm.!default{type pulse} continua sendo a precondicao para o libjsound do Java aparecer como sink-input no Pulse. Sem isso nao ha o que capturar.",
+      "supersedido": "'gravar o monitor do SINK DEFAULT' era um risco de privacidade: o monitor do default carrega TODO o audio do usuario (musica, chamadas, notificacoes). capture_audio.py move o fluxo do emulador para um sink NULO dedicado e grava so o monitor dele (§31/L017).",
+      "restaurado": "A licao propunha medir fps pelo contador na tela; measure_fps.py passou a ler o titulo da janela, que mede a velocidade de EMULACAO e nao o loop do jogo — uma ROM travada exibiria 60fps. measure_frame_advance.py devolve o instrumento forte, sem a parte fragil: nao le o glifo (exigiria a fonte, que so existe dentro do SMSlib.lib), cronometra quando o bloco 8x8 muda.",
+      "quatro_defeitos_do_instrumento_encontrados_medindo": [
+        "folga de Nyquist conferida no parametro pedido (7.1x) e nao no medido (1.4x)",
+        "assinatura por RGB contava o piscar do backdrop (main.c:219) como avanco: 18 trocas onde 60fps daria 11.7 => '92 fps'",
+        "import fotografa durante o repaint e o digito sai rasgado: 1 troca vira 2 => '84 fps'",
+        "contar-e-dividir quantiza nas bordas (+-8 fps) e um rasgo sobrevivente contamina tudo => '72 fps'"
+      ]
     },
     {
       "id": "L014",
       "lesson": "Port de boas praticas do SGDK Forge (5 fases A-E). Gate de boot deterministico: ROM ESTATICA passa (estado init identico), ROM de JOGO ANIMADO diverge (esperado). Base para validar 'boot deterministico' = capturar estado de init (apos displayOn), nao gameplay em andamento. Matriz de maestria em camadas (mestre+registry+roadmap) exige nivel >mapped com evidencia, senão e overclaim (audit_mastery_registry).",
-      "evidence": "probe_min.sms deterministico PASS; cena04 animada divergiu (esperado); registry 48 tecnicas validado; selftest 25/25",
+      "evidence": "self-check de ambos verde; matriz de maestria exige nivel >mapped com evidencia.",
       "tool_that_measures": "audit_deterministic_boot.py + audit_mastery_registry.py",
-      "rule_section": "SMS_GLOBAL §23, §24"
+      "rule_section": "SMS_GLOBAL §23, §24",
+      "status": "fechada_com_ferramenta",
+      "veredito": "Confirmada. Ambos os gates existem, tem --self-check passando e estao na doutrina.",
+      "correcao": "O campo 'evidence' original citava 'selftest 25/25'. O numero era da epoca e envelheceu junto com a bateria; contagem congelada em texto nao e evidencia, o gate e. Referencia removida."
     }
   ]
 }

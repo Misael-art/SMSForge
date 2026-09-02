@@ -67,14 +67,22 @@ def _run(cmd, timeout=30):
         return None
 
 def _main_window_id():
-    """Janela cujo nome e exatamente 'Emulicious' (ignora dialogos)."""
+    """Janela principal do emulador (ignora dialogos e a janela 'platform-').
+
+    O nome NAO e estavel: parado a janela e 'Emulicious', rodando ela vira
+    'Emulicious - 100% (60 fps)' — e o titulo e justamente de onde o
+    measure_fps.py tira o fps. Exigir igualdade exata (como estava aqui) fazia
+    a janela sumir assim que a ROM comecava a rodar, que e o unico momento em
+    que ha algo para fotografar.
+    """
     r = _run(["xdotool", "search", "--name", "Emulicious"])
     if not r or r.returncode != 0:
         return None
     ids = [x.strip() for x in r.stdout.splitlines() if x.strip().isdigit()]
     for i in ids:
         n = _run(["xdotool", "getwindowname", i])
-        if n and n.stdout.strip() == "Emulicious":
+        name = n.stdout.strip() if n else ""
+        if name == "Emulicious" or name.startswith("Emulicious - "):
             return i
     return None
 

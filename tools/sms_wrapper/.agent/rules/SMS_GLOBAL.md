@@ -262,3 +262,41 @@ falhe alto — tecla enviada para outra janela vira "input que não mudou nada".
 ancorada embaixo da moldura e centrada na horizontal. A fração fixa de 28% que
 existia antes cortava 60px de jogo na captura sem moldura.
 Gate: `capture_evidence.game_area` + `_shoot_window` + `press_keys`.
+
+## 35. Coordenada de tile não é checada por ninguém — XYtoADDR é aritmética pura
+`XYtoADDR(x,y) = SMS_PNTAddress|((((y)<<5)+(x))<<1)`. Não satura, não valida,
+não avisa. Escrever fora dos limites falha de **duas** maneiras diferentes, e
+tratá-las como uma só custou a L011:
+- `y` em **24..27** → cai na cauda da PNT que o modo 192 linhas não renderiza.
+  Nada quebra e nada aparece. Foi o `"VITORIA!"` da linha 26.
+- `y >= 28` → passa de `0x3EFF` e invade `0x3F00`, a **SAT**. O "texto"
+  reposiciona sprites.
+- `x >= 32` → `<<5` não satura: `x=33,y=3` é o mesmo endereço que `x=1,y=4`.
+As 24 linhas valem para o modo padrão; só com `VDPFEATURE_224LINES` a linha 26
+passa a ser legítima. Coordenada vinda de variável **não** é aprovada em
+silêncio: é reportada como não provada.
+Gate: `audit_tilemap_bounds.py`, no pré-gate do build.
+
+## 36. FPS do título prova o EMULADOR; o eixo é sobre o JOGO
+`Emulicious - 100% (60 fps)` é velocidade de **emulação**: o quanto o host deu
+conta. Uma ROM parada num laço vazio mantém o título em 60 fps, porque o Z80
+emulado continua girando — só não desenha nada novo. Fechar `fps_constante` só
+com o título é medir o instrumento, não o jogo.
+Prova independente: o contador de frames que a própria ROM desenha na tela. Não
+é preciso **ler** o dígito (isso exigiria a fonte, que só existe dentro do
+`SMSlib.lib`); basta cronometrar quando o bloco 8×8 **muda**.
+Quatro armadilhas, todas encontradas medindo e nenhuma prevista:
+1. **Folga de Nyquist se confere no intervalo medido, não no pedido.** Cada
+   captura leva ~1,5s se a janela for reativada a cada tiro; um `--interval
+   0.3` virava 1,5s real, e a folga declarada de 7,1× era de 1,4×.
+2. **Assinar RGB conta o cenário.** O backdrop piscando muda os pixels de cor 0
+   do tile. Assine a **forma** (pixel ≠ cor dominante da célula): fundo trocando
+   de cor inteiro continua dominante e a máscara não se mexe.
+3. **`import` fotografa durante o repaint** e o dígito sai rasgado — um estado
+   de 1 amostra que transforma uma troca em duas.
+4. **Contar transições e dividir pela janela quantiza nas bordas** (±8 fps com
+   período 128 numa janela de 16s) e um único rasgo sobrevivente contamina tudo.
+   Use a **mediana das durações de estado**: robusta a outlier, e a dispersão
+   em volta dela é literalmente o que o eixo se chama — constante, não médio.
+Estimar o período e classificar artefato com o mesmo limiar é circular.
+Gate: `measure_frame_advance.py`, ao lado (não no lugar) de `measure_fps.py`.
