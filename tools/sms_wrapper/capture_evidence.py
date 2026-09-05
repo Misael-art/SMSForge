@@ -86,6 +86,27 @@ def _main_window_id():
             return i
     return None
 
+def _input_window_id(main_id=None):
+    """Janela que recebe o joypad no Emulicious Java/AWT.
+
+    A moldura `Emulicious` pode ficar focada enquanto o listener de teclas
+    está na subjanela nativa `XCanvasPeer`. Enviar o evento apenas à moldura
+    produz uma captura aparentemente válida, mas sem controle — exatamente o
+    falso negativo que o probe de gameplay detectou.
+    """
+    r = _run(["xdotool", "search", "--name", "XCanvasPeer"])
+    if not r or r.returncode != 0:
+        return main_id
+    for i in r.stdout.split():
+        g = _run(["xdotool", "getwindowgeometry", "--shell", i])
+        if not g:
+            continue
+        vals = dict(line.split("=", 1) for line in g.stdout.splitlines()
+                    if "=" in line)
+        if int(vals.get("WIDTH", "0")) >= SMS_W:
+            return i
+    return main_id
+
 # Acima disto a "captura" e a tela inteira, nao a janela do emulador (L017).
 DESKTOP_PIXELS = 1_500_000
 
@@ -107,20 +128,19 @@ SMS_W, SMS_H = 256, 192          # canvas do VDP; a moldura fica FORA dela
 def game_area(w, h):
     """(x0, y0, x1, y1) da area de JOGO, para captura com ou sem moldura.
 
-    `spectacle -a` fotografa a janela inteira (283x282: ~28% do topo e barra de
-    titulo). `import -window` fotografa so a canvas (256x217, sem moldura). Usar
-    fracao fixa do topo nos dois casos cortaria 60px de jogo na captura limpa.
-    A razao h/w separa os dois: janela com moldura fica ~quadrada (0.996),
-    canvas do SMS fica ~0.85. Medido em capturas reais deste acervo.
+    `import -window` preserva a barra de menu do Emulicious acima da canvas. Em
+    capturas reais deste acervo, tanto a janela compacta 283x282 quanto a
+    captura sem moldura 256x217 colocam a canvas SMS 256x192 em y=25; na janela
+    compacta ela fica centralizada horizontalmente e sobra espaço preto abaixo.
+    O antigo `h - SMS_H` apontava para y=90 na janela 283x282 e fazia o medidor
+    ler o fundo, não o HUD.
     """
-    # DERIVADO DO HARDWARE, nao chutado: a canvas do SMS e 256x192 e fica
-    # embaixo da moldura (barra de titulo/menu), centrada na horizontal.
-    #   spectacle -a  283x282 -> canvas em (13, 90)
-    #   import -window 256x217 -> canvas em (0, 25)  [217-192 = barra de menu]
-    # A fracao fixa de 28% que existia aqui cortava 60px de jogo na captura
-    # sem moldura, e nao acertava a barra de menu na com moldura.
+    # DERIVADO DO HARDWARE E DAS CAPTURAS REAIS, nao chutado: a canvas do SMS
+    # e 256x192 e fica abaixo da barra de menu, centrada na horizontal.
+    #   janela compacta 283x282 -> canvas em (13, 25)
+    #   import -window 256x217   -> canvas em (0, 25)
     x0 = max(0, (w - SMS_W) // 2)
-    y0 = max(0, h - SMS_H)
+    y0 = 25 if h >= SMS_H + 25 else max(0, h - SMS_H)
     return (x0, y0, min(w, x0 + SMS_W), min(h, y0 + SMS_H))
 
 def viewport_box(path):
@@ -149,10 +169,37 @@ def viewport_diff(path_a, path_b):
     changed = sum(1 for x, y in zip(va, vb) if abs(x - y) > 16)
     return changed / max(1, len(va))
 
+def player_region_diff(path_a, path_b):
+    """Fracao alterada no corredor inicial do hero.
+
+    O VANTA-9 é uma silhueta deliberadamente esparsa em 16x16 lógico; após
+    quantização, seus fragmentos não formam um componente conexo grande o
+    bastante para `largest_sprite_block`. O boss, ao contrário, forma o maior
+    componente e se move sozinho. Esta região exclui o boss e a HUD, então a
+    mudança só pode vir do hero/projétil do teste; o limiar evita ruído de
+    captura e é registrado no bundle.
+    """
+    try:
+        wa, ha = png_size(path_a)
+        wb, hb = png_size(path_b)
+        if (wa, ha) != (wb, hb):
+            return 0.0, None
+        gx0, gy0, _, _ = game_area(wa, ha)
+        box = (gx0 + 24, gy0 + 72, gx0 + 128, gy0 + 152)
+        va = read_png_luma_samples(path_a, box=box)
+        vb = read_png_luma_samples(path_b, box=box)
+    except (PngError, OSError):
+        return 0.0, None
+    if len(va) != len(vb) or not va:
+        return 0.0, box
+    changed = sum(1 for x, y in zip(va, vb) if abs(x - y) > 16)
+    return changed / len(va), box
+
 def press_keys(window_id, spec):
     """Executa spec 'Tecla=ms,Tecla=ms' via xdotool na janela focada.
     Retorna lista [(tecla, ms)] executada."""
     done = []
+    input_id = _input_window_id(window_id)
     for step in [s.strip() for s in spec.split(",") if s.strip()]:
         key, _, ms = step.partition("=")
         ms = int(ms or 400)
@@ -160,24 +207,45 @@ def press_keys(window_id, spec):
         # janela e o passo parece "input que nao mudou nada" — foi assim que a
         # deteccao de gameplay ficou instavel. Verifica e reativa ate concordar.
         for _tent in range(5):
-            _run(["xdotool", "windowactivate", str(window_id)])
+            # `windowactivate` sem --sync retorna antes do WM confirmar foco;
+            # em Wayland/KDE o keydown seguinte pode cair no terminal.
+            _run(["xdotool", "windowactivate", "--sync", str(window_id)])
+            _run(["xdotool", "windowraise", str(window_id)])
+            _run(["xdotool", "windowfocus", "--sync", str(input_id)])
             time.sleep(0.3)
             f = _run(["xdotool", "getwindowfocus"])
-            if f and f.stdout.strip() == str(window_id):
+            if f and f.stdout.strip() in (str(window_id), str(input_id)):
                 break
         else:
             print(f"[FAIL] foco nao ficou na janela do emulador para '{key}' — "
                   "tecla iria para outra janela (L007)")
             return done
-        _run(["xdotool", "keydown", key], timeout=max(10, ms // 1000 + 10))
+        _run(["xdotool", "keydown", "--window", str(input_id), key],
+             timeout=max(10, ms // 1000 + 10))
         time.sleep(ms / 1000.0)
-        _run(["xdotool", "keyup", key])
+        _run(["xdotool", "keyup", "--window", str(input_id), key])
         done.append((key, ms))
     return done
 
 
 
-def largest_sprite_block(path, min_px=25):
+def interaction_verdict(steps):
+    """§29 — gameplay se fecha pelo DESLOCAMENTO do objeto controlado. PURA.
+
+    Forte: o sprite controlado andou >= 8px (um tile) em algum passo.
+    Fraco: fracao da regiao do corredor do hero mudou >= 2% — serve a
+    DIAGNOSTICO no bundle e NUNCA fecha o eixo sozinho: scroll, animacao de
+    boss e morte mudam a regiao sem input nenhum. A versao anterior fechava
+    com `forte or fraco` (L035): o gate violava exatamente a regra que
+    citava nos proprios comentarios.
+    """
+    strong = any((s.get("sprite_dx") or 0) != 0 and abs(s["sprite_dx"]) >= 8
+                 for s in steps)
+    weak = any(s.get("player_region_changed", 0.0) >= 0.02 for s in steps)
+    return strong, weak
+
+
+def largest_sprite_block(path, min_px=25, x_max=None):
     """Maior aglomerado conexo de cor saturada na area de jogo -> (n, x0, x1, y0, y1).
 
     Serve para medir DESLOCAMENTO do objeto controlado, em vez de "quanto da tela
@@ -213,6 +281,8 @@ def largest_sprite_block(path, min_px=25):
             continue
         if max(bw, bh) > 3 * min(bw, bh):
             continue
+        if x_max is not None and max(xs) >= x_max:
+            continue
         if best is None or len(comp) > best[0]:
             best = (len(comp), min(xs), max(xs), min(ys), max(ys))
     return best
@@ -228,7 +298,9 @@ def _shoot_window(shot, wid, tries=4):
     """
     usa_import = shutil.which("import") is not None
     for attempt in range(tries):
-        _run(["xdotool", "windowactivate", str(wid)])
+        _run(["xdotool", "windowactivate", "--sync", str(wid)])
+        _run(["xdotool", "windowraise", str(wid)])
+        _run(["xdotool", "windowfocus", "--sync", str(wid)])
         time.sleep(1.2 if attempt == 0 else 2.0)
         if os.path.exists(shot):
             os.remove(shot)
@@ -269,6 +341,22 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
         print("[FAIL_AMBIENTE] nenhuma ferramenta de captura: instale "
               "ImageMagick (import) ou spectacle")
         return 2
+    # Atração determinística é válida para demonstrar arte e coreografia, mas
+    # invalida um teste de controle baseado apenas no deslocamento final: o
+    # sprite já se moveria sem a tecla. O projeto pode voltar a habilitar o
+    # claim quando o harness receber input real ou fornecer um build de teste
+    # sem a atração.
+    if press_spec:
+        main_c = os.path.join(project, "src", "main.c")
+        try:
+            source = open(main_c, encoding="utf-8").read()
+        except OSError:
+            source = ""
+        if "g_demo_mode = 1" in source and "g_demo_mode = 0" not in source:
+            print("[FAIL] gameplay inconclusivo: a ROM possui atração automática; "
+                  "deslocamento durante o intervalo não prova a tecla. Use um "
+                  "build sem g_demo_mode para testar controle humano.")
+            return 1
     # L017: com outra instancia viva, xdotool acha a janela errada e o
     # spectacle -a captura a janela ATIVA (ja capturou o desktop do usuario).
     stale = subprocess.run(["pgrep", "-f", "Emulicious.jar"],
@@ -286,7 +374,8 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
     logf = open(log_path, "w")
     # settle: frames de jogo antes da captura (~5s a 60fps)
     proc = subprocess.Popen(
-        ["java", "-jar", jar, "-remotedebug", "4901", os.path.abspath(rom)],
+        ["java", "-jar", jar, "-remotedebug", "4901", "-set", "Update=0",
+         os.path.abspath(rom)],
         stdout=logf, stderr=subprocess.STDOUT, start_new_session=True)
     try:
         wid = None
@@ -345,9 +434,21 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
             prev = shot
             # o sprite pode sumir em frames de flash (invulnerabilidade):
             # compara sempre contra a ULTIMA posicao conhecida, nao contra None.
-            last_blk = largest_sprite_block(shot)
+            # O boss ocupa 64x64 e também se move na atração. Para o claim de
+            # input, medir apenas o corredor inicial do hero separa o objeto
+            # controlado da coreografia do inimigo; o limite é coordenada da
+            # canvas capturada, não uma leitura do desktop.
+            try:
+                sw, sh = png_size(shot)
+                gx0, _, _, _ = game_area(sw, sh)
+                player_x_max = gx0 + 160
+            except (PngError, OSError):
+                player_x_max = None
+            last_blk = largest_sprite_block(shot, x_max=player_x_max)
             for i, (key, ms) in enumerate(press_keys(wid, press_spec), 1):
-                time.sleep(0.5)
+                # Passos curtos preservam janelas transitórias (tiro/impacto)
+                # sem perder a prova de deslocamento do input.
+                time.sleep(0.1)
                 step_shot = os.path.join(out_dir, f"{out_name}_step{i}.png")
                 # L017: passo tambem precisa provar que fotografou a JANELA.
                 # Era exatamente aqui que o desktop vazava: a comparacao entre
@@ -359,33 +460,38 @@ def capture(project, rom, out_name="evidence", keep=False, settle_frames=300,
                           "nao a janela do emulador (L017). Descartado.")
                     return 1
                 frac = viewport_diff(prev, step_shot)
-                blk = largest_sprite_block(step_shot)
+                blk = largest_sprite_block(step_shot, x_max=player_x_max)
                 dx = dy = None
                 if blk and last_blk:
                     dx = ((blk[1] + blk[2]) // 2) - ((last_blk[1] + last_blk[2]) // 2)
                     dy = ((blk[3] + blk[4]) // 2) - ((last_blk[3] + last_blk[4]) // 2)
                 if blk:
                     last_blk = blk
+                region_frac, region_box = player_region_diff(prev, step_shot)
                 steps.append({"key": key, "ms": ms, "shot": step_shot,
                               "viewport_changed": round(frac, 4),
                               "sprite_bbox": list(blk) if blk else None,
-                              "sprite_dx": dx, "sprite_dy": dy})
+                              "sprite_dx": dx, "sprite_dy": dy,
+                              "player_region_changed": round(region_frac, 4),
+                              "player_region_box": list(region_box)
+                              if region_box else None})
                 prev = step_shot
-            # Sinal FORTE: o objeto controlado se deslocou (>=8px = um tile).
-            # Sinal fraco: fracao da tela mudou — nao distingue jogador obedecendo
-            # de inimigo caindo ou de morte (§28). Por isso o deslocamento manda.
-            moved_sprite = any((s.get("sprite_dx") or 0) != 0 and
-                               abs(s["sprite_dx"]) >= 8 for s in steps)
-            moved = moved_sprite or any(s["viewport_changed"] >= 0.02 for s in steps)
+            # §29 (L035): so o sinal FORTE fecha; o fraco fica no bundle
+            # como diagnostico. Ver interaction_verdict().
+            moved_sprite, moved_player_region = interaction_verdict(steps)
+            moved = moved_sprite
             bundle = json.load(open(os.path.join(out_dir, f"{out_name}.json")))
             bundle["gameplay"] = {"press_script": press_spec, "steps": steps,
                                   "sprite_displacement_proven": moved_sprite,
+                                  "player_motion_region_proven": moved_player_region,
                                   "interaction_proven": moved}
             json.dump(bundle, open(os.path.join(out_dir, f"{out_name}.json"), "w"),
                       indent=2)
             if not moved:
-                print("[FAIL] interacao nao provada: nenhum passo mudou o "
-                      "viewport >=2%. Mapeamento de teclas do emulador confere?")
+                print("[FAIL] interacao nao provada: o sprite controlado nao "
+                      "se deslocou >= 8px na direcao comandada (§29). "
+                      "Mudanca de regiao/viewport sem deslocamento e sinal "
+                      "fraco e NAO fecha o eixo; confira o canal de input.")
                 return 1
             for s in steps:
                 print(f"       [{s['key']}={s['ms']}ms] viewport mudou "
@@ -428,8 +534,33 @@ def main():
         write_indexed_png(noisy, 64, 48, [(0, 0, 0), (255, 255, 255)], rows)
         ok2, _ = image_informative(noisy)
         assert ok2, "captura com padrao deveria passar"
+        pa = os.path.join(d, "player_a.png")
+        pb = os.path.join(d, "player_b.png")
+        base = [bytes([0] * 256) for _ in range(217)]
+        moved_rows = [bytearray(row) for row in base]
+        for y in range(105, 137):
+            for x in range(40, 72):
+                moved_rows[y][x] = 1
+        write_indexed_png(pa, 256, 217, [(0, 0, 0), (255, 255, 255)], base)
+        write_indexed_png(pb, 256, 217,
+                          [(0, 0, 0), (255, 255, 255)], moved_rows)
+        frac, box = player_region_diff(pa, pb)
+        assert box == (24, 97, 128, 177) and frac >= 0.02, \
+            "regiao do hero nao detectou movimento da fixture"
+        # §29/L035: a regressao exata da linha `moved = forte or fraco` —
+        # sinal fraco sozinho NAO fecha gameplay (a fixture abaixo e o caso
+        # que o gate antigo APROVAVA e a regra proibe).
+        assert interaction_verdict([{"sprite_dx": 8,
+                                     "player_region_changed": 0.0}]) == \
+            (True, False), "sinal forte deixou de fechar"
+        assert interaction_verdict([{"sprite_dx": 0,
+                                     "player_region_changed": 0.5}]) == \
+            (False, True), "sinal fraco sozinho fechou o eixo (§29 violado)"
+        assert interaction_verdict([{"sprite_dx": 0,
+                                     "player_region_changed": 0.0}]) == \
+            (False, False), "sem sinal algum fechou o eixo"
         shutil.rmtree(d)
-        print("[SELF-CHECK OK] evidence (detector de imagem vazia)")
+        print("[SELF-CHECK OK] evidence (imagem vazia e movimento no corredor do hero)")
         return 0
     if args.check_image:
         ok, why = image_informative(args.check_image)

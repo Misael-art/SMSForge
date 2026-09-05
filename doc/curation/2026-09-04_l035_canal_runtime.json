@@ -1,0 +1,36 @@
+{
+  "curation_id": "2026-09-04_l035_canal_runtime",
+  "date": "2026-09-04",
+  "scope": "runtime_channel",
+  "lessons": [
+    {
+      "id": "L035",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Escrita sem leitor nao e canal. Os probes de 0xC7F0 eram escritos todo frame pelo main.c e NENHUMA ferramenta lia: o diagnostico de runtime correu por pixels (foco de WM L007, rasgo de import L013, Nyquist de screenshot L025) enquanto hp, score, boss, estado, teclas e posicao estavam a um read de distancia. E o canal DAP tinha sido CONDENADO pela L010 ('evaluate retorna $0 para qualquer endereco') quando o que avaliava mal era a expressao: 0xC7F0 avalia ao proprio numero; ler memoria e @0xC7F0 (byte) ou word.ram@@0xC7F0 (word) — Expressions.txt documentava o operador o tempo todo.",
+      "root_cause": "Duas pilhas sobre o mesmo sintoma: (1) metade do mecanismo de runtime do SGDK ja existia (escrita de probe) sem a outra metade (leitura) — instrumentation sem consumidor; (2) a condenacao do canal por sintaxe errada virou doutrina (§33 'prefira ler na tela') e empurrou o workspace para heuristica de pixels, que e a causa dos tres defeitos da sessao (input dependente de foco, frame_advance sem Nyquist, gameplay por fracao de tela — o `or` do capture_evidence:472 violando o proprio §29).",
+      "meta_lesson": "Instrumento quebrado inverte o diagnostico (§33) — mas canal condenado por instrumento quebrado so reabre com fato pago contra o emulador vivo. E regra que da cobertura ao erro que proibe (gate violando a propria secao) e pior que regra ausente: o `or` do sinal fraco foi removido no mesmo pacote.",
+      "evidence": "SMS_projects/arena_nocturna/out/evidence/runtime_probe_v1.json (2026-09-04): magic 'SMRT'/schema 1 lido da RAM viva; 964 frames em 2 janelas de 8s; fps 59.39/59.30, spread 0.09; snapshot hp=3 px=44 py=88 state=0(title) — binario 6b0cee2e.",
+      "tool_that_measures": "measure_runtime_probe.py (--self-check; magic+schema antes de qualquer metrica) + biblioteca emulicious_dap.py (whitelist fechada de requests)",
+      "rule_section": "SMS_GLOBAL §37 (novo) + corolario no §33 + fix §29 no capture_evidence",
+      "facts_paid": [
+        "DAP da porta 4901 e DAP real (initialize/attach/threads/continue/pause/evaluate respondem); attach pausa na entry",
+        "leitura de memoria pelo avaliador: @addr byte, word.ram@@addr word; resultado 'EXPR = $HEX'",
+        "UM pedido nao-suportado mata a thread do adaptador (Unhandled request) e todo pedido seguinte pende — a L010 provavelmente morreu aqui antes de testar evaluate de verdade",
+        "sessao aberta antes do boot da ROM fica stale (initialize/attach ok, evaluate pende); canario + reconexao resolve",
+        "este build do Emulicious NAO TEM rota de escrita: supportsReadMemoryRequest/setVariable/setExpression false e '=' e comparacao (readback provou) — input por memoria e impossivel aqui",
+        "scope 'Master System' do DAP expoem a variavel Input (observacao de input sem tocar a janela)"
+      ],
+      "open_findings": [
+        "rota de ESCRITA ausente: agencia de input por memoria bloqueada neste build; input segue por teclado via WM com eco em probe_keys/px/py; reabrir quando houver Emulicious com writeMemory/scripting ou BizHawk nativo (§22: finding, nao promessa)",
+        "mapeamento de teclado do Emulicious segue sem registro declarado (L023 tem o parcial: 'S' = botao 2); a variavel Input do DAP permite MEDILO e registra-lo — proximo degrau barato"
+      ]
+    }
+  ],
+  "related": {
+    "capture_evidence_fix": "capture_evidence.interaction_verdict — a linha `moved = forte or fraco` fechava gameplay por sinal que o §29 proibe fechar; agora so sinal forte fecha e o self-check reprovou a fixture exata do defeito",
+    "schema_disposition": "runtime_metrics_v1 ganhou produtor que valida a propria instancia contra o schema antes de selar (measure_runtime_probe + schema_guard, fail-closed) — a 1a versao escrevia 'schema': 'runtime_metrics_v1' como string literal, a ponta escrita sem travessia, e a ressalva da curadoria gerou o validador; scene_budget_frame_v1 e production_visual_quality_v1 removidos como orfaos absolutos (§32); scene_budget_v1 e asset_contract_v1 mantidos com divida registrada em schemas/DISPOSITION.md",
+    "sgdk_port": "§32 cumprido: portou-se o METODO (payload versionado autenticado no payload + leitor host), adaptando-o ao canal que existe neste host (DAP do Emulicious) em vez de portar o canal Windows (BizHawk+Lua) que nao roda aqui"
+  },
+  "note_ids": "IDs de licao sao GLOBAIS entre arquivos de curadoria; audit_doc_sync verifica unicidade. Ultimo ID antes desta: L034.",
+  "continues": "L010 (condenacao do canal DAP) e L025 (recusa do frame_advance por janela de pixels) — ambas registram sintomas do mesmo canal ausente."
+}

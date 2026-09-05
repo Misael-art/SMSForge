@@ -245,8 +245,10 @@ L009 concluiu que `SMS_loadTiles` travava; em 2026-09-01 o probe
 marcador `__at()` **sem `volatile`** é eliminado pelo SDCC (a escrita não é lida
 em lugar nenhum do C) e a leitura DAP do Emulicious vem prefixada com `$`.
 Mesmo padrão do falso negativo de áudio (§31) e do "sprite invisível" (§27).
-Regra: marcador de endereço fixo é sempre `volatile`; prefira ler o marcador
-**na tela** a depender do depurador.
+Corolário (L035): "ler na tela" era a resposta certa quando o único canal
+disponível era o depurador mal usado — não vire doutrina permanente. Quando
+a medição é de estado/taxa, o canal certo é memória viva; construir o canal
+vale mais que compensá-lo com heurística de pixels (§37).
 Gate: `audit_debug_markers.py`, no pré-gate do build.
 
 ## 34. Captura alveja a JANELA; foco se verifica, não se supõe
@@ -300,3 +302,32 @@ Quatro armadilhas, todas encontradas medindo e nenhuma prevista:
    em volta dela é literalmente o que o eixo se chama — constante, não médio.
 Estimar o período e classificar artefato com o mesmo limiar é circular.
 Gate: `measure_frame_advance.py`, ao lado (não no lugar) de `measure_fps.py`.
+
+## 37. Escrita sem leitor não é canal — e canal condenado por instrumento só reabre com fato pago
+Os probes de `0xC7F0` existiam no fonte e NENHUMA ferramenta lia: o
+diagnóstico de runtime corria por pixels — foco do gerenciador de janelas
+(§34), rasgo de captura e Nyquist de screenshot (§36) — enquanto o estado
+completo do jogo estava a um read de distância. A L010 condenara o canal
+DAP inteiro porque `evaluate` "retornava `$0` para qualquer endereço"; o
+que avaliava mal era a EXPRESSÃO: `0xC7F0` avalia ao próprio número, ler
+memória é `@0xC7F0` (byte) ou `word.ram@@0xC7F0` (word) — a
+`Expressions.txt` do emulador documentava tudo. O §33 já tinha o nome para
+isso (instrumento quebrado inverte o diagnóstico) e mesmo assim o canal
+morreu condenado. Fatos operacionais pagos 2026-09-04 contra
+Emulicious 2026-03-27:
+1. UM pedido não-suportado MATA a thread do adaptador (`Unhandled request`
+   no log) e todo pedido seguinte pende — cliente DAP com whitelist
+   fechada e timeout em toda espera;
+2. sessão aberta antes do boot da ROM fica stale: initialize/attach
+   respondem, evaluate pende. Canário `@addr` decide; sem resposta,
+   reconecta (reconectar é seguro);
+3. este build NÃO TEM rota de escrita (readMemory/writeMemory/
+   setVariable/setExpression ausentes; `=` é comparação, provado por
+   readback) — input segue por teclado com eco em `probe_keys`; agência
+   por escrita em memória é finding aberto, não promessa (§22).
+Leitura de memória só com a emulação pausada; o relógio da janela de fps é
+conservador (marca antes do continue e antes do pause) para nunca inflar o
+fps acima do real.
+Gate: `measure_runtime_probe.py` — magic "SMRT" + schema antes de qualquer
+métrica (o §26 visto pelo consumidor); fps por delta de `probe_frame`
+sobre o tempo de EXECUÇÃO.

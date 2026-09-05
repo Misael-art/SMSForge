@@ -142,6 +142,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Áudio (mix) | `audit_audio.py` | captura de áudio silenciosa/sem sinal |
 | FPS (emulador) | `measure_fps.py` | <5 amostras ou fps fora de 50–60 — mede a velocidade de **emulação** relatada no título |
 | FPS (loop da ROM) | `measure_frame_advance.py` | contador de frames da própria ROM parado ou em ritmo irregular; o título diria 60fps numa ROM travada (L013) |
+| Runtime da ROM (memória) | `measure_runtime_probe.py` | probe sem magic/schema, frame parado, fps fora de 50–60 ou janelas divergentes — lê o estado na RAM via DAP, sem pixels nem foco de janela (L035, §37) |
 | Limites da name table | `audit_tilemap_bounds.py` | escrita em linha fora das 24 renderizadas (invisível) ou além da PNT, na SAT (L011) |
 | Matriz de maestria | `audit_mastery_registry.py` | técnica acima de `mapped` sem evidência |
 | Especialização | `audit_specialization.py` | gênero declarado sem lastro no GDD |

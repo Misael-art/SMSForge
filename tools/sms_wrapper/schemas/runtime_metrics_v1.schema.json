@@ -1,17 +1,29 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "runtime_metrics_v1",
-  "description": "Metricas de runtime de uma ROM de Master System, mensuradas no emulador até a validacao. Estas metricas alimentam o gate de entrega.",
+  "description": "Metricas de runtime de uma ROM de Master System, mensuradas no emulador ate a validacao. Estas metricas alimentam o gate de entrega. Evolucao 2026-09-04 (L035): o primeiro produtor real e o measure_runtime_probe.py (canal DAP, leitura de memoria) — audio_active_pct passou a ser opcional porque tem produtor proprio (capture_audio.py) e os campos de probe foram adicionados. Na evolcao nao havia nenhum produtor nem consumidor deste schema no repo.",
   "type": "object",
-  "required": ["rom", "fps_measured", "audio_active_pct"],
+  "required": ["rom", "fps_measured"],
   "properties": {
     "rom": {"type": "string"},
-    "fps_measured": {"type": "number", "description": "fps via frame counter na tela (medido)"},
+    "rom_sha256": {"type": "string", "description": "SHA-256 do binario medido — eixo so vale contra o binario citado (§26)"},
+    "fps_measured": {"type": "number", "description": "fps medido por janela de execucao sobre o contador de frames da propria ROM (probe_frame via memoria)"},
     "region": {"enum": ["NTSC", "PAL"]},
+    "fps_janelas": {"type": "array", "items": {"type": "number"}, "description": "fps de cada janela medida"},
+    "fps_spread": {"type": "number", "description": "dispersao entre janelas — o eixo e fps CONSTANTE, nao medio"},
+    "fps_constante": {"type": "boolean"},
+    "frame_advance_proved": {"type": "boolean", "description": "probe_frame avancou dentro da janela de execucao (§36)"},
+    "frames_delta_total": {"type": "integer"},
+    "boot_proved": {"type": "boolean", "description": "cabecalho SMRT + schema do probe autenticado"},
     "sprites_per_line_max": {"type": "integer", "maximum": 8},
-    "audio_active_pct": {"type": "number", "description": "% de amostras ativas do audio capturado"},
+    "audio_active_pct": {"type": ["number", "null"], "description": "% de amostras ativas do audio capturado; null quando o produtor nao mede audio"},
     "evidence_wav": {"type": "string"},
     "evidence_screenshot": {"type": "string"},
-    "boot_deterministic": {"type": "boolean"}
+    "boot_deterministic": {"type": "boolean"},
+    "probe": {"type": "object", "description": "payload autenticado lido na memoria (measure_runtime_probe.py): magic, header bruto, base, schema_version, frame_addr e snapshot de estado"},
+    "input_route": {"type": "object", "description": "rota de input paga desta sessao de medicao"},
+    "axes": {"type": "object", "description": "veredito por eixo calculado pelo produtor"},
+    "tool": {"type": "string"},
+    "chain_of_custody": {"type": "array", "items": {"type": "string"}}
   }
 }
