@@ -3,44 +3,44 @@
 
 Por que existe: o detector de gameplay do capture_evidence procura o maior
 blob saturado com "forma de sprite" e mede o deslocamento dele. Neste jogo
-isso e ambiguo por construcao:
+isso e ambiguo por construcao (L038): Ken e Guile geram blobs identicos de
+309 px, o gi do Ken funde com as tabuas do deck, e interaction_verdict()
+so testa abs(dx) >= 8 — com "Right" o objeto rastreado andou 32 px para a
+ESQUERDA e o gate antigo deu PASS.
 
-  - Ken e Guile geram blobs do MESMO tamanho (309 px, 22x42): o detector nao
-    distingue um do outro;
-  - de pe no deck, o laranja do gi do Ken encosta no tom quente das tabuas e
-    os dois viram um unico componente de 36 mil pixels, reprovado pelo filtro
-    de forma — nesses frames o jogador simplesmente some do detector;
-  - interaction_verdict() so testa abs(dx) >= 8: NAO confere direcao nem
-    identidade. Uma corrida do Guile (CPU) fecha o eixo mesmo com o comando
-    apontando para o outro lado.
+Aqui a pergunta e respondida onde ela tem resposta unica (L035): P[0].x mora
+em probe_px (0xC7FA). Pressiona-se uma direcao pelo teclado e le-se a
+variavel do jogador antes e depois, exigindo deslocamento NA DIRECAO
+COMANDADA nos dois sentidos.
 
-Foi exatamente o que aconteceu: com "Right" o objeto rastreado andou 32 px
-para a ESQUERDA e o gate deu PASS. Isso prova movimento na tela, nao que o
-controle do jogador funciona.
+Canal de teclado (L039 -> resolvido): o host e KDE/Wayland. xdotool/XTEST
+nao atravessa o KWin (getwindowfocus vazio, probe_keys 0x00). O canal real
+e kdotool (foco via KWin/DBus) + ydotool (uinput, nivel kernel — o evento
+nasce dentro do kernel e o KWin entrega a quem estiver focado). O caminho
+legado xdotool so valeria em host X11.
 
-Aqui a pergunta e respondida onde ela tem resposta unica (licao L035, a mesma
-do measure_runtime_probe): P[0].x mora em probe_px (0xC7FA). Pressiona-se uma
-direcao pelo teclado e le-se a variavel do jogador 1 antes e depois.
+Seguranca: --rom e validado contra whitelist literal da raiz do projeto;
+qualquer outra coisa reprova com exit 2 sem tocar em arquivo.
+Rodar a partir da raiz do workspace (os caminhos de saida sao relativos).
 
-Uso: prove_input_memory.py --rom <rom.sms> [--project D] [-o saida.json]
+Uso: prove_input_memory.py --rom SMS_projects/MSSF2T/out/rom/MSSF2T.sms
+     prove_input_memory.py --self-check
 Exit: 0 provado | 1 reprovado | 2 ambiente ausente
 """
 import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-WRAPPER = os.path.abspath(os.path.join(HERE, os.pardir, os.pardir, os.pardir,
-                                       "tools", "sms_wrapper"))
-sys.path.insert(0, WRAPPER)
+sys.path.insert(0, "/mnt/sdcard/Projects/SMSForge/tools/sms_wrapper")
 
 import capture_evidence as CE                                    # noqa: E402
-from emulicious_dap import PORT                                  # noqa: E402
 import measure_runtime_probe as MRP                              # noqa: E402
+from emulicious_dap import PORT                                  # noqa: E402
 
 PROBE_PX = 0xC7FA
 PROBE_KEYS = 0xC7F8
@@ -48,131 +48,313 @@ PROBE_FRAME = 0xC7F0
 PROBE_HP = 0xC7F2
 PROBE_BOSS = 0xC7F4
 PROBE_STATE = 0xC7F6
-PROBE_WAVE = 0xC7F7
-GS = {0: "ROUND", 1: "FIGHT", 2: "KO", 3: "RESULT"}
-SETTLE = 3.0          # deixa passar o banner de ROUND antes de comandar
-HOLD_MS = 600
+PROBE_P2X = 0xC7FC
+PROBE_PY = 0xC7FB
+PROBE_POSE = 0xC7F9
+GS = {0: "ROUND", 1: "FIGHT", 2: "KO", 3: "RESULT", 4: "TITLE"}
+GS_FIGHT = 1
+GROUND_Y = 112            # chao da luta (airborne = py < GROUND_Y)
+FACE_BIT = 0x80           # probe_pose bit 7 = facing (0xC7F9)
+
+ROM_REL = "SMS_projects/MSSF2T/out/rom/MSSF2T.sms"
+YDOTOOL_SOCKET = "/tmp/.ydotool_socket_smsforge"
+ENV = dict(os.environ, YDOTOOL_SOCKET=YDOTOOL_SOCKET)
+
+SETTLE = 3.0             # boot + titulo estavel
+HOLD_S = 0.8             # direcional pressionado durante a leitura
+FIGHT_TIMEOUT = 15.0     # ROUND(120f) + FIGHT(40f) de banner
+PUNCH_GAP = 26           # px entre corpos para o soco alcancar
 
 
-def run(rom, project, out_name):
-    jar = CE.resolve_jar()
-    if not jar:
-        print("[FAIL_AMBIENTE] Emulicious.jar nao encontrado")
+# ---------------------------------------------------------------- logica pura
+def evaluate(samples, canal_vivo):
+    """Criterio de prova: dx >= 8 px NA DIRECAO COMANDADA nos dois sentidos,
+    com o canal de teclado vivo. Pura — o --self-check roda isto."""
+    if not canal_vivo:
+        return False, "canal de teclado morto: nenhuma leitura tem lastro"
+    for s in samples:
+        dx = s["dx"]
+        if dx is None:
+            return False, "leitura de probe_px falhou (" + s["tecla"] + ")"
+        if dx * s["sentido_esperado"] < 8:
+            return False, ("%s deslocou dx=%+d (precisava >= 8 na direcao "
+                           "comandada %+d)" % (s["tecla"], dx,
+                                               s["sentido_esperado"]))
+    return True, "deslocamento na direcao comandada nos dois sentidos"
+
+
+def evaluate_swap(before, flight, after):
+    """Troca de lado (L053): cruzou por cima e o facing virou para o novo
+    lado. Pura — o --self-check roda isto com a regressao exata."""
+    if not (before["px"] is not None and before["p2x"] is not None):
+        return False, "leitura do estado inicial falhou"
+    if not (before["px"] < before["p2x"]):
+        return False, "estado inicial nao e Ken a esquerda do Guile"
+    if not flight["pulo"]:
+        return False, ("nao houve pulo (min_py=%s, chao=%d): cruzar no chao "
+                       "e bloqueado pela caixa de corpo"
+                       % (flight["min_py"], GROUND_Y))
+    if not (after["px"] is not None and after["p2x"] is not None
+            and after["px"] > after["p2x"]):
+        return False, "Ken nao aterrissou a direita do Guile (nao cruzou)"
+    if not (before["facing_bit"] and not after["facing_bit"]):
+        return False, ("facing nao virou de 1 para 0 com a troca de lado "
+                       "(antes=%s depois=%s)" % (before["facing"],
+                                                 after["facing"]))
+    return True, "pulo por cima observado e facing virou para o novo lado"
+
+
+# --------------------------------------------------------------- injecao
+def ensure_daemon():
+    if not os.path.exists(YDOTOOL_SOCKET):
+        subprocess.Popen(["ydotoold", "-p", YDOTOOL_SOCKET, "-P", "0660"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+        time.sleep(1.0)
+
+
+def ensure_focus_wayland():
+    kid = None
+    for _ in range(20):
+        r = subprocess.run(["kdotool", "search", "--name", "Emulicious"],
+                           capture_output=True, text=True, env=ENV,
+                           timeout=20)
+        ids = (r.stdout or "").split()
+        if ids:
+            kid = ids[0]
+            break
+        time.sleep(0.5)
+    if kid is None:
+        return False, None
+    subprocess.run(["kdotool", "windowactivate", kid],
+                   capture_output=True, text=True, env=ENV, timeout=20)
+    time.sleep(0.3)
+    r_act = subprocess.run(["kdotool", "getactivewindow"],
+                           capture_output=True, text=True, env=ENV,
+                           timeout=20)
+    a = (r_act.stdout or "").strip()
+    return a == kid, kid
+
+
+def press_wayland(acao):
+    if acao == "right":
+        subprocess.run(["ydotool", "key", "106:1"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+    elif acao == "left":
+        subprocess.run(["ydotool", "key", "105:1"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+    elif acao == "up":
+        subprocess.run(["ydotool", "key", "103:1"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+    elif acao == "botao1":
+        subprocess.run(["ydotool", "key", "30:1"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+
+
+def release_wayland(acao):
+    if acao == "right":
+        subprocess.run(["ydotool", "key", "106:0"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+    elif acao == "left":
+        subprocess.run(["ydotool", "key", "105:0"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+    elif acao == "up":
+        subprocess.run(["ydotool", "key", "103:0"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+    elif acao == "botao1":
+        subprocess.run(["ydotool", "key", "30:0"], capture_output=True,
+                       text=True, env=ENV, timeout=20)
+
+
+def hold_wayland(acao, seconds):
+    press_wayland(acao)
+    time.sleep(seconds)
+    release_wayland(acao)
+
+
+def tap_reset_wayland():
+    subprocess.run(["ydotool", "key", "29:1", "14:1", "14:0", "29:0"],
+                   capture_output=True, text=True, env=ENV, timeout=20)
+
+
+def ensure_focus_x11(wid, iid):
+    for _ in range(5):
+        CE._run(["xdotool", "windowactivate", "--sync", str(wid)])
+        CE._run(["xdotool", "windowraise", str(wid)])
+        CE._run(["xdotool", "windowfocus", "--sync", str(iid)])
+        time.sleep(0.3)
+        f = CE._run(["xdotool", "getwindowfocus"])
+        if f and f.stdout.strip() in (str(wid), str(iid)):
+            return True
+    return False
+
+
+def hold_x11(acao, seconds):
+    nomes = {"right": "Right", "left": "Left", "up": "Up", "botao1": "a"}
+    nome = nomes.get(acao)
+    if nome is None:
+        return
+    CE._run(["xdotool", "keydown", nome])
+    time.sleep(seconds)
+    CE._run(["xdotool", "keyup", nome])
+
+
+def tap_reset_x11():
+    CE._run(["xdotool", "key", "ctrl+BackSpace"])
+
+
+def select_backend():
+    """wayland = kdotool+ydotool; sem eles, cai para o legado xdotool (L039
+    provou que XTEST nao atravessa KWin — o fallback so vale em host X11)."""
+    if shutil.which("kdotool") and shutil.which("ydotool"):
+        ensure_daemon()
+        return "wayland"
+    if shutil.which("xdotool"):
+        return "x11"
+    return None
+
+
+# ---------------------------------------------------------------------- prova
+def run():
+    if not os.path.isfile("SMS_projects/MSSF2T/out/rom/MSSF2T.sms"):
+        print("[FAIL_AMBIENTE] rodar a partir da raiz do workspace "
+              "(caminhos de saida sao relativos a raiz)")
         return 2, None
-    out_dir = os.path.join(project, "out", "evidence")
-    os.makedirs(out_dir, exist_ok=True)
-    logf = open(os.path.join(out_dir, f"{out_name}_emu.log"), "w")
+    backend = select_backend()
+    if backend is None:
+        print("[FAIL_AMBIENTE] sem kdotool/ydotool nem xdotool no PATH")
+        return 2, None
+    logf = open("SMS_projects/MSSF2T/out/evidence/input_memory_emu.log", "w")
     proc = subprocess.Popen(
-        ["java", "-jar", jar, "-remotedebug", str(PORT), os.path.abspath(rom)],
-        stdout=logf, stderr=subprocess.STDOUT, start_new_session=True)
+        ["java", "-jar",
+         "/mnt/sdcard/Projects/SMSForge/tools/emuladores/emulicious/Emulicious.jar",
+         "-remotedebug", str(PORT),
+         "/mnt/sdcard/Projects/SMSForge/SMS_projects/MSSF2T/out/rom/MSSF2T.sms"],
+        stdout=logf, stderr=subprocess.STDOUT, start_new_session=True, env=ENV)
     dap = None
     try:
-        # Mesma sequencia do measure_runtime_probe: conectar antes do boot
-        # deixa a sessao stale (L035), entao ele espera e valida o canario.
         dap = MRP._connect_live()
         if dap is None:
             print("[FAIL] canal DAP nao ficou vivo")
             return 1, None
-
-        wid = CE._main_window_id()
-        if not wid:
-            print("[FAIL_AMBIENTE] janela do emulador nao encontrada")
-            return 2, None
-
         dap.cont()
         time.sleep(SETTLE)
         dap.pause()
-        x0 = dap.read_byte(PROBE_PX)
         f0 = dap.read_word(PROBE_FRAME)
+        st0 = dap.read_byte(PROBE_STATE)
+        print("boot: frame=%s estado=%s" % (f0, GS.get(st0, st0)))
 
-        iid = CE._input_window_id(wid)
-        # Teste do CANAL, separado do teste do MAPEAMENTO: ctrl+BACK_SPACE e
-        # o atalho de reset do proprio Emulicious (KeyPresets/bgb.ini). Se o
-        # frame zerar, a tecla CHEGA no emulador e o problema seria so o
-        # mapeamento do direcional. Se nao zerar, o canal esta morto.
-        CE._run(["xdotool", "windowactivate", "--sync", str(wid)])
-        time.sleep(0.3)
-        foco = CE._run(["xdotool", "getwindowfocus", "getwindowname"])
-        print(f"       foco antes do input: {(foco.stdout or '').strip()!r}")
-        dap.cont()
-        fa = None
-        CE._run(["xdotool", "key", "ctrl+BackSpace"])
-        time.sleep(1.0)
-        dap.pause()
-        fb = dap.read_word(PROBE_FRAME)
-        canal_vivo = fb is not None and f0 is not None and fb < f0
-        print(f"       reset ctrl+BackSpace: frame {f0} -> {fb} "
-              f"=> canal {'VIVO' if canal_vivo else 'MORTO'}")
-
-        samples = []
-        for key, expect in (("Right", +1), ("Left", -1)):
-            # Foco antes de tudo (L007): sem isso a tecla vai para outra janela.
-            for _ in range(5):
-                CE._run(["xdotool", "windowactivate", "--sync", str(wid)])
-                CE._run(["xdotool", "windowraise", str(wid)])
-                CE._run(["xdotool", "windowfocus", "--sync", str(iid)])
-                time.sleep(0.3)
-                f = CE._run(["xdotool", "getwindowfocus"])
-                if f and f.stdout.strip() in (str(wid), str(iid)):
-                    break
+        # ---- canario do CANAL: o reset do proprio Emulicious zera o frame.
+        # Se o frame nao zerar, nenhuma outra leitura tem lastro (L039).
+        focado = False
+        if backend == "wayland":
+            focado, _kid = ensure_focus_wayland()
             dap.cont()
-            prev = samples[-1]["x_depois"] if samples else x0
-            # XTEST (sem --window), nao XSendEvent. `xdotool --window` manda
-            # evento SINTETICO, e o AWT/Swing do Emulicious (Java) descarta
-            # eventos com send_event=True: a tecla nunca chegava a ROM.
-            CE._run(["xdotool", "keydown", key])
-            time.sleep(HOLD_MS / 1000.0)
-            # Pausa COM A TECLA AINDA PRESSIONADA: probe_keys so vale enquanto
-            # o botao esta em baixo. Lendo depois do keyup daria sempre 0 e
-            # nao distinguiria "input nao chegou" de "input chegou e acabou".
+            tap_reset_wayland()
+        else:
+            wid = CE._main_window_id()
+            iid = CE._input_window_id(wid)
+            if wid:
+                focado = ensure_focus_x11(wid, iid)
+            dap.cont()
+            tap_reset_x11()
+        time.sleep(1.2)
+        dap.pause()
+        f1 = dap.read_word(PROBE_FRAME)
+        canal_vivo = f1 is not None and f0 is not None and f1 < f0
+        print("reset ctrl+BackSpace: frame %s -> %s => canal %s (foco=%s)"
+              % (f0, f1, "VIVO" if canal_vivo else "MORTO", focado))
+        if not canal_vivo:
+            metrics = _metrics(backend, canal_vivo, focado, [], False, None,
+                               f0, f1)
+            _dump(metrics)
+            print("[FAIL] canal de teclado morto — nada a provar (L039)")
+            return 1, metrics
+
+        # ---- partida REAL: B1 no titulo (a atracao morre para sempre no
+        # primeiro toque — o controle passa a ser do jogador)
+        if backend == "wayland":
+            ensure_focus_wayland()
+            hold_wayland("botao1", 0.25)
+        else:
+            wid = CE._main_window_id()
+            iid = CE._input_window_id(wid)
+            ensure_focus_x11(wid, iid)
+            hold_x11("botao1", 0.25)
+        fim = time.time() + FIGHT_TIMEOUT
+        estado = None
+        while time.time() < fim:
+            time.sleep(0.5)
+            dap.pause()
+            estado = dap.read_byte(PROBE_STATE)
+            if estado == GS_FIGHT:
+                break
+            dap.cont()
+        print("partida real: estado=%s" % GS.get(estado, estado))
+        if estado != GS_FIGHT:
+            metrics = _metrics(backend, canal_vivo, focado, [], False,
+                               estado, f0, f1)
+            _dump(metrics)
+            print("[FAIL] B1 nao tirou a ROM do titulo")
+            return 1, metrics
+
+        # ---- deslocamento: ler COM A TECLA AINDA EM BAIXO (probe_keys so
+        # vale enquanto o botao esta pressionado; ler depois do keyup
+        # esconderia se a ROM registrou ou nao o comando)
+        samples = []
+        prev = dap.read_byte(PROBE_PX)
+        for acao, tecla, expect in (("right", "Right", +1),
+                                    ("left", "Left", -1)):
+            if backend == "wayland":
+                ensure_focus_wayland()
+            else:
+                wid = CE._main_window_id()
+                iid = CE._input_window_id(wid)
+                ensure_focus_x11(wid, iid)
+            dap.cont()
+            if backend == "wayland":
+                press_wayland(acao)
+            else:
+                CE._run(["xdotool", "keydown", tecla])
+            time.sleep(HOLD_S)
             dap.pause()
             x = dap.read_byte(PROBE_PX)
             k = dap.read_byte(PROBE_KEYS)
             st = dap.read_byte(PROBE_STATE)
             hp = dap.read_byte(PROBE_HP)
             bo = dap.read_byte(PROBE_BOSS)
-            tm = dap.read_byte(PROBE_WAVE)
-            print(f"         estado={GS.get(st, st)} hp={hp} guile_hp={bo} timer={tm}")
+            if backend == "wayland":
+                release_wayland(acao)
+            else:
+                CE._run(["xdotool", "keyup", tecla])
+            dx = (x - prev) if (x is not None and prev is not None) else None
+            print("  %s: estado=%s hp=%s guile=%s keys_durante=0x%02X "
+                  "P[0].x %s -> %s (dx=%s)"
+                  % (tecla, GS.get(st, st), hp, bo, k or 0, prev, x, dx))
             dap.cont()
-            CE._run(["xdotool", "keyup", key])
-            dap.pause()
-            samples.append({"tecla": key, "sentido_esperado": expect,
-                            "x_antes": prev, "x_depois": x,
-                            "dx": (x - prev) if (x is not None and prev is not None) else None,
+            samples.append({"tecla": tecla, "sentido_esperado": expect,
+                            "x_antes": prev, "x_depois": x, "dx": dx,
                             "probe_keys_durante": k})
-            print(f"       {key:5s}: P[0].x {prev} -> {x}  "
-                  f"(dx={samples[-1]['dx']:+}) probe_keys(durante)=0x{(k or 0):02X}")
+            prev = x
 
-        f1 = dap.read_word(PROBE_FRAME)
-        # Prova = deslocamento >= 8 px NA DIRECAO COMANDADA, nos dois sentidos.
-        ok = all(s["dx"] is not None and s["dx"] * s["sentido_esperado"] >= 8
-                 for s in samples)
-        metrics = {
-            "schema": "input_memory_v1",
-            "rom": rom,
-            "rom_sha256": hashlib.sha256(open(rom, "rb").read()).hexdigest(),
-            "probe_px_addr": hex(PROBE_PX),
-            "x_inicial": x0,
-            "frames": {"antes": f0, "depois": f1},
-            "amostras": samples,
-            "input_provado": ok,
-            "canal_teclado_vivo": canal_vivo,
-            "criterio": "dx >= 8 px NA DIRECAO COMANDADA, nos dois sentidos",
-            "por_que_memoria": ("pixels sao ambiguos aqui: Ken e Guile dao "
-                                "blobs identicos de 309 px e o gi do Ken funde "
-                                "com o deck; interaction_verdict nao confere "
-                                "direcao nem identidade"),
-            "chain_of_custody": [
-                f"launch: java -jar {os.path.basename(jar)} -remotedebug {PORT}",
-                "attach DAP; leitura com a emulacao PAUSADA",
-                "input: xdotool keydown/keyup na janela do emulador (L007)",
-                f"leitura: @{hex(PROBE_PX)} = P[0].x (main.c: probe_px)",
-            ],
-        }
-        json.dump(metrics, open(os.path.join(out_dir, f"{out_name}.json"), "w"),
-                  indent=1)
-        print(f"[{'PASS' if ok else 'FAIL'}] input->jogador "
-              f"{'provado' if ok else 'NAO provado'} na memoria")
+        # ---- bonus no mesmo instrumento: aproximar e socar (hp do oponente
+        # cai). Extra observavel; NAO faz parte do criterio do eixo.
+        golpe = _punch_bonus(dap, backend)
+
+        # ---- troca de lado (L053): pulo por cima e facing virando. Fase
+        # separada do criterio do eixo; entra no mesmo artefato.
+        sideswap = _sideswap_phase(dap, backend)
+
+        ok, motivo = evaluate(samples, canal_vivo)
+        metrics = _metrics(backend, canal_vivo, focado, samples, True,
+                           estado, f0, f1, golpe=golpe)
+        metrics["motivo"] = motivo
+        metrics["input_provado"] = ok
+        metrics["sideswap"] = sideswap
+        _dump(metrics)
+        print("[%s] input->jogador %s (%s)"
+              % ("PASS" if ok else "FAIL",
+                 "provado" if ok else "NAO provado", motivo))
         return (0 if ok else 1), metrics
     finally:
         try:
@@ -186,14 +368,353 @@ def run(rom, project, out_name):
                 proc.kill()
 
 
+def _punch_bonus(dap, backend):
+    """Aproxima pelo direcional e aperta B1; devolve o delta de hp do
+    oponente. Falha honesta devolve None — nao faz parte do criterio."""
+    try:
+        fim = time.time() + 10.0
+        while time.time() < fim:
+            if backend == "wayland":
+                ensure_focus_wayland()
+                hold_wayland("right", 0.5)
+            else:
+                hold_x11("right", 0.5)
+            dap.pause()
+            px = dap.read_byte(PROBE_PX)
+            p2x = dap.read_byte(PROBE_P2X)
+            bo = dap.read_byte(PROBE_BOSS)
+            if None in (px, p2x, bo):
+                return None
+            if p2x - px <= PUNCH_GAP:
+                if backend == "wayland":
+                    hold_wayland("botao1", 0.2)
+                else:
+                    hold_x11("botao1", 0.2)
+                time.sleep(0.8)
+                dap.pause()
+                bo2 = dap.read_byte(PROBE_BOSS)
+                print("  soco: guile_hp %s -> %s" % (bo, bo2))
+                return {"guile_hp_antes": bo, "guile_hp_depois": bo2,
+                        "acertou": bo2 is not None and bo2 < bo}
+        return None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _read_fighter(dap):
+    """Snapshot do lutador 1 e da relacao de lados, pela RAM."""
+    pose = dap.read_byte(PROBE_POSE) if PROBE_POSE else None
+    return {
+        "px": dap.read_byte(PROBE_PX),
+        "py": dap.read_byte(PROBE_PY),
+        "p2x": dap.read_byte(PROBE_P2X),
+        "pose": pose,
+    }
+
+
+def _sideswap_phase(dap, backend):
+    """L053: cruzar por cima (Cima+Direcao) e observar o facing virar.
+
+    O facing so atualiza FORA do ar (busy/airborne saltam update_facing),
+    entao o flip esperado e DEPOIS de aterrissar. O espelhamento VISUAL do
+    sprite continua provado por leitura do codigo (apply_pose dentro de
+    update_facing, fight.c) — o probe ve a logica, nao os pixels.
+    """
+    try:
+        time.sleep(0.4)
+        dap.pause()
+        before = _read_fighter(dap)
+        before["facing_bit"] = bool((before["pose"] or 0) & FACE_BIT)
+        before["facing"] = 1 if before["facing_bit"] else 0
+        print("sideswap antes: px=%s p2x=%s pose=0x%02X (facing=%d)"
+              % (before["px"], before["p2x"], before["pose"],
+                 before["facing"]))
+
+        # aproximacao: andar para a direita ate a distancia de pulo
+        aprox = []
+        fim = time.time() + 12.0
+        while time.time() < fim:
+            if backend == "wayland":
+                ensure_focus_wayland()
+                hold_wayland("right", 0.4)
+            else:
+                hold_x11("right", 0.4)
+            dap.pause()
+            px = dap.read_byte(PROBE_PX)
+            p2x = dap.read_byte(PROBE_P2X)
+            aprox.append({"px": px, "p2x": p2x})
+            if None in (px, p2x):
+                continue
+            if p2x - px <= 28:
+                break
+            dap.cont()
+        dap.pause()
+
+        # pulo com retries: em contato com a CPU o Ken fica em hitstun/busy
+        # e o Cima e ignorado (a 1a rodada mostrou min_py travado em 112).
+        # Passo atras para sair do alcance, espera assentar, tenta ate 3x.
+        flight = {"min_py": None, "amostras": [], "cruzou_no_ar": False}
+        tentativas = []
+        for n in range(3):
+            if backend == "wayland":
+                ensure_focus_wayland()
+                hold_wayland("left", 0.3)
+            else:
+                hold_x11("left", 0.3)
+            dap.cont()
+            time.sleep(0.6)
+            dap.pause()
+            pre = _read_fighter(dap)
+            tentativas.append({"n": n, "px": pre["px"], "p2x": pre["p2x"],
+                               "pose": pre["pose"]})
+
+            if backend == "wayland":
+                ensure_focus_wayland()
+                press_wayland("right")
+            else:
+                CE._run(["xdotool", "keydown", "Right"])
+            dap.cont()
+            time.sleep(0.05)
+            if backend == "wayland":
+                press_wayland("up")
+                time.sleep(0.3)
+                release_wayland("up")
+            else:
+                CE._run(["xdotool", "keydown", "Up"])
+                time.sleep(0.3)
+                CE._run(["xdotool", "keyup", "Up"])
+
+            fim = time.time() + 2.5
+            while time.time() < fim:
+                dap.pause()
+                px = dap.read_byte(PROBE_PX)
+                py = dap.read_byte(PROBE_PY)
+                p2x = dap.read_byte(PROBE_P2X)
+                pose = dap.read_byte(PROBE_POSE)
+                flight["amostras"].append({"t": n, "px": px, "py": py,
+                                           "p2x": p2x, "pose": pose})
+                if py is not None and (flight["min_py"] is None
+                                       or py < flight["min_py"]):
+                    flight["min_py"] = py
+                if px is not None and p2x is not None and px > p2x:
+                    flight["cruzou_no_ar"] = True
+                    if py is not None and py >= GROUND_Y:
+                        break
+                dap.cont()
+                time.sleep(0.06)
+            if backend == "wayland":
+                release_wayland("right")
+            else:
+                CE._run(["xdotool", "keyup", "Right"])
+            dap.pause()
+            pulou = (flight["min_py"] is not None
+                     and flight["min_py"] < GROUND_Y)
+            print("sideswap tentativa %d: pulou=%s cruzou=%s min_py=%s"
+                  % (n, pulou, flight["cruzou_no_ar"], flight["min_py"]))
+            if pulou and flight["cruzou_no_ar"]:
+                break
+            # proxima tentativa vale por si: zera os marcadores do voo
+            flight["min_py"] = None
+            flight["cruzou_no_ar"] = False
+        flight["pulo"] = (flight["min_py"] is not None
+                          and flight["min_py"] < GROUND_Y)
+        print("sideswap voo: min_py=%s cruzou_no_ar=%s (%d amostras)"
+              % (flight["min_py"], flight["cruzou_no_ar"],
+                 len(flight["amostras"])))
+
+        time.sleep(0.6)
+        dap.pause()
+        after = _read_fighter(dap)
+        after["facing_bit"] = bool((after["pose"] or 0) & FACE_BIT)
+        after["facing"] = 1 if after["facing_bit"] else 0
+        print("sideswap depois: px=%s p2x=%s pose=0x%02X (facing=%d)"
+              % (after["px"], after["p2x"], after["pose"], after["facing"]))
+
+        flight["pulo"] = (flight["min_py"] is not None
+                          and flight["min_py"] < GROUND_Y)
+        ok, motivo = evaluate_swap(before, flight, after)
+        print("[sideswap] %s (%s)"
+              % ("TROCA DE LADO OBSERVADA" if ok else "nao observada", motivo))
+        return {"antes": before, "voo": flight, "depois": after,
+                "aproximacao": aprox, "tentativas": tentativas,
+                "sideswap_provado": ok, "motivo": motivo}
+    except (OSError, subprocess.SubprocessError):
+        return {"sideswap_provado": False, "motivo": "falha de ambiente"}
+
+
+def _dump(metrics):
+    with open("SMS_projects/MSSF2T/out/evidence/input_memory.json", "w") as f:
+        json.dump(metrics, f, indent=1)
+
+
+def _metrics(backend, canal_vivo, focado, samples, luta_iniciada, estado,
+             f0, f1, golpe=None):
+    with open("SMS_projects/MSSF2T/out/rom/MSSF2T.sms", "rb") as f:
+        sha = hashlib.sha256(f.read()).hexdigest()
+    m = {
+        "schema": "input_memory_v2",
+        "rom": ROM_REL,
+        "rom_sha256": sha,
+        "probe_px_addr": hex(PROBE_PX),
+        "backend": backend,
+        "foco_verificado": focado,
+        "frames": {"antes": f0, "depois": f1},
+        "amostras": samples,
+        "luta_iniciada_por_input": luta_iniciada,
+        "estado_final": GS.get(estado, estado),
+        "input_provado": False,
+        "canal_teclado_vivo": canal_vivo,
+        "criterio": "dx >= 8 px NA DIRECAO COMANDADA nos dois sentidos, "
+                    "com canal vivo (reset ctrl+BackSpace zera o frame)",
+        "por_que_memoria": ("pixels sao ambiguos aqui: Ken e Guile dao "
+                            "blobs identicos de 309 px e o gi do Ken funde "
+                            "com o deck; interaction_verdict nao confere "
+                            "direcao nem identidade (L038)"),
+        "chain_of_custody": [
+            "launch: java -jar Emulicious.jar -remotedebug " + str(PORT),
+            "attach DAP; leitura com a emulacao PAUSADA",
+            "input: backend " + backend
+            + " (L039: XTEST nao atravessa KWin; canal real = uinput)",
+            "leitura: @0xC7FA = P[0].x (main.c: probe_px)",
+        ],
+    }
+    if golpe is not None:
+        m["golpe_bonus"] = golpe
+    return m
+
+
+# ----------------------------------------------------------------- self-check
+def self_check():
+    """§19: o instrumento so e fonte com self-check passando. As fixtures sao
+    as regressoes exatas que motivaram o tool (L038/L039) — nada de fixture
+    generica que passa de graca."""
+    falhas = []
+
+    # 1. Regressao L039 EXATA: tecla pressionada, probe_keys 0x00, canal morto.
+    s_l039 = [{"tecla": "Right", "sentido_esperado": +1, "x_antes": 40,
+               "x_depois": 40, "dx": 0, "probe_keys_durante": 0x00}]
+    ok, motivo = evaluate(s_l039, canal_vivo=False)
+    if ok:
+        falhas.append("L039: canal morto foi aceito")
+    if "canal" not in motivo:
+        falhas.append("L039: motivo nao cita o canal: " + motivo)
+
+    # 2. Armadilha L038 EXATA: "Right" e o objeto anda 32 px para a ESQUERDA;
+    #    o gate antigo dava PASS por abs(dx) >= 8. Aqui tem de REPROVAR.
+    s_l038 = [{"tecla": "Right", "sentido_esperado": +1, "x_antes": 104,
+               "x_depois": 72, "dx": -32, "probe_keys_durante": 0x00}]
+    ok, _ = evaluate(s_l038, canal_vivo=True)
+    if ok:
+        falhas.append("L038: dx na direcao OPOSTA foi aceito")
+
+    # 3. Movimento curto demais: dx=+3 com Right reprovou.
+    s_curto = [{"tecla": "Right", "sentido_esperado": +1, "x_antes": 40,
+                "x_depois": 43, "dx": 3, "probe_keys_durante": 0x08}]
+    ok, _ = evaluate(s_curto, canal_vivo=True)
+    if ok:
+        falhas.append("dx=3 na direcao certa foi aceito (teto e 8)")
+
+    # 4. Um sentido so: Right ok e Left parado reprova (criterio e simetrico).
+    s_meio = [{"tecla": "Right", "sentido_esperado": +1, "x_antes": 40,
+               "x_depois": 60, "dx": 20, "probe_keys_durante": 0x08},
+              {"tecla": "Left", "sentido_esperado": -1, "x_antes": 60,
+               "x_depois": 60, "dx": 0, "probe_keys_durante": 0x04}]
+    ok, _ = evaluate(s_meio, canal_vivo=True)
+    if ok:
+        falhas.append("segundo sentido parado foi aceito")
+
+    # 5. Caminho bom: dx >= 8 na direcao comandada nos DOIS sentidos.
+    s_ok = [{"tecla": "Right", "sentido_esperado": +1, "x_antes": 40,
+             "x_depois": 56, "dx": 16, "probe_keys_durante": 0x08},
+            {"tecla": "Left", "sentido_esperado": -1, "x_antes": 56,
+             "x_depois": 42, "dx": -14, "probe_keys_durante": 0x04}]
+    ok, motivo = evaluate(s_ok, canal_vivo=True)
+    if not ok:
+        falhas.append("caminho bom foi reprovado: " + motivo)
+
+    # 5b. Regressao do campo no JSON: _metrics nasce com input_provado=False;
+    #     se o run esquecer de gravar o veredito, o artefato mente contra o
+    #     stdout (foi exatamente o que o selo pegou nesta sessao).
+    m = _metrics("wayland", True, True, s_ok, True, GS_FIGHT, 100, 200)
+    if m["input_provado"] is not False:
+        falhas.append("metrics default de input_provado deixou de ser False")
+
+    # 6. Leitura perdida (None) reprova em vez de seguir.
+    s_none = [{"tecla": "Right", "sentido_esperado": +1, "x_antes": 40,
+               "x_depois": None, "dx": None, "probe_keys_durante": 0x08}]
+    ok, _ = evaluate(s_none, canal_vivo=True)
+    if ok:
+        falhas.append("leitura None foi aceita")
+
+    # ---- fixtures da troca de lado (L053) — evaluate_swap
+    b = {"px": 12, "p2x": 176, "pose": 0x81, "facing_bit": True, "facing": 1}
+    v = {"min_py": 104, "pulo": True}
+    a_de_cst = {"px": 190, "p2x": 176, "pose": 0x81, "facing_bit": True,
+                "facing": 1}
+    a_ok = {"px": 190, "p2x": 176, "pose": 0x01, "facing_bit": False,
+            "facing": 0}
+
+    # 7. Regressao L053 EXATA: cruzou mas ficou DE COSTAS (facing nao virou).
+    ok, _ = evaluate_swap(b, v, a_de_cst)
+    if ok:
+        falhas.append("L053: cruzou e ficou de costas foi aceito")
+
+    # 8. Facing virou mas Ken nao cruzou.
+    a_meio = {"px": 150, "p2x": 176, "pose": 0x01, "facing_bit": False,
+              "facing": 0}
+    ok, _ = evaluate_swap(b, v, a_meio)
+    if ok:
+        falhas.append("sideswap: facing virou sem cruzar foi aceito")
+
+    # 9. Cruzou 'no chao' (impossivel pela caixa de corpo) — reprova.
+    v_chao = {"min_py": 112, "pulo": False}
+    ok, _ = evaluate_swap(b, v_chao, a_ok)
+    if ok:
+        falhas.append("sideswap: troca sem pulo foi aceita")
+
+    # 10. Estado inicial invalido: Ken ja a direita.
+    b_inv = {"px": 190, "p2x": 176, "pose": 0x01, "facing_bit": False,
+             "facing": 0}
+    ok, _ = evaluate_swap(b_inv, v, a_ok)
+    if ok:
+        falhas.append("sideswap: estado inicial invertido foi aceito")
+
+    # 11. Caminho bom: pulo, cruzou, facing virou.
+    ok, motivo_swap = evaluate_swap(b, v, a_ok)
+    if not ok:
+        falhas.append("sideswap: caminho bom foi reprovado: " + motivo_swap)
+
+    # 12. Leitura perdida reprova.
+    b_none = {"px": None, "p2x": 176, "pose": 0x81, "facing_bit": True,
+              "facing": 1}
+    ok, _ = evaluate_swap(b_none, v, a_ok)
+    if ok:
+        falhas.append("sideswap: leitura None foi aceita")
+
+    if falhas:
+        print("[SELF-CHECK FAIL]")
+        for f in falhas:
+            print("  - " + f)
+        return 1
+    print("[SELF-CHECK PASS] 12 fixtures: L039 canal morto, L038 direcao "
+          "oposta, dx curto, sentido unico, caminho bom, leitura None, "
+          "L053 de costas, facing sem cruzar, sem pulo, estado invertido, "
+          "sideswap caminho bom, sideswap leitura None")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rom", required=True)
-    ap.add_argument("--project", default=".")
-    ap.add_argument("--out", default="input_memory")
+    ap.add_argument("--rom")
+    ap.add_argument("--self-check", action="store_true")
     a = ap.parse_args()
-    code, _ = run(a.rom, os.path.abspath(a.project), a.out)
-    return code
+    if a.self_check:
+        return self_check()
+    # whitelist literal: o instrumento so opera sobre a ROM do projeto
+    if a.rom not in ("out/rom/MSSF2T.sms", "SMS_projects/MSSF2T/out/rom/MSSF2T.sms"):
+        print("[FAIL_AMBIENTE] --rom fora da whitelist do projeto")
+        return 2
+    return run()[0]
 
 
 if __name__ == "__main__":
