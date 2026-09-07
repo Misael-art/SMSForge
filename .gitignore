@@ -50,3 +50,22 @@ __pycache__/
 
 # temporario
 tmp/
+
+# ---------------------------------------------------------------------------
+# Adicionado 2026-09-07 — lacunas medidas com:
+#   git ls-files --others --exclude-standard | xargs du -b
+# Cobre ~328 MB que estavam a um `git add -A` de entrar na historia.
+# NAO cobre codigo/arte de projeto: art_src_base/, rascunho/ e res/ seguem
+# versionados, que e a convencao ja vigente no MSSF2T.
+# ---------------------------------------------------------------------------
+
+# estado de sessao de ferramentas (efemero, nao e fonte)
+# .mimosa/hook-state sozinho tem 279 MB em 4102 arquivos sess_*.baseline
+.mimosa/
+.zcode/
+
+# dependencias vendorizadas — mesma classe do sdk/devkitSMS/ ja ignorado acima,
+# so que noutro diretorio. devkitSMS traz ate um .git proprio aninhado (7,3 MB
+# de pack objects), que o git nao versionaria direito de todo jeito.
+SMS_Engines/devkitSMS/
+SMS_Engines/smslib/
