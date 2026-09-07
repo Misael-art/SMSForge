@@ -24,6 +24,20 @@ Pré-condição: os 7 eixos TRUE simultâneos (schema status_axes_v1).
    python3 tools/sms_wrapper/screenshot_semantic_gate.py <shot.png> --claim <eixo>
    python3 tools/sms_wrapper/reconcile_claims.py --project .
    ```
+2b. **Vídeo do eixo que ACONTECE** (§45/L056). Screenshot não sustenta transição,
+   animação nem game feel — um PNG não tem eixo do tempo (§36). Grave do
+   framebuffer, com o emulador parado antes (instância zumbi reescreve o `.ini`
+   e apaga o atalho):
+   ```sh
+   pkill -f Emulicious.jar
+   python3 tools/sms_wrapper/capture_video.py \
+       --project . --rom out/rom/<nome>.sms --seconds 8 --out video_release \
+       --press '<roteiro do eixo>'
+   ```
+   O `.mp4` e os frames-chave entram no `seal_fresh_evidence_bundle.py` do passo
+   2 como qualquer outro artefato. O gate imprime `[NOTA] sem trilha de audio`
+   quando o arquivo sai só com vídeo: **isso não fecha o eixo de áudio** — ele
+   continua sendo do `capture_audio.py` (§31).
 3. ROM versionada em `changelog/roms/build_vNNN/rom.sms`.
 4. Teste em ≥2 emuladores (gate + secundário) e, quando possível, hardware real.
 5. NTSC e PAL testados (timing normalizado provado).

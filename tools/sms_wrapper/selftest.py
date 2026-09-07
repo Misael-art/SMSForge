@@ -84,7 +84,24 @@ def main():
               "audit_debug_markers.py",
               "audit_tilemap_bounds.py",
               "measure_frame_advance.py",
-              "measure_runtime_probe.py"):
+              "measure_runtime_probe.py",
+              "audit_causal_persistence.py",
+              "audit_visual_delivery.py",
+              "audit_rom_asset_binding.py",
+              "harness_orchestration.py",
+              "quality_review_router.py",
+              "audit_animation_semantics.py",
+              "audit_learning_capture.py",
+              "audit_psg_channel_binding.py",
+              "audit_hscroll_blank.py",
+              "audit_symbol_size_sync.py",
+              "audit_psg_redundancy.py",
+              "emulator_input.py",
+              "emulator_session.py",
+              "capture_video.py",
+              "make_psg_assets.py",
+              "png_to_sms_tiles.py",
+              "prepare_sms_pixel_art.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")

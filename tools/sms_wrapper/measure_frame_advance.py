@@ -15,10 +15,10 @@ substituido pelo mais fraco. Aqui ele volta, sem a parte fragil:
   SMSlib.lib). Nao e preciso: para medir TAXA basta contar QUANTAS VEZES o
   bloco 8x8 do digito MUDOU. Nao importa que digito e — importa que trocou.
 
-  O HUD do laboratorio imprime tres nibbles de g_frame (main.c:78-80):
-      (24,1) = (g_frame>>7)&0xF   -> troca a cada 128 frames
-      (25,1) = (g_frame>>3)&0xF   -> troca a cada   8 frames
-      (26,1) =  g_frame    &0xF   -> troca a cada   1 frame
+  O HUD da arena_nocturna imprime tres nibbles de g_frame (hud.c:80-86):
+      (29,0) = (g_frame>>7)&0xF   -> troca a cada 128 frames
+      (30,0) = (g_frame>>3)&0xF   -> troca a cada   8 frames
+      (31,0) =  g_frame    &0xF   -> troca a cada   1 frame
 
   fps = (n_trocas - 1) * periodo_do_digito / (t_ultima_troca - t_primeira)
 
@@ -32,7 +32,7 @@ se perdem e o fps sai BAIXO (nunca alto — o erro e conservador). O digito de
 128 frames troca a cada ~2.1s a 60fps. A folga e conferida sobre o intervalo
 MEDIDO, nunca sobre o pedido na linha de comando.
 
-Uso: measure_frame_advance.py --rom X.sms [--cell 24,1] [--period 128]
+Uso: measure_frame_advance.py --rom X.sms [--cell 29,0] [--period 128]
                               [--seconds 12] [-o saida.json] [--self-check]
 Exit: 0 avanco provado | 1 ROM nao avancou / fora da faixa | 2 ambiente
 """
@@ -42,6 +42,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from png_io import read_png_rgb, PngError            # noqa: E402
 import capture_evidence as CE                        # noqa: E402
+from emulator_session import require_no_stale        # noqa: E402
 
 TILE = 8
 MIN_OVERSAMPLE = 3.0     # amostras por troca do digito; abaixo disso nao mede
@@ -366,7 +367,7 @@ def self_check():
     return 0
 
 
-def run(rom, cell, period, seconds, interval, out):
+def run(rom, cell, period, seconds, interval, settle, out):
     jar = CE.resolve_jar()
     if not jar or not os.path.exists(jar):
         print("[FAIL_AMBIENTE] Emulicious.jar nao encontrado", file=sys.stderr)
@@ -374,10 +375,20 @@ def run(rom, cell, period, seconds, interval, out):
     if not shutil.which("xdotool") or not shutil.which("import"):
         print("[FAIL_AMBIENTE] xdotool/import ausentes", file=sys.stderr)
         return 2
+    # L057: a busca de janela e por NOME. Com outra instancia viva, o marcador
+    # medido pode ser o de outra ROM — e o resultado sai como taxa DESTA.
+    if not require_no_stale(why="medicao de avanco de frame"):
+        return 2
     col, row = cell
     tmp = tempfile.mkdtemp(prefix="frame_advance_")
+    # O modo sem remote-debug permite que o Emulicious entre em turbo quando
+    # a janela não está sendo acompanhada. Nesse estado o título mostra
+    # centenas de fps e o marcador muda mais rápido que a captura; isso mede
+    # o host, não o contrato VBlank do SMS. O mesmo lançamento usado pelo gate
+    # de evidência fixa a execução normal em 50/60 Hz.
     proc = subprocess.Popen(
-        ["java", "-jar", jar, os.path.abspath(rom)],
+        ["java", "-jar", jar, "-remotedebug", "4901", "-set", "Update=0",
+         os.path.abspath(rom)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         wid = None
@@ -390,13 +401,23 @@ def run(rom, cell, period, seconds, interval, out):
             print("[FAIL_AMBIENTE] janela do emulador nao apareceu", file=sys.stderr)
             return 2
         time.sleep(3.0)                      # deixa a ROM sair do boot
+        # Medir na geometria nativa do Emulicious. Redimensionar a janela cria
+        # uma subjanela XCanvasPeer esticada e com letterbox; nesse modo não há
+        # uma coordenada fixa do viewport para o HUD. A geometria nativa
+        # observada é 256x217, com a canvas SMS 256x192 em (0,25), e já dá
+        # sobreamostragem suficiente para o dígito de 128 frames.
         # Uma unica ativacao. O laco de amostragem NAO pode chamar
         # windowactivate a cada tiro: era isso que fazia o intervalo real ser
         # ~1.5s (folga de Nyquist de 1.4x) enquanto o parametro dizia 0.3s.
         # `import -window <id>` fotografa a janela pelo ID mesmo sem foco, e
         # por ser alvo-por-ID continua impossivel pegar o desktop (L007/L017).
         CE._run(["xdotool", "windowactivate", str(wid)])
-        time.sleep(1.5)
+        # O boot determinístico inclui title + warmup antes da atração. Sem
+        # assentamento, os primeiros estados do marcador misturam title,
+        # troca de name table e arena; a mediana então acusa um ritmo falso.
+        # O tempo é explícito para que a evidência registre a condição de
+        # observação, e não uma suposição escondida no código.
+        time.sleep(max(0.0, settle))
         samples, descartadas = [], 0
         shot = os.path.join(tmp, "s.png")
         deadline = time.time() + seconds
@@ -425,7 +446,8 @@ def run(rom, cell, period, seconds, interval, out):
             return 2
         v = verdict(samples, period)
         v.update({"rom": os.path.abspath(rom), "celula": [col, row],
-                  "amostras_descartadas": descartadas})
+                  "amostras_descartadas": descartadas,
+                  "assentamento_s": settle})
         print(json.dumps(v, indent=2, ensure_ascii=False))
         if out:
             json.dump(v, open(out, "w"), indent=2, ensure_ascii=False)
@@ -447,13 +469,15 @@ def run(rom, cell, period, seconds, interval, out):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rom")
-    ap.add_argument("--cell", default="24,1",
+    ap.add_argument("--cell", default="29,0",
                     help="tile (coluna,linha) do digito do contador")
     ap.add_argument("--period", type=int, default=128,
                     help="frames entre duas trocas daquele digito")
     ap.add_argument("--seconds", type=float, default=20.0)
     ap.add_argument("--interval", type=float, default=0.0,
                 help="pausa extra entre tiros; 0 = tao rapido quanto o import permitir")
+    ap.add_argument("--settle", type=float, default=10.0,
+                    help="segundos de title/warmup antes da amostragem (default 10)")
     ap.add_argument("-o", "--out")
     ap.add_argument("--self-check", action="store_true")
     a = ap.parse_args()
@@ -463,7 +487,7 @@ def main():
         print("[ERRO] --rom obrigatorio", file=sys.stderr)
         return 2
     col, row = (int(v) for v in a.cell.split(","))
-    return run(a.rom, (col, row), a.period, a.seconds, a.interval, a.out)
+    return run(a.rom, (col, row), a.period, a.seconds, a.interval, a.settle, a.out)
 
 
 if __name__ == "__main__":

@@ -31,15 +31,25 @@ bloqueios). Handoff nunca substitui memory bank nem evidência.
 - Grid 8×8; pattern table 32 bytes/tile; **máx 256 tiles BG**.
 - Name table = **1 byte por tile** (índice 0–255). Não existe flip nem paleta
   por tile no BG — variação vem de tiles distintos ou metatiles.
-- Scroll global X/Y + trava opcional da 1ª coluna. Split de scroll exige
-  line interrupt e é técnica medida, não gratuita.
+- Scroll global X/Y. A trava da 1ª coluna **deixa de ser opcional** quando o
+  H-scroll está ao vivo: `SMS_setBGScrollX` ≠ 0 exige
+  `VDPFEATURE_LEFTCOLBLANK`. Sem isso os 8 px da esquerda mostram lixo do
+  tile que ainda não foi buscado (L043). Gate: `audit_hscroll_blank.py`.
+- Split de scroll exige line interrupt e é técnica medida, não gratuita.
+  O contador de linha dispara na linha N **depois** de recarregar no VBlank:
+  armar 47 querendo a linha 64 desloca todas as bandas 16 linhas. Banda
+  vazia não prova a quebra — ponha forma reconhecível nela (L046).
 
 ## 7. Lei de sprites
 - SAT: máx **64 sprites**; terminador Y=0xD0 corta o processamento.
 - Máx **8 sprites por scanline**. Excesso é descartado; no VDP SMS1 corrompe a
   linha. O simulador (`audit_sprite_line_sim.py`) aprova antes do runtime.
-- Tamanho global 8×8 OU 16×16 (+ zoom ×2 global). Metasprites compõem entidades.
-- X físico armazenado = X+32; X<32 esconde à esquerda.
+- Tamanho global **8×8 ou 8×16**. Zoom ×2 dobra o PIXEL (16×16 / 16×32 na
+  tela), não a arte. Nenhum modo é mais largo que 8 px; arte 16×16 exige
+  metasprite (§25, L006). "8×8 ou 16×16" como modo VDP é número do Mega Drive.
+- X é armazenado **sem offset**: `SMS_addSprite(0, …)` desenha na borda
+  esquerda. `VDPFEATURE_SHIFTSPRITES` desloca **8 px**, não 32.
+  "X+32" / "X<32 esconde" é número do Mega Drive, refutado (L003, S05).
 - Comportamento dependente de revisão (early clock, flips) não vira lei sem
   evidência de emulador/console (§23).
 
@@ -49,16 +59,30 @@ bloqueios). Handoff nunca substitui memory bank nem evidência.
   fade = recarga de paleta sincronizada ao VBlank.
 - Contraste medido em degraus de luma derivada (`audit_luma_floor.py`).
   Adjetivo visual sem piso numérico não entra em spec.
+- Traduzir foto/conceito: downscale NEAREST + Floyd-Steinberg **na paleta
+  mestra**. Paleta NES/SNES/PICO-8/Game Boy é régua, não CRAM (L055, §32).
+  MP4/GIF de partículas não é evidência. Ferramenta:
+  `prepare_sms_pixel_art.py`. Skill: `sms-pixel-translate.md`.
 
 ## 9. Orçamento VRAM/VBlank (não existe DMA)
 - Transferência em massa SÓ dentro do VBlank (janela ≈4.5ms NTSC).
 - Orçamento worst-frame POR CENA é contrato em `13-spec-cenas.md`, medido
   ("estimado" é proibido no schema). Folga não medida é timidez (§18).
+- Transição de tela que reescreve name table em massa: **desligar o display,
+  redesenhar o mapa inteiro, religar**. Escritas no display ativo perdem-se
+  e deixam resto na tela; limpar linha a linha não fecha a classe (L047).
 
 ## 10. Armadilhas Z80/SDCC (assumir como suspeita até provado)
 - `int` = 16-bit signed; multiplicação/divisão caras; float proibido em runtime quente.
 - RAM 8KB total (`--data-loc 0xC000`): sem malloc, pools estáticos.
 - ISR/NMI curtos; pause = NMI.
+- Locais no SDCC-Z80 recarregam via IX; ponteiros `static` no hot path.
+  Espelhar tile em runtime (bitrev) troca ROM por CPU — medir o frame.
+  Curva paga: STREAM_BYTES 32→59.5 fps, 64→58.3, 96→57.5, 128→55.5,
+  256→40 (L045). Folga de ROM comprada com flip não é grátis.
+- Física de queda/integração vale por **condição** (altura, flag airborne),
+  não pelo rótulo do estado. `y` só dentro de `ST_JUMP` deixa o lutador
+  pendurado quando um golpe o tira desse estado (L050).
 
 ## 11. Banking e header
 - ≤48KB linear sem mapper. Mapper Sega: páginas 16KB nos slots 0x4000/0x8000;
@@ -68,6 +92,13 @@ bloqueios). Handoff nunca substitui memory bank nem evidência.
 ## 12. Áudio
 - PSG SN76489: 3 tone + noise. PSGlib é o driver padrão. Arbitração música×SFX
   declarada no TDD. YM2413 é opcional — o jogo precisa funcionar sem FM.
+- SFX toca no canal **autorado** no manifesto
+  (`doc/audio_provenance_manifest.json`). `PSGSFXPlay(sfx_shot, SFX_CHANNEL3)`
+  quando o asset nasceu para `SFX_CHANNEL2` derruba o mix; cooldown não
+  recupera (L041). Gate: `audit_psg_channel_binding.py`.
+- PSGlib volta ao início no `PSGEnd`. N cópias byte a byte do mesmo frame
+  não tocam nada extra e comem ROM. Antes de sacrificar feature por espaço,
+  meça a redundância do stream (L051). Gate: `audit_psg_redundancy.py`.
 
 ## 13. Timing NTSC/PAL
 60 vs 50 Hz: velocidade normalizada via frame counter. Nada de delay loops.
@@ -114,7 +145,11 @@ Todo gate precisa reprovar um caso inválido conhecido E aprovar um válido
 
 ## 21. Learning capture obrigatório
 Erro → JSON canônico em `doc/curation/` + seção numerada AQUI + ferramenta que mede.
-Dedup por chave canônica no ledger.
+Dedup por chave canônica no ledger. Ledger sem JSON, JSON `fechada_com_ferramenta`
+sem `.py` existente, ID fantasma e persona ensinando doutrina supersedida
+reprovam. IDs L020–L034 nunca foram emitidos neste repo; L012 é furo
+declarado (`doc/curation/id_registry.json`). Gate: `audit_learning_capture.py`
+(§43).
 
 ## 22. Capacidade declarada com prova antes de promessa
 Só declare capacidade que já pagou com build/evidência. "Devo conseguir" não
@@ -199,8 +234,27 @@ telas de ruído. Isso independe da densidade da cena.
 "Fração da tela que mudou" não distingue o jogador obedecendo de um inimigo
 caindo, de uma morte, nem (antes do §30) do desktop do usuário. Prova de
 gameplay = **o sprite controlado se deslocou na direção comandada**, medido em
-pixels. Sinal fraco (luma global) só complementa; nunca fecha o eixo sozinho.
-Gate: `capture_evidence.largest_sprite_block` + `sprite_dx/dy` por passo.
+pixels nativos (canvas 256×192), não em pixels da janela. Sinal fraco (luma
+global) só complementa; nunca fecha o eixo sozinho.
+O gate mede o que esta seção já exigia (L038–L040):
+1. **Direção:** `sign(dx)` / `sign(dy)` coerente com a tecla. `Right` com
+   blob andando para a esquerda é FAIL — abs(dx)≥8 sozinho mentia.
+2. **Identidade:** a área do blob rastreado não salta para outro objeto
+   (dois lutadores do mesmo tamanho; barril saturado sequestrando).
+3. **Eco de input:** se `probe_keys` foi observado e permanece 0x00, o
+   canal de teclado não chegou na ROM (L039). Fail-closed. Ausência do
+   campo = não observado, não é prova de agência.
+4. **Escala:** limiares de forma (6–48 × 6–80) aplicam-se em pixels
+   nativos. Scale=2.25 no `.ini` do Emulicious não pode inverter o
+   veredito (L040). A escala da janela entra no bundle.
+5. **Canal deste host:** em KDE/Wayland, XTEST/xdotool **não** atravessa
+   o KWin. O canal é kdotool (foco) + ydotool (uinput). `emulator_input.py`
+   escolhe o backend. Canário: reset Ctrl+BackSpace zera `probe_frame`.
+   Prova de gameplay por RAM (`input_memory.json` com SHA da ROM) é lastro
+   do eixo — pixels aqui são ambíguos (L038). `reconcile_claims` aceita os
+   dois lastros.
+Gate: `capture_evidence.interaction_verdict` + `emulator_input.py` +
+`input_memory.json` (quando a prova for por memória).
 Fato pago: no laboratorio_01 o d-pad mexe ~8px/frame e a mudança global máxima
 teórica da cena é ~1,2% — abaixo do limiar de 2% que existia. O eixo gameplay
 ficou reprovado por meses por limiar mal calibrado, não por bug de jogo.
@@ -226,6 +280,11 @@ WAV 100% silencioso, indistinguível de "o jogo é mudo". Isso quase levou a
 "consertar" um bug inexistente. O gate repete com warmup crescente e, se
 insistir em silêncio, manda confirmar contra uma ROM histórica com som antes de
 tocar no código de áudio.
+**Corrida de ambiente (L048):** `peak=0` depois do warmup não autoriza editar
+a ROM. Matar Java zumbis do Emulicious e repetir; na mesma rodada, gravar um
+controle histórico (binário congelado que já teve som). Se o congelado também
+sai mudo, o canal é o host; se o congelado tem som e o atual não, aí sim a
+ROM. Recorrência da L019: a mensagem sozinha não impediu a segunda ocorrência.
 
 ## 32. Grandeza do SMS se re-deriva, não se traduz
 Portar metodologia de outro console é portar **método**, nunca número. Cada
@@ -249,6 +308,10 @@ Corolário (L035): "ler na tela" era a resposta certa quando o único canal
 disponível era o depurador mal usado — não vire doutrina permanente. Quando
 a medição é de estado/taxa, o canal certo é memória viva; construir o canal
 vale mais que compensá-lo com heurística de pixels (§37).
+Antes de teorizar estouro de VBlank, corrida de latch ou VDP "quebrado",
+inspecione o **conteúdo que já está no asset/VRAM**. Alfabeto embutido no
+tileset + fonte nova = "KKEN" na tela, não bug de hardware (L044). Classe
+causal: `asset_content_mismatch`.
 Gate: `audit_debug_markers.py`, no pré-gate do build.
 
 ## 34. Captura alveja a JANELA; foco se verifica, não se supõe
@@ -260,10 +323,13 @@ valer só para o fallback.
 `xdotool windowactivate` **não garante foco**: verifique com
 `getwindowfocus` antes de CADA tecla e reative até concordar; se não conseguir,
 falhe alto — tecla enviada para outra janela vira "input que não mudou nada".
+**Neste host (KDE/Wayland) xdotool fica cego** (`getwindowfocus` vazio) e o
+XTEST não entrega evento ao cliente Xwayland (L039). Canal: kdotool +
+ydotool via `emulator_input.py`. O fallback xdotool só vale em sessão X11.
 **Área de jogo se deriva do hardware, não se chuta:** a canvas é 256×192,
 ancorada embaixo da moldura e centrada na horizontal. A fração fixa de 28% que
 existia antes cortava 60px de jogo na captura sem moldura.
-Gate: `capture_evidence.game_area` + `_shoot_window` + `press_keys`.
+Gate: `capture_evidence.game_area` + `_shoot_window` + `emulator_input.py`.
 
 ## 35. Coordenada de tile não é checada por ninguém — XYtoADDR é aritmética pura
 `XYtoADDR(x,y) = SMS_PNTAddress|((((y)<<5)+(x))<<1)`. Não satura, não valida,
@@ -328,6 +394,144 @@ Emulicious 2026-03-27:
 Leitura de memória só com a emulação pausada; o relógio da janela de fps é
 conservador (marca antes do continue e antes do pause) para nunca inflar o
 fps acima do real.
+Estado que dura ~20 frames não se prova por screenshot: a mesma chamada
+cai na luta numa execução e no título em outra (L054). Exponha a pose/
+facing no probe (custo zero de RAM) e leia a variável. Fotografar a
+"pose certa" é sorteio; ler `probe_pose` é medição.
 Gate: `measure_runtime_probe.py` — magic "SMRT" + schema antes de qualquer
 métrica (o §26 visto pelo consumidor); fps por delta de `probe_frame`
 sobre o tempo de EXECUÇÃO.
+
+## 38. Persistência causal: relatório não é entrega
+Diagnóstico, correção de ferramenta, build isolado, captura ou um único
+milestone são transições, não o fim da execução. Depois de registrar o
+resultado, escolha a próxima lacuna causal e continue.
+Duas tentativas equivalentes sem evidência nova encerram a **rota**, não o
+projeto. Documento/build com `blockers_removed=0` não é progresso.
+Mismatch de representação (dimensão, indexação, grid) não é gate humano:
+mude a representação ou o produtor. Escala `locked` reautoriza no grid;
+probe maior é evidência, nunca substituto. GUI por ponteiro é
+`interaction_channel_mismatch`. Conteúdo já presente no asset/VRAM que o
+agente teorizou como bug de VDP é `asset_content_mismatch` (L044).
+Afinar o roteiro da atração/demo para o próprio teste passar é
+`evidence_script_tuned_to_pass` (L053): reporte o caminho como não
+observado; não fabrique a evidência.
+Um blocker de arte não paralisa gameplay/áudio/QA; um blocker de captura não
+paralisa produção visual. Gate humano registra a pergunta e continua só os
+ramos independentes — aprovação humana não se simula.
+Pare somente por ação destrutiva/externa sem autorização, licença ausente,
+contradição de autoridades, decisão humana irredutível sem ramo independente,
+impossibilidade de hardware medida, ou rotas seguras esgotadas.
+Gate: `audit_causal_persistence.py`. Workflow: `causal-persistence-loop.md`.
+
+## 39. Época visual: boot não é qualidade
+Captura que prova boot, foco de janela e rota Linux classifica no máximo
+`runtime_probe_passed_visual_epoch_failed`. Não prova cena final, escala,
+gameplay completo nem AAA. PNG indexado, ≤15 úteis e 6-bit são **sintaxe**;
+qualidade é época `delivery` com personagens distintos, palco autoral sem
+branding de engine, HUD sem overlap e escala contratada no GDD.
+Blockers permanentes: `wrong_visual_epoch`,
+`placeholder_or_probe_in_delivery_scene`, `duplicate_character_asset`,
+`entity_scale_below_contract`, `stage_contains_branding_or_reference_screen`,
+`hud_overlap_or_clipping`, `rom_asset_binding_unproven`.
+Canvas da composição é 256×192 (224 só com `VDPFEATURE_224LINES`). Copiar
+320×224 do Mega Drive é violação do §32, não "benchmark".
+Não promover `probe`, `reference_only`, `negative_case_evidence`,
+`technical_candidate`, `visual_lab_control` nem tela HAMOOPIG/splash como palco.
+Não reutilizar o mesmo PNG para dois personagens. Não reduzir personagem só
+para economizar tiles.
+BG e HUD não podem ser o objeto mais saturado com forma de sprite — isso
+sequestra o detector de gameplay e some com o jogador (L042). Lutador/
+jogador é o pico de leitura. Com ROM cheia, composição (paleta, pose, fonte
+já carregada) precede asset novo (L049).
+Gate: `audit_visual_delivery.py`. Skill: `sms-visual-excellence.md`.
+
+## 40. Vínculo asset → ROM é prova, não convenção
+Source PNG → caminho em `res/` → símbolo gerado → SHA-256 da ROM. Boot de
+uma ROM não prova que a arte autoral está naquele binário. Mapa ausente,
+SHA divergente ou símbolo duplicado = `rom_asset_binding_unproven`.
+Entrega (`--require` / `--delivery`) falha fechado sem o mapa.
+Gate: `audit_rom_asset_binding.py`. Schema: `rom_asset_binding_v1`.
+
+## 41. Review independente e orquestração limitada
+Checkpoints `foundation` / `pre_growth` / `vertical_slice` / `release_candidate`
+exigem review read-only, no máximo três domínios, hash-bound, sem autoaprovação
+e sem declarar `ready_for_aaa`. Parecer stale (SHA divergente) cai.
+Trabalho realmente independente pode ir em paralelo em até **três** ramos
+(`visual`, `runtime`, `audio_qa`). Claim, promoção, git e memória ficam no
+coordenador. Worker que promove ou eleva teto é contrato violado.
+Gates: `quality_review_router.py`, `harness_orchestration.py`.
+Workflows: `independent-quality-review.md`, `production-loop.md`.
+
+## 42. Animação semântica não é rename de frame
+Strip reordenado, ação clonada com outro nome, ciclo de um único frame
+repetido ou pivot oscilando não são animação. Roster exigido pelo GDD
+ausente reprova. Sintaxe de PNG e SAT não medem isso.
+Gate: `audit_animation_semantics.py`. Skill: `sms-sprite-animation.md`.
+
+## 43. Captura de lição é medida, não caderno
+§21 exigia JSON + seção + ferramenta. O agente passou a gravar L038–L049
+só no ledger: prosa com `dedup_key`. Recorrência da própria regra de
+aprendizado. Relatório de lição sem JSON canônico não é captura.
+IDs L020–L034 nunca foram emitidos neste repo; L012 é furo declarado.
+Citar L023/L025 como lições SMSForge é número da fábrica-mãe, não ID
+deste acervo (aliases reais: L007, L013/§36).
+Persona/skill que ensina doutrina supersedida — X+32, TALL=16×16, DAP
+"retorna $0", monitor do sink default como captura, openMSX como gate
+SMS — é regressão, mesmo que a matriz/lei já tenham sido corrigidas.
+Gate: `audit_learning_capture.py`. Registro: `doc/curation/id_registry.json`.
+
+## 44. Tamanho de símbolo tem uma fonte
+`#define FOO_SIZE` e `foo[N]` (e o mesmo define em dois headers) têm de
+coincidir. Escrever o tamanho à mão num header-índice enquanto a folha
+encolhe faz o consumidor ler além do array — sem sintoma visível, porque
+o metasprite não referencia os tiles extras (L052). Header gerado a partir
+da folha; `--check` no gerador. Gate: `audit_symbol_size_sync.py`.
+
+## 45. Estado transitório se grava; screenshot dele é sorteio
+O §36 (Nyquist de screenshot) e a L054 (pose no probe) dizem o mesmo defeito por
+dois ângulos: um PNG não tem eixo do tempo, então transição, animação e game
+feel ficam sem lastro. O canal que faltava não era outra heurística de pixel —
+era **gravar**. O Emulicious grava do FRAMEBUFFER (256×192 exatos, sem moldura,
+sem menu, sem desktop), o que também torna impossível vazar a tela do usuário
+(§30/L017) em vez de detectá-lo depois.
+Atalho instalado em `Emulicious.ini` com prefixo `Keys` (F7 inicia, F8 para);
+encode por FFMPEG externo (`FFMPEGPath`). Gate: `capture_video.py`.
+**Não confunda com a L055:** o que ela recusa é MP4/GIF de *mood* gerado por
+ferramenta de arte apresentado como prova de ROM. Vídeo do framebuffer do
+emulador rodando a ROM selada é o oposto disso — tem cadeia de custódia.
+Três falhas MUDAS que o gate agora fecha (cada uma custou uma execução):
+1. Instância zumbi do emulador rouba o foco **e reescreve o `.ini` ao morrer**,
+   apagando o atalho recém-instalado. Abortar se já houver Emulicious vivo.
+2. F10 não para a gravação: no Swing/AWT é o atalho da barra de menus. A
+   gravação seguia aberta e era finalizada **ao morrer o processo** — saía um
+   `.mp4` válido que parecia prova de que o atalho pegou.
+3. Mover o `.mp4` quando o tamanho para de crescer o corrompe: o FFMPEG ainda
+   reabre o arquivo para escrever o atom `moov`. Critério = ffprobe consegue ler.
+A trilha de áudio é anexada pelo gate: o `temp.wav` do emulador declara no
+chunk `data` o DOBRO dos bytes que existem, o FFMPEG batia em EOF na metade e
+descartava o som. Formato lido do `fmt `, nunca constante; payload mudo não é
+anexado (L048); e o remux **não pode encurtar o vídeo** — `-shortest` cortou
+455 → 452 frames e o guard recusou.
+Limite honesto: o vídeo prova que a ROM renderizou, que a imagem mudou e que
+havia som. Não prova mecânica correta nem que a música é a certa (§28/§31).
+
+## 46. Busca de janela por NOME exige campo livre — senão o gate mede outra ROM
+`xdotool/kdotool search --name Emulicious` devolve a janela de **qualquer**
+instância, e todo ponto de captura pega a primeira. Com um zumbi vivo o gate não
+falha: ele mede o binário errado e emite **veredito confiante sobre o seu**.
+**Demonstrado 2026-09-07:** com um Emulicious de MSSF2T rodando,
+`audit_deterministic_boot --rom laboratorio_01.sms` respondeu
+`[FAIL] boot NAO deterministico` — e o PNG que ele julgou mostra Ken × Guile,
+"ROUND 1". Determinismo é o eixo mais exposto: zumbi PARADO dá hashes idênticos
+(falso PASS), zumbi ANIMANDO dá divergentes (falso FAIL).
+O perigo já tinha lei (§34/L017) e mesmo assim tinha **três tratamentos**: dois
+gates abortavam, um matava, e dois não faziam nada. Lei sem enforcement uniforme
+é lei só onde alguém lembrou.
+Política única em `emulator_session.py`: **ABORT** por padrão (matar processo do
+usuário sem pedir é pior que falhar — ele pode estar depurando); **KILL** só
+onde a lição exige (L048, dentro da retentativa de áudio). A mensagem nomeia o
+defeito, não só o estado.
+**Detecção é por JVM, não por linha de comando:** `pgrep -f` casa também o SHELL
+que invocou a ferramenta — medido, 3 PIDs onde havia 1 emulador. Confirme
+`argv[0]` ser `java`, senão o gate aborta por causa de quem o chamou.

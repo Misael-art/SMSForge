@@ -54,6 +54,37 @@ def _peak(pcm_bytes):
     a.frombytes(pcm_bytes[: len(pcm_bytes) // 2 * 2])
     return max((abs(x) for x in a), default=0)
 
+
+def classify_silence(current_peak, historical_peak=None):
+    """L048: peak=0 nao autoriza editar a ROM sem controle historico."""
+    if current_peak > 0:
+        return "signal"
+    if historical_peak is None:
+        return "silence_unconfirmed"
+    if historical_peak > 0:
+        return "current_rom_mute"
+    return "environment_race"
+
+
+def _emulicious_pids():
+    r = _run(["pgrep", "-f", "Emulicious[.]jar"])
+    if r.returncode != 0:
+        return []
+    return [p for p in r.stdout.split() if p.isdigit()]
+
+
+def _kill_emulicious_zombies(except_pid=None):
+    """L048: Java zumbi do emulador silencia a captura da ROM certa."""
+    killed = []
+    for pid in _emulicious_pids():
+        if except_pid is not None and str(pid) == str(except_pid):
+            continue
+        _run(["kill", "-TERM", pid])
+        killed.append(pid)
+    if killed:
+        time.sleep(0.8)
+    return killed
+
 def write_wav(path, pcm_bytes, rate=RATE):
     with wave.open(path, "wb") as w:
         w.setnchannels(1)
@@ -61,7 +92,7 @@ def write_wav(path, pcm_bytes, rate=RATE):
         w.setframerate(rate)
         w.writeframes(pcm_bytes)
 
-def capture(project, rom, seconds=6, out_name="audio"):
+def capture(project, rom, seconds=6, out_name="audio", reference_rom=None):
     import capture_evidence as ce
     for t in ("pactl", "parec", "java"):
         if not shutil.which(t):
@@ -71,10 +102,11 @@ def capture(project, rom, seconds=6, out_name="audio"):
     if not jar:
         print("[FAIL_AMBIENTE] Emulicious.jar nao encontrado")
         return 2
-    stale = _run(["pgrep", "-f", "Emulicious[.]jar"])
-    if stale.returncode == 0 and stale.stdout.strip():
-        print("[FAIL_AMBIENTE] ja existe Emulicious rodando; encerre antes "
-              "(pkill -f 'Emulicious[.]jar')")
+    # L057: entrada e ABORT (nao mate processo do usuario sem pedir). A politica
+    # KILL desta ferramenta vale so DENTRO da retentativa, quando ja sabemos que
+    # o zumbi esta silenciando a captura da ROM certa (L048) — ver linha ~165.
+    from emulator_session import require_no_stale
+    if not require_no_stale(why="captura de audio isolada"):
         return 2
 
     out_dir = os.path.join(project, "out", "evidence")
@@ -89,7 +121,8 @@ def capture(project, rom, seconds=6, out_name="audio"):
     mod_id = mod.stdout.strip()
     proc = None
     try:
-        proc = subprocess.Popen(["java", "-jar", jar, os.path.abspath(rom)],
+        proc = subprocess.Popen(["java", "-jar", jar, "-set", "Update=0",
+                                 os.path.abspath(rom)],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
                                 start_new_session=True)
         moved = []
@@ -128,11 +161,45 @@ def capture(project, rom, seconds=6, out_name="audio"):
             print(f"[FAIL] captura vazia ({len(pcm)}B)")
             return 1
         if _peak(pcm) == 0:
-            write_wav(wav_path, pcm)
-            print(f"[FAIL] 3 capturas silenciosas: {wav_path}. Pode ser ROM muda "
-                  "OU captura adiantada — confirme com uma ROM historica que "
-                  "tenha som antes de mexer no codigo de audio.")
-            return 1
+            # L048: silencio apos warmup e corrida de ambiente ate prova em
+            # contrario. Mata zumbis (exceto este processo) e tenta de novo.
+            extra = _kill_emulicious_zombies(except_pid=proc.pid if proc else None)
+            if extra:
+                print(f"[retry] {len(extra)} java zumbi(s) encerrado(s); "
+                      "recapturando (L048)")
+                time.sleep(1.5)
+                try:
+                    rec = subprocess.run(
+                        ["parec", "-d", f"{SINK}.monitor", "--format=s16le",
+                         f"--rate={RATE}", "--channels=1"],
+                        capture_output=True, timeout=seconds + 5)
+                    pcm = rec.stdout or b""
+                except subprocess.TimeoutExpired as e:
+                    pcm = e.stdout or b""
+            if _peak(pcm) == 0:
+                hist_peak = None
+                ref = reference_rom
+                if not ref:
+                    auto = os.path.join(project, "out", "evidence", "audio_ref.sms")
+                    if os.path.isfile(auto):
+                        ref = auto
+                if ref and os.path.isfile(ref) and os.path.abspath(ref) != os.path.abspath(rom):
+                    print(f"[retry] controle historico na mesma rodada: {ref}")
+                    # nao relanca o emulador aqui (harness vivo); so classifica
+                    # se o caller passou um wav de referencia ja medido.
+                    ref_wav = os.path.join(os.path.dirname(wav_path), "audio_ref.wav")
+                    if os.path.isfile(ref_wav):
+                        try:
+                            import audit_audio
+                            hist_peak = audit_audio.read_wav_stats(ref_wav)[1]
+                        except (OSError, ValueError, ImportError):
+                            hist_peak = None
+                kind = classify_silence(_peak(pcm), hist_peak)
+                write_wav(wav_path, pcm)
+                print(f"[FAIL] 3 capturas silenciosas: {wav_path} ({kind}). "
+                      "Nao edite a ROM. Mate zumbis e grave um controle "
+                      "historico na mesma rodada (L048/L019).")
+                return 1
         write_wav(wav_path, pcm)
         print(f"[OK] audio do EMULADOR gravado (isolado): {wav_path} "
               f"({len(pcm)//2} amostras, {len(pcm)/2/RATE:.1f}s)")
@@ -165,10 +232,15 @@ def _self_check():
         assert peak2 == 0 and active2 == 0, "silencio deveria dar peak/active 0"
         # deteccao de fluxo do emulador nao inventa resultado sem emulador
         assert isinstance(_emulator_sink_inputs(), list)
+        # L048: classificar silencio exige controle historico
+        assert classify_silence(500, None) == "signal"
+        assert classify_silence(0, None) == "silence_unconfirmed"
+        assert classify_silence(0, 900) == "current_rom_mute"
+        assert classify_silence(0, 0) == "environment_race"
     finally:
         shutil.rmtree(d, ignore_errors=True)
     print("[SELF-CHECK OK] capture_audio (WAV gerado e legivel pelo audit_audio; "
-          "tom ativo e silencio distinguidos)")
+          "tom ativo, silencio e corrida L048 distinguidos)")
     return 0
 
 def main():
@@ -177,6 +249,8 @@ def main():
     ap.add_argument("--rom")
     ap.add_argument("--seconds", type=int, default=6)
     ap.add_argument("--out", default="audio")
+    ap.add_argument("--reference-rom",
+                    help="ROM historica com som conhecido (controle L048)")
     ap.add_argument("--self-check", action="store_true")
     a = ap.parse_args()
     if a.self_check:
@@ -184,7 +258,7 @@ def main():
     if not (a.project and a.rom):
         print("[FAIL] --project e --rom obrigatorios", file=sys.stderr)
         return 3
-    return capture(a.project, a.rom, a.seconds, a.out)
+    return capture(a.project, a.rom, a.seconds, a.out, a.reference_rom)
 
 if __name__ == "__main__":
     sys.exit(main())
