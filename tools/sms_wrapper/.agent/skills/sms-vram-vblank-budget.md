@@ -13,3 +13,6 @@ Toda transferência em massa passa pela CPU dentro do VBlank (~4.5ms NTSC).
 - Streaming de tiles entre frames com cota fixa.
 - Compressão ZX7/aPLib: descompressão custa CPU do frame — medir junto.
 - `SMS_VRAMmemcpy*` / `SMS_loadTileMapAreaatAddr` — assinaturas SEMPRE no header.
+- Transição de tela: **display off**, reescrever o mapa inteiro, display on.
+  Escritas fora do VBlank deixam resto na tela; limpar linha a linha não
+  fecha a classe (L047).

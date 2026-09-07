@@ -197,7 +197,8 @@ def main():
                             # L001: sem rodar em lugar nenhum, o gate de grandezas
                             # nao pegou uma regressao introduzida no proprio
                             # AGENTS.md horas depois de ser escrito.
-                            ("audit_hardware_constants.py", "grandezas de hardware")):
+                            ("audit_hardware_constants.py", "grandezas de hardware"),
+                            ("audit_learning_capture.py", "captura de licao")):
             r = subprocess.run([sys.executable, os.path.join(HERE, tool)],
                                capture_output=True, text=True)
             if r.returncode != 0:

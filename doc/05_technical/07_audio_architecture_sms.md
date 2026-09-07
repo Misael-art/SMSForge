@@ -29,7 +29,11 @@
   Medir junto (runtime_metrics.audio) — nunca assumir que áudio é grátis.
 
 ## 4. Evidência audível (obrigatória antes do claim)
-- Gravar o monitor do Pulse (sink default, ver L013: `.asoundrc` ALSA→Pulse).
+- Gravar o monitor do **sink nulo dedicado** (`capture_audio.py`, §31).
+  `.asoundrc` ALSA→Pulse continua sendo a pré-condição para o Java aparecer
+  no Pulse. O monitor do sink default captura a máquina inteira — proibido
+  (L017). Peak=0: zumbis + controle histórico na mesma rodada (L048).
+- SFX no canal autorado do manifesto (L041).
 - `audio_*.wav` → benchmark: `audio_active_pct` e `peak`. Se <90% ativo → revisar mix.
 
 ## 5. Proibições

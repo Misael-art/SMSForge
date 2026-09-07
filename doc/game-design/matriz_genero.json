@@ -30,6 +30,11 @@
       "label": "estrategia",
       "eixos": ["towers", "waves", "fog", "economia"],
       "blockers_aaa": ["sem balance de economia", "sem pathfinding"]
+    },
+    "fighting": {
+      "label": "luta 1v1",
+      "eixos": ["hitboxes", "startup_active_recovery", "hitstop", "rounds", "specials", "guard"],
+      "blockers_aaa": ["sem evidência de round completo (start/luta/KO)", "sem 1P/2P ou IA", "escala abaixo do contrato", "mesmo PNG nos dois lutadores"]
     }
   }
 }

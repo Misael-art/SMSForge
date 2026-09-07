@@ -7,6 +7,8 @@ adaptado e a regra de proveniência.
 - Aderência à paleta mestra fixa (códigos 6-bit; ≤15 cores úteis por subpaleta).
 - Silhueta legível a 256×192 com contraste medido (audit_luma_floor).
 - Grid 8×8 rigoroso (audit_validate_resources).
+- Qualidade visual: skill `sms-visual-excellence.md` + `audit_visual_delivery.py`.
+  PNG 4bpp válido não fecha entrega.
 
 ## Proibições
 - Pixel nascido de código como personagem/inimigo/boss/cenário final (proveniência).

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "visual_delivery_contract_v1",
+  "type": "object",
+  "required": ["schema", "visual_epoch", "canvas"],
+  "properties": {
+    "schema": {"type": "string", "enum": ["visual_delivery_contract_v1"]},
+    "visual_epoch": {
+      "type": "string",
+      "enum": ["probe", "technical_d1", "lab", "visual_lab_control",
+               "technical_candidate", "reference_only", "negative_case_evidence",
+               "delivery"]
+    },
+    "classification": {"type": "string"},
+    "delivery_intent": {"type": "boolean"},
+    "claim": {"type": "string"},
+    "canvas": {
+      "type": "object",
+      "required": ["w", "h"],
+      "properties": {
+        "w": {"type": "integer"},
+        "h": {"type": "integer"},
+        "console": {"type": "string", "enum": ["sms", "gg", "sg1000"]}
+      }
+    },
+    "characters": {"type": "array"},
+    "stage": {"type": "object"},
+    "hud": {"type": "object"},
+    "binding_map": {"type": "string"},
+    "rom_path": {"type": "string"}
+  }
+}

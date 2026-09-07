@@ -14,43 +14,71 @@ Exit: 0 deterministico | 1 divergente | 2 ambiente ausente | 3 uso
 """
 import sys, os, json, argparse, subprocess, time, hashlib
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from emulator_session import require_no_stale
+
 def capture_playfield_hash(rom, jar, runs=2):
     """Langa a ROM `runs` vezes, captura o playfield via Emulicious e devolve
-    lista de hashes. Retorna None se emulador/import indisponivel."""
+    lista de hashes. Retorna None se emulador/import indisponivel.
+
+    L057: sem a guarda abaixo este gate ja emitiu veredito sobre a ROM ERRADA —
+    com um Emulicious de MSSF2T vivo, ele reprovou o laboratorio_01 fotografando
+    Ken x Guile. Determinismo e o eixo mais exposto: a janela de um zumbi PARADO
+    da hashes identicos (falso PASS) e a de um zumbi ANIMANDO da divergentes
+    (falso FAIL). Nos dois casos o veredito e sobre outro binario."""
+    if not require_no_stale(why="gate de boot deterministico"):
+        return None
     hashes = []
     for _ in range(runs):
-        proc = subprocess.Popen(["java", "-jar", jar, os.path.abspath(rom)],
+        proc = subprocess.Popen(["java", "-jar", jar, "-set", "Update=0",
+                                 os.path.abspath(rom)],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 start_new_session=True)
-        canvas = None
+        main = None
         t0 = time.time()
         while time.time() - t0 < 25:
             time.sleep(0.4)
-            r = subprocess.run(["xdotool", "search", "--name", "XCanvasPeer"],
+            r = subprocess.run(["xdotool", "search", "--name", "Emulicious"],
                                capture_output=True, text=True)
             for i in (r.stdout.split() if r else []):
+                n = subprocess.run(["xdotool", "getwindowname", i],
+                                   capture_output=True, text=True)
+                name = n.stdout.strip() if n else ""
+                if name != "Emulicious" and not name.startswith("Emulicious - "):
+                    continue
                 g = subprocess.run(["xdotool", "getwindowgeometry", "--shell", i],
                                    capture_output=True, text=True)
                 kv = dict(l.split("=") for l in g.stdout.strip().splitlines() if "=" in l)
-                if kv.get("WIDTH") == "256":
-                    canvas = i
+                if kv.get("WIDTH") in ("256", "300"):
+                    main = i
                     break
-            if canvas:
+            if main:
                 break
-        if not canvas:
+        if not main:
             if proc.poll() is None:
                 proc.terminate()
             return None
-        # espera curta p/ VDP estabilizar o frame de init (displayOn) sem
-        # esperar a animacao do loop divergir
-        time.sleep(0.5)
+        # O canvas pode existir alguns frames antes de displayOn terminar;
+        # capturar aqui alternava preto/partial e culpava a ROM. O title é
+        # estático por TITLE_FRAMES, mas o Emulicious pode rodar acima da
+        # cadência nominal durante a captura; uma espera curta estabiliza o
+        # VDP sem deixar a atração cruzar para a arena.
+        time.sleep(0.25)
         png = f"/tmp/smsforge_det_{hashlib.md5(rom.encode()).hexdigest()[:8]}_{_}.png"
         if os.path.exists(png):
             os.remove(png)
-        subprocess.run(["import", "-window", canvas, png],
+        # A captura do canvas acelerado pode congelar em um frame diferente
+        # entre execucoes neste host. A janela principal e o mesmo caminho de
+        # captura usado por capture_evidence e inclui a moldura/menu estaveis.
+        subprocess.run(["import", "-window", main, png],
                        capture_output=True, timeout=40)
         if proc.poll() is None:
             proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=10)
         if not os.path.exists(png) or os.path.getsize(png) < 100:
             return None
         hashes.append(hashlib.md5(open(png, "rb").read()).hexdigest())
@@ -87,7 +115,8 @@ def main():
         return 2
     hashes = capture_playfield_hash(args.rom, jar, args.runs)
     if hashes is None:
-        print("[FAIL_AMBIENTE] nao consegui capturar playfield (import/canvas indisponivel)")
+        print("[FAIL_AMBIENTE] nao consegui capturar playfield (import/canvas "
+              "indisponivel, ou instancia zumbi — veja a causa acima)")
         return 2
     if len(set(hashes)) == 1:
         print(f"[PASS] boot deterministico: {args.runs} execucoes com estado identico")

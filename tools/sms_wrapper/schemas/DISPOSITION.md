@@ -12,6 +12,8 @@
 | `production_visual_quality_v1` | **REMOVIDO** | Órfão absoluto: idem — zero referências, zero produtores. |
 | `scene_budget_v1` | **MANTIDO COM DÍVIDA** | Referenciado por `.agent/pipelines/aaa_scene_v1.json`, `new-scene.md` e `13-spec-cenas.md` do laboratorio_01, mas NENHUMA ferramenta produz ou valida instâncias. Dívida registrada: produtor é o degrau seguinte do pipeline de cena. |
 | `asset_contract_v1` | **MANTIDO COM DÍVIDA** | Referenciado por workflows/skills do asset pipeline e com uma instância escrita à mão (`laboratorio_01/doc/asset_contract_cena02.json`) — sem ferramenta que produza ou valide. Dívida registrada: validador é o degrau seguinte do pipeline de asset. |
+| `visual_delivery_contract_v1` | **ATIVO** | Produtor/consumidor: `audit_visual_delivery.py` (L036). Canvas 256×192; epoch delivery vs probe/D1. |
+| `rom_asset_binding_v1` | **ATIVO** | Produtor/consumidor: `audit_rom_asset_binding.py` (L036). Source → res → símbolo → SHA da ROM. |
 
 Regra de manutenção: este arquivo é o registro; um schema novo entra aqui
 com produtor declarado, e schema que perder o último consumidor volta para

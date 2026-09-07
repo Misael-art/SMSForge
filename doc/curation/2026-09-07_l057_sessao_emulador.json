@@ -1,0 +1,31 @@
+{
+  "curation_id": "2026-09-07_l057_sessao_emulador",
+  "date": "2026-09-07",
+  "scope": "emulator_session_single_policy",
+  "origin": "Pedido do usuario: analisar o projeto e ver o que COMPROVADAMENTE merece ser canonizado. A varredura achou 7 ferramentas que sobem o emulador e 3 politicas diferentes para o mesmo perigo — duas delas sendo 'nenhuma'. Levantada a suspeita, ela foi testada em vez de suposta.",
+  "lessons": [
+    {
+      "id": "L057",
+      "status": "fechada_com_ferramenta_e_correcao",
+      "lesson": "Busca de janela por NOME exige campo livre. `xdotool/kdotool search --name Emulicious` devolve a janela de QUALQUER instancia e todo ponto de captura pega a primeira; com um zumbi vivo o gate nao fica mudo, ele mede o binario errado e emite veredito CONFIANTE sobre o seu. Politica unica em emulator_session.py: ABORT por padrao (matar processo do usuario sem pedir e pior que falhar — ele pode estar depurando), KILL so onde a licao exige (L048, dentro da retentativa de audio). A deteccao e por JVM: `pgrep -f` casa tambem o SHELL que invocou a ferramenta.",
+      "root_cause": "O perigo ja tinha nome e lei desde L017/§34, mas o enforcement era por memoria de quem escreveu cada ferramenta. Resultado medido: capture_evidence/capture_video/capture_audio/measure_runtime_probe abortavam (com quatro mensagens diferentes), capture_audio tambem matava dentro da retentativa, e audit_deterministic_boot + measure_frame_advance nao faziam NADA.",
+      "meta_lesson": "Lei sem enforcement uniforme e lei so onde alguem lembrou. E o modo de falha nao e o silencio — e o veredito confiante sobre o objeto errado, que e pior que erro nenhum porque manda alguem depurar um defeito que nao existe.",
+      "tool_that_measures": "emulator_session.py",
+      "skill_that_teaches": "skills/sms-video-evidence.md",
+      "rule_section": "SMS_GLOBAL §46 (e §34, L017)",
+      "demonstrated": {
+        "experimento": "subiu-se um Emulicious com MSSF2T e deixou-se rodando; rodou-se audit_deterministic_boot.py --rom laboratorio_01.sms",
+        "veredito_emitido": "[FAIL] boot NAO deterministico: hashes divergentes ['42b4c086...', '96242427...']",
+        "o_que_ele_realmente_fotografou": "/tmp/smsforge_det_d6073b45_0.png mostra Ken x Guile e 'ROUND 1' — MSSF2T, nao laboratorio_01",
+        "classe": "falso FAIL sobre ROM nunca observada",
+        "simetria_perigosa": "zumbi PARADO daria hashes identicos = falso PASS",
+        "depois_da_correcao": "mesmo experimento devolve [FAIL_AMBIENTE] exit 2, nomeando a causa"
+      },
+      "defeito_encontrado_na_propria_correcao": "A primeira versao do helper usava so `pgrep -f 'Emulicious[.]jar'`. O colchete impede o pgrep de achar a si proprio, mas nao o SHELL que invocou a ferramenta: o experimento devolveu 3 PIDs onde havia 1 emulador, dois sendo o wrapper do comando. Abortar por causa de quem te chamou e falso positivo com cara de gate rigoroso. Corrigido conferindo argv[0] em /proc/<pid>/cmdline."
+    }
+  ],
+  "nao_canonizado_de_proposito": [
+    "Retry de foco inconsistente entre capture_evidence.press_keys (nao insiste) e capture_video._tap (insiste): UM flake observado. Um caso nao sustenta lei, e §34 ja manda falhar alto.",
+    "capture_video.py / make_psg_assets.py / png_to_sms_tiles.py com --self-check fora do registro do selftest.py: buraco de cobertura real, resolvido como tarefa. Nao ha causa nova a registrar."
+  ]
+}

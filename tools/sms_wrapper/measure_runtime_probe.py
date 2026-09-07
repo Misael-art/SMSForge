@@ -55,14 +55,13 @@ def probe_verdict(m):
 
 
 def _zombie_guard():
-    r = subprocess.run(["pgrep", "-f", "Emulicious.jar"],
-                       capture_output=True, text=True)
-    if r.returncode == 0 and r.stdout.strip():
-        print(f"[FAIL_AMBIENTE] ja existe Emulicious rodando (pid "
-              f"{', '.join(r.stdout.split())}). Encerre antes — a porta "
-              f"{PORT} e o canal DAP sao single-session.")
-        return False
-    return True
+    """L057: politica e mensagem unicas. Aqui ha um motivo EXTRA alem da janela
+    errada — a porta do DAP e single-session."""
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from emulator_session import require_no_stale
+    return require_no_stale(
+        why="probe de runtime (porta %s / canal DAP sao single-session)" % PORT)
 
 
 def _port_free():

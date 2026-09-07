@@ -16,6 +16,9 @@ import sys, os, json, argparse, subprocess
 # Ferramentas que MEDEM/AUDITAM => self-check obrigatorio.
 PREFIXES = ("audit_", "validate_", "measure_", "capture_", "seal_", "reconcile_")
 SUFFIX_GATES = ("_gate.py",)
+# Oráculos de autonomia (L036): decisão/plano com --self-check obrigatório.
+DOCTRINE_ALWAYS = {"harness_orchestration.py", "quality_review_router.py",
+                   "emulator_input.py", "prepare_sms_pixel_art.py"}
 
 # Nao sao ferramentas de medicao: constroem, geram ou orquestram.
 EXEMPT = {
@@ -34,7 +37,7 @@ def discover(wrapper_dir):
     for fn in sorted(os.listdir(wrapper_dir)):
         if not fn.endswith(".py") or fn in EXEMPT:
             continue
-        if fn.startswith(PREFIXES) or fn.endswith(SUFFIX_GATES):
+        if fn.startswith(PREFIXES) or fn.endswith(SUFFIX_GATES) or fn in DOCTRINE_ALWAYS:
             out.append(fn)
     return out
 

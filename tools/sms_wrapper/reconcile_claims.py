@@ -12,7 +12,8 @@ Regra: eixo `true` no build_record EXIGE artefato que o sustente.
 Mapa eixo -> lastro exigido:
   build              out/rom/*.sms existe
   boot_emulador      evidence.json com informative=true
-  gameplay           evidence.json com gameplay.interaction_proven=true
+  gameplay           evidence.json.interaction_proven=true
+                     OU input_memory.json (input_provado + canal vivo + SHA da ROM)
   fps_constante      fps.json com constante_50_60=true
   audio              arquivo de audio capturado (audit_audio.py e quem julga)
   validation_report  build_record.steps.pre_gates == pass
@@ -28,6 +29,34 @@ def _load(path):
         return json.load(open(path))
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def _rom_sha(project):
+    import hashlib
+    roms = glob.glob(os.path.join(project, "out", "rom", "*.sms"))
+    if not roms:
+        return None
+    newest = max(roms, key=os.path.getmtime)
+    h = hashlib.sha256()
+    with open(newest, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _gameplay_supported(project, ev, rec):
+    """Pixels (L018) OU memoria com SHA da ROM (L035/L039). Pixel sozinho
+    neste host mentia (L038); RAM com canal morto tambem (L039)."""
+    if bool((ev.get("gameplay") or {}).get("interaction_proven")):
+        return True
+    mem = _load(os.path.join(project, "out", "evidence", "input_memory.json"))
+    if not mem:
+        return False
+    sha = rec.get("rom_sha256") or _rom_sha(project)
+    return bool(mem.get("input_provado")
+                and mem.get("canal_teclado_vivo")
+                and sha
+                and mem.get("rom_sha256") == sha)
 
 def reconcile(project):
     """Retorna (problems, report)."""
@@ -58,9 +87,9 @@ def reconcile(project):
           bool(ev.get("informative")),
           "evidence.json nao tem informative=true")
     check("gameplay",
-          bool((ev.get("gameplay") or {}).get("interaction_proven")),
-          "evidence.json registra interaction_proven=false "
-          "(input nao mudou o viewport)")
+          _gameplay_supported(project, ev, rec),
+          "nem evidence.json.interaction_proven nem input_memory.json "
+          "(input_provado + canal vivo + SHA da ROM) sustentam o eixo")
     check("fps_constante",
           bool(fps.get("constante_50_60")),
           "fps.json nao tem constante_50_60=true")
@@ -139,6 +168,32 @@ def _self_check():
                     fps={"constante_50_60": True})
         p, _ = reconcile(bad)
         assert any("gameplay" in x for x in p), f"faltou pegar gameplay sem lastro: {p}"
+
+        # PASS: pixels falham, mas input_memory.json prova RAM com SHA da ROM
+        ram = build(all_true,
+                    ev={"informative": True, "gameplay": {"interaction_proven": False}},
+                    fps={"constante_50_60": True})
+        romp = glob.glob(os.path.join(ram, "out", "rom", "*.sms"))[0]
+        import hashlib as _hh
+        sha = _hh.sha256(open(romp, "rb").read()).hexdigest()
+        json.dump({"axes": all_true, "steps": {"pre_gates": "pass"},
+                   "rom_sha256": sha},
+                  open(os.path.join(ram, "out", "build_record.json"), "w"))
+        json.dump({"input_provado": True, "canal_teclado_vivo": True,
+                   "rom_sha256": sha},
+                  open(os.path.join(ram, "out", "evidence",
+                                    "input_memory.json"), "w"))
+        p, _ = reconcile(ram)
+        assert not any("gameplay" in x for x in p), \
+            f"prova por memoria com SHA deveria fechar gameplay: {p}"
+
+        json.dump({"input_provado": True, "canal_teclado_vivo": True,
+                   "rom_sha256": "deadbeef"},
+                  open(os.path.join(ram, "out", "evidence",
+                                    "input_memory.json"), "w"))
+        p, _ = reconcile(ram)
+        assert any("gameplay" in x for x in p), \
+            f"input_memory de outra ROM deveria reprovar: {p}"
 
         # REPROVA: fps=true sem fps.json
         p, _ = reconcile(build(all_true,

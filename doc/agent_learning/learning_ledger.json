@@ -5,8 +5,259 @@
       "ts": "2026-08-25",
       "kind": "foundation",
       "summary": "Workspace fundado porteando SGDKForge para Master System: toolchain SDCC+devkitSMS, 7 gates executáveis com selftest, framework .agent, modelo de projeto.",
-      "sources": ["README devkitSMS (fetch 2026-08-25)", "SGDKForge/AGENTS.md", "SGDK_GLOBAL.md (38 seções, amostradas)"],
+      "sources": [
+        "README devkitSMS (fetch 2026-08-25)",
+        "SGDKForge/AGENTS.md",
+        "SGDK_GLOBAL.md (38 seções, amostradas)"
+      ],
       "dedup_key": "foundation_2026_08_25"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "curation",
+      "summary": "L036: porte do método SGDKForge de autonomia e época visual — persistência causal, visual delivery, vínculo asset→ROM, harness (máx. 3 ramos), review independente. Números de Mega Drive recusados (§32).",
+      "sources": [
+        "doc/curation/2026-09-06_l036_autonomia_visual_epoch.json",
+        "SGDKForge causal_persistence_guard / visual_delivery_gate / harness_orchestration / quality_review_router"
+      ],
+      "dedup_key": "l036_autonomia_visual_epoch_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "curation",
+      "summary": "L037: gate de semântica de animação — hash de frame reprova permutação, clone de ação, ciclo idêntico e pivot oscilante.",
+      "sources": [
+        "doc/curation/2026-09-06_l036_autonomia_visual_epoch.json"
+      ],
+      "dedup_key": "l037_animation_semantics_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L038: eixo `gameplay` fechava sem input. interaction_verdict() so testa abs(dx)>=8 — nao confere DIRECAO nem IDENTIDADE do objeto. Em MSSF2T os dois lutadores dao blobs identicos (309 px) e a coreografia do modo de atracao/CPU fecha o eixo sozinha: com 'Right' o blob rastreado andou 32 px para a ESQUERDA e o gate deu PASS.",
+      "sources": [
+        "SMS_projects/MSSF2T/out/evidence/input_memory.json",
+        "tools/sms_wrapper/capture_evidence.py:interaction_verdict"
+      ],
+      "dedup_key": "l038_gameplay_axis_direction_identity_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L039: o canal de teclado para o Emulicious esta MORTO neste ambiente. probe_keys=0x00 com a tecla fisicamente pressionada, em XSendEvent e em XTEST; `xdotool getwindowfocus` devolve vazio; o proprio atalho de reset do emulador (ctrl+BackSpace) nao reseta. Vale para a ROM nova E para a build_v024 — ou seja, nenhum claim historico de 'gameplay provado por input' desta linha tem lastro.",
+      "sources": [
+        "SMS_projects/MSSF2T/tools/prove_input_memory.py",
+        "SMS_projects/MSSF2T/out/evidence/input_memory.json",
+        "SMS_projects/MSSF2T/out/evidence/input_memory_old.json"
+      ],
+      "dedup_key": "l039_keyboard_channel_dead_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L040: detector de sprite do harness usa limiares ABSOLUTOS (bw<=48, bh<=80) e so vale com a captura em 1x. Emulicious guardou Scale=2.25 no ini no meio da sessao: o lutador 32x64 virou 72x144, foi reprovado pelo filtro de forma e o eixo passou a travar na barra de vida. Mesmo comando, mesma ROM, veredito oposto — a escala da janela e entrada silenciosa do gate.",
+      "sources": [
+        "tools/emuladores/emulicious/Emulicious.ini",
+        "tools/sms_wrapper/capture_evidence.py:largest_sprite_block"
+      ],
+      "dedup_key": "l040_detector_absolute_thresholds_scale_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L041: SFX tocado em canal diferente do que foi AUTORADO derruba o mix. make_psg_assets gera sfx_shot para SFX_CHANNEL2 e sfx_hit para CHANNELS2AND3, mas fight.c tocava os dois em CHANNEL3: audio caiu de 92% para 86% ativo (piso 90). Cooldown nao resolvia — 14, 30 e 60 davam os mesmos 86%, prova de que a causa era o canal, nao a frequencia. Usando sfx_hurt/sfx_down (ja autorados para o canal 3, e sem uso na ROM): 94%.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c",
+        "tools/sms_wrapper/make_psg_assets.py"
+      ],
+      "dedup_key": "l041_sfx_authored_channel_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L042: cenario nao pode competir com o lutador — e isso e mensuravel, nao gosto. Barris em laranja saturado e barra de vida chapada viraram o maior blob saturado da tela e sequestraram o detector de gameplay. Barril em madeira e barra com moldura escura devolveram a leitura ao personagem. Regra: nenhum elemento de BG ou HUD deve ser o objeto mais saturado com forma de sprite.",
+      "sources": [
+        "SMS_projects/MSSF2T/tools/author_stage_ken.py",
+        "SMS_projects/MSSF2T/tools/make_font.py"
+      ],
+      "dedup_key": "l042_bg_hud_nao_compete_com_sprite_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L043: H-scroll no SMS exige LEFTCOLBLANK. Ligado o parallax, os 8 px da esquerda passaram a mostrar lixo (pedaco da barra de vida e bloco cinza cortando ceu, mar e deck) porque o tile que entra ainda nao foi buscado. So apareceu numa captura com a janela grande — em 1x passava despercebido.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/main.c"
+      ],
+      "dedup_key": "l043_hscroll_leftcolblank_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L044: antes de teorizar sobre o VDP, olhe o conteudo que ja esta la. 'KKEN'/'GGUILE' na tela levaram a duas hipoteses erradas (estouro de VBlank, corrida de latch de endereco) ate descobrir que stage_ken_tiles JA trazia um alfabeto embutido (tiles 1..7) e o mapa ja escrevia os nomes: a fonte nova encostava uma segunda copia ao lado. Custo: dois ciclos de build e uma captura de depuracao.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/hud.c"
+      ],
+      "dedup_key": "l044_ler_o_asset_antes_de_teorizar_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L045: espelhar tile em runtime troca ROM por CPU, e o preco e medido. Trocar as 10 folhas *_l (9,7 KB, ROM estava 100% cheia) por bitrev+dx-mirror liberou espaco mas derrubou o jogo de 59,6 para 36 fps. Ponteiros static no lugar de locais (o SDCC-Z80 recarrega locais via IX) e STREAM_BYTES de 256 para 96 devolveram ~57,5 fps. Curva medida: 32B->59.5 64B->58.3 96B->57.5 128B->55.5 256B->40.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c",
+        "SMS_projects/MSSF2T/doc/15-tdd.md"
+      ],
+      "dedup_key": "l045_runtime_flip_troca_rom_por_cpu_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L046: contador de linha do SMS dispara na linha N depois de recarregar no VBlank — armar com 47 querendo a linha 64 poe TODAS as bandas de raster 16 linhas acima. O mar perto comecava na 96 em vez da 112 e ninguem via, porque nao havia nada nessa faixa. So apareceu quando a tela de titulo pos texto na linha 12 (96..103) e ele saiu rolando e enrolando junto com a agua. Banda de parallax vazia nao prova que a quebra esta no lugar: ponha algo com forma reconhecivel dentro dela.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c"
+      ],
+      "dedup_key": "l046_line_counter_offset_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L047: troca de tela escreve ~160 tiles de name table e roda dentro do fight_update, que e FORA do VBlank — parte das escritas se perde no display ativo e sobra lixo (um 'UPER' do titulo por cima da luta). Limpar linha a linha nao resolveu; o que resolveu foi desligar o display e redesenhar o MAPA INTEIRO. Numa transicao o frame preto e o que se espera mesmo, e some a classe toda de resto-na-tela.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c"
+      ],
+      "dedup_key": "l047_troca_de_tela_display_off_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L048: captura de audio silenciosa e corrida de ambiente, nao ROM muda — e o proprio capture_audio ja manda conferir com ROM historica antes de mexer no codigo. Aconteceu duas vezes: a segunda ficou obvia porque uma build CONGELADA (v056, medida em 94% horas antes) tambem saiu muda enquanto a v024 saia com som. Binario congelado nao muda de comportamento; matar os java zumbis devolveu 92%. Regra: peak=0 => limpar zumbis e repetir, com um controle historico na mesma rodada.",
+      "sources": [
+        "SMS_projects/MSSF2T/out/evidence/audio_ref.wav",
+        "SMS_projects/MSSF2T/out/evidence/audio_pre.wav"
+      ],
+      "dedup_key": "l048_audio_silencioso_e_corrida_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L049: tela de abertura sem asset novo. Com 1553 B livres nao cabia logo desenhado nem music_title (577 B). A abertura saiu de COMPOSICAO: o proprio palco com a paleta escurecida (16 bytes, preservando o indice 1 branco para o texto), a fonte que ja existia e os dois lutadores em pose. Custo total ~518 B, incluindo o laco de arcade titulo->luta->resultado->titulo.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c",
+        "SMS_projects/MSSF2T/src/hud.c"
+      ],
+      "dedup_key": "l049_abertura_por_composicao_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "curation",
+      "summary": "Curadoria A–F: L038–L049 saíram do ledger (prosa) para JSON+lei+ferramenta/skill. §7 corrigido (8×8/8×16, X sem offset). IDs L012 e L020–L034 declarados. Gates novos: audit_learning_capture, audit_psg_channel_binding, audit_hscroll_blank. interaction_verdict mede direção, identidade, eco e escala nativa.",
+      "sources": [
+        "doc/curation/2026-09-06_l038_l049_absorcao.json",
+        "doc/curation/id_registry.json",
+        "tools/sms_wrapper/audit_learning_capture.py"
+      ],
+      "dedup_key": "l038_l049_absorcao_curadoria_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L050: gravidade amarrada a um ESTADO e armadilha. y so era integrado dentro do ramo ST_JUMP do control(); levar golpe no ar tirava o lutador desse estado, a queda parava e ele ficava pendurado — andando, agachando e socando no ar. Nao apareceu em nenhum screenshot; quem flagrou foi o probe, mostrando IDLE/WALK/CROUCH a y=93 com o chao em 112. Fisica deve valer por CONDICAO (altura), nao por estado.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c",
+        "SMS_projects/MSSF2T/out/evidence/poses.json"
+      ],
+      "dedup_key": "l050_gravidade_por_condicao_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L051: musica ocupava 2881 B para tocar 240 copias byte a byte do MESMO frame de 12 B. O PSGlib ja volta ao inicio no PSGEnd, entao as 239 copias nao tocavam nada. Cortar para 49 B (e music_title de 577 para 145) recuperou 3264 B numa ROM que tinha ~1 KB livre, com audio medido identico antes e depois. Antes de sacrificar feature por espaco, medir a REDUNDANCIA dos assets.",
+      "sources": [
+        "SMS_projects/MSSF2T/tools/shrink_music_loop.py"
+      ],
+      "dedup_key": "l051_musica_redundante_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L052: tamanho de asset escrito em dois lugares diverge — e o consumidor le o lugar errado. fight_gfx.h declarava 1024 para folhas que o repack deixou em 832; fight.c so enxerga esse header, entao pose_size() mandava o streamer ler ate 192 B alem do fim do array. Nao dava sintoma visivel (o metasprite nao referencia os tiles extras). Correcao estrutural: gerar o header a partir das folhas, com --check para o gate.",
+      "sources": [
+        "SMS_projects/MSSF2T/tools/gen_fight_gfx.py"
+      ],
+      "dedup_key": "l052_tamanho_duplicado_diverge_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L053: parei de ajustar o roteiro da atracao para o meu teste passar. O conserto do espelhamento na troca de lado so e exercido por pulo por cima; gastei tres iteracoes afinando a demo (aproximar antes de pular, segurar frente ate o pouso) e Ken parou a 6-14 px de ultrapassar. Continuar seria fabricar evidencia. Relatado como: conserto correto por leitura, caminho fisicamente alcancavel, troca de lado NAO observada.",
+      "sources": [
+        "SMS_projects/MSSF2T/src/fight.c"
+      ],
+      "dedup_key": "l053_parar_de_torcer_a_demo_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "lesson",
+      "summary": "L054: quando o estado dura ~20 frames, screenshot e sorteio — a mesma chamada de capture_evidence caiu na luta numa execucao e no titulo em outra. Expor a pose no probe (0xC7F9, com o facing no bit 7, custo zero de RAM) transformou 'fotografar a pose certa' em 'ler a variavel'. prove_poses.py provou agachar/pular E achou o bug da gravidade na mesma passagem.",
+      "sources": [
+        "SMS_projects/MSSF2T/tools/prove_poses.py"
+      ],
+      "dedup_key": "l054_probe_em_vez_de_sorteio_2026_09_06"
+    },
+    {
+      "ts": "2026-09-06",
+      "kind": "curation",
+      "summary": "Curadoria L050–L054: saíram do ledger (prosa) para JSON+lei+ferramenta/skill. Física por condição, redundância PSG, tamanho de símbolo, não torcer a demo, pose no probe. audit_learning_capture tinha 5 FAILs; fechado.",
+      "sources": [
+        "doc/curation/2026-09-06_l050_l054_absorcao.json",
+        "tools/sms_wrapper/audit_psg_redundancy.py",
+        "tools/sms_wrapper/audit_symbol_size_sync.py"
+      ],
+      "dedup_key": "l050_l054_absorcao_curadoria_2026_09_06"
+    },
+    {
+      "ts": "2026-09-07",
+      "kind": "curation",
+      "summary": "L039 causa raiz: XTEST nao atravessa KWin em Wayland; canal = kdotool+ydotool (emulator_input.py). L053 observada (sideswap 0x81→0x01, min_py=57). reconcile_claims aceita input_memory.json com SHA da ROM. Memory bank alinhado ao JSON selado (dx=+74/−90, 9 artefatos, SHA 2990757f).",
+      "sources": [
+        "tools/sms_wrapper/emulator_input.py",
+        "SMS_projects/MSSF2T/out/evidence/input_memory.json",
+        "doc/curation/2026-09-06_l038_l049_absorcao.json",
+        "doc/curation/2026-09-06_l050_l054_absorcao.json"
+      ],
+      "dedup_key": "l039_wayland_uinput_l053_observada_2026_09_07"
+    },
+    {
+      "ts": "2026-09-07",
+      "kind": "curation",
+      "summary": "L055: porta MÉTODO da skill pixel-art v2 (downscale NEAREST + Floyd-Steinberg no grid) para a paleta mestra SMS. Recusa NES/SNES/PICO-8/Game Boy e MP4/GIF como evidência. Ferramenta prepare_sms_pixel_art.py; skill sms-pixel-translate.md.",
+      "sources": [
+        "doc/curation/2026-09-07_l055_pixel_translate.json",
+        "tools/sms_wrapper/prepare_sms_pixel_art.py"
+      ],
+      "dedup_key": "l055_pixel_translate_sms_master_palette_2026_09_07"
+    },
+    {
+      "ts": "2026-09-07",
+      "kind": "curation",
+      "summary": "L056: estado transitorio se GRAVA, nao se fotografa. Canal novo: video do framebuffer do Emulicious (256x192, sem compositor), atalho no .ini com prefixo 'Keys' (F7/F8), encode por FFMPEG. Fecha o buraco do §36. Tres falhas MUDAS viraram gate: instancia zumbi reescreve o .ini, F10 e o atalho do menu Swing (nao para a gravacao), e mover o mp4 antes do atom moov corrompe. Achado aberto: mp4 sem trilha de audio — hipotese principal e o host mutado (Mute: yes, 0%), nao testada com som restaurado. Ferramenta capture_video.py; skill sms-video-evidence.md; regra §45.",
+      "sources": [
+        "doc/curation/2026-09-07_l056_video_evidencia.json",
+        "tools/sms_wrapper/capture_video.py",
+        "tools/sms_wrapper/.agent/skills/sms-video-evidence.md"
+      ],
+      "dedup_key": "l056_video_framebuffer_evidencia_2026_09_07"
+    },
+    {
+      "ts": "2026-09-07",
+      "kind": "curation",
+      "summary": "L057: busca de janela por NOME exige campo livre. DEMONSTRADO: com um Emulicious de MSSF2T vivo, audit_deterministic_boot reprovou o laboratorio_01 fotografando Ken x Guile — falso FAIL sobre ROM nunca observada (zumbi parado daria falso PASS). O perigo tinha lei desde L017/§34 mas tres politicas: 4 gates abortavam com mensagens diferentes, 1 matava, 2 nao faziam nada. Politica unica em emulator_session.py (ABORT default, KILL so na retentativa de audio/L048). Deteccao por JVM: pgrep -f casava tambem o shell chamador (3 PIDs para 1 emulador). Regra §46.",
+      "sources": [
+        "doc/curation/2026-09-07_l057_sessao_emulador.json",
+        "tools/sms_wrapper/emulator_session.py"
+      ],
+      "dedup_key": "l057_sessao_emulador_politica_unica_2026_09_07"
     }
   ]
 }

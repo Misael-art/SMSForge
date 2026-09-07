@@ -1,0 +1,40 @@
+{
+  "curation_id": "2026-09-07_l056_video_evidencia",
+  "date": "2026-09-07",
+  "scope": "evidence_channel_video_framebuffer",
+  "origin": "Pergunta do usuario: alem de log/versao/print, dava para usar o recurso de gravar video do proprio emulador? Avaliacao virou implementacao no mesmo dia.",
+  "lessons": [
+    {
+      "id": "L056",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Estado TRANSITORIO nao se fotografa, se grava. O Emulicious grava do FRAMEBUFFER (256x192 exatos, sem moldura/menu/desktop), encodado por FFMPEG externo; o atalho vive no Emulicious.ini com prefixo 'Keys' (KeysStartVideoRecording=F7, KeysStopVideoRecording=F8) e sem essas linhas NAO existe atalho, so o menu. Isso fecha o buraco do §36 (Nyquist de screenshot) e, de quebra, torna impossivel vazar a tela do usuario (§30/L017) em vez de detectavel depois. Nao confundir com L055: ela recusa MP4/GIF de MOOD gerado por ferramenta de arte como prova de ROM; video do framebuffer da ROM selada e o oposto — tem cadeia de custodia.",
+      "root_cause": "O acervo so tinha canais que atravessam o compositor (import/spectacle). O cabecalho do capture_evidence.py ja registrava, desde 2026-08-30, que o frame de um estado transitorio (VITORIA) nao era capturavel de forma confiavel neste host — e o recurso nativo que resolvia isso existia no emulador desde 2024-03-31, sem nenhuma mencao no ReadMe.",
+      "meta_lesson": "Falha MUDA e a cara do canal novo, e 'pareceu funcionar' e o pior resultado possivel. Tres delas em sequencia: (a) instancia zumbi do emulador roubava o foco E reescrevia o .ini ao morrer, apagando o atalho recem-instalado; (b) F10 nao para a gravacao — no Swing/AWT e o atalho da barra de menus — e a gravacao so era finalizada ao MORRER o processo, entregando um .mp4 valido que parecia prova de que o atalho pegou (eu afirmei 'provado empiricamente' antes de implementar, e estava errado); (c) mover o .mp4 quando o tamanho para de crescer corrompe o arquivo, porque o FFMPEG ainda reabre para escrever o atom moov. Cada uma virou gate, nao comentario.",
+      "tool_that_measures": "capture_video.py",
+      "skill_that_teaches": "skills/sms-video-evidence.md",
+      "rule_section": "SMS_GLOBAL §45 (e §34, §36)",
+      "measured": {
+        "rom": "SMS_projects/MSSF2T/out/rom/MSSF2T.sms",
+        "video": "h264 256x192, 699 frames, 11.66s",
+        "motion_fraction": 0.765,
+        "frames_com_conteudo": "4 de 4",
+        "bundle": "emulator_evidence_v2",
+        "selo": "seal_fresh_evidence_bundle.py PASS sem alteracao"
+      },
+      "finding_fechado": {
+        "id": "video_sem_trilha_de_audio",
+        "status": "FECHADO com correcao em 2026-09-07",
+        "causa_raiz_medida": "O temp.wav do Emulicious tem `fmt ` COERENTE (mono/44100/blockalign 2 — a hipotese de payload estereo estava errada) e o defeito esta no chunk `data`: ele DECLARA exatamente o dobro dos bytes que existem (1.231.916 declarados contra 615.958 reais; e 1.470.056 contra 735.028 noutra execucao). O FFMPEG bate em EOF na metade e descarta a trilha. O payload em si esta correto e tem a duracao do video.",
+        "por_que_a_duracao_lia_2x": "O modulo `wave` do Python acredita no cabecalho. A leitura de '1,99x a duracao do video' que eu usei como pista de estereo era o mesmo defeito visto por outro angulo — nao uma segunda evidencia.",
+        "correcao": "attach_audio() em capture_video.py: percorre os chunks RIFF (sem procurar b'data' com .index(), que casa dentro do audio), usa os bytes que EXISTEM em vez dos declarados, le taxa/canais/bits do proprio `fmt ` e muxa com -c:v copy. Verificado: 1 canal @44100, peak=10504, 8,33s de audio para 8,36s de video, 501 frames antes e depois.",
+        "armadilha_no_conserto": "A primeira versao usava `-shortest` e o FFMPEG cortou o VIDEO de 455 para 452 frames para caber no audio, que termina ~60ms antes. O guard de contagem de frames recusou o remux — corretamente: prova de imagem nao se encurta para acomodar som. Removido o -shortest, o video sai intacto e a trilha simplesmente acaba antes.",
+        "fato_historico": "O mp4 saia SO com video. Trocar VideoRecordingAudioCodec de flac (nao muxavel em MP4) para aac NAO resolveu — porque a causa nunca foi o codec.",
+        "hipotese_do_host_mutado": "REFUTADA POR EXPERIMENTO CONTROLADO em 2026-09-07. O host estava mutado (0%, -inf dB) e o usuario levantou a hipotese de que era essa a causa. Teste decisivo: com o host DESMUTADO em 15%, capture_video.py rodou de novo e o mp4 continuou SEM trilha de audio (ffprobe: so codec_type=video). Volume do host nao e a causa.",
+        "erro_de_metodo_meu_no_caminho": "A primeira 'refutacao' que registrei era fragil e eu a apresentei como firme: medi temp.wav as 09:47 e afirmei que o host estava mudo com base numa leitura de ~09:38 — o usuario podia ter mexido no volume no intervalo, e mexeu. Medicao sem controle do estado do ambiente NO MOMENTO da medicao nao sustenta refutacao. O experimento com o host comprovadamente desmutado e o que vale.",
+        "licao_de_metodo": "Fato verdadeiro adjacente nao e causa: o host ESTAVA mudo, e mesmo assim o mute nao explicava nada. §33 aplicado ao ambiente — antes de acusar a preferencia do usuario, meca a fonte. E o corolario que me pegou: controle o estado do ambiente NO INSTANTE da medicao, senao a propria refutacao vira palpite.",
+        "postura_do_gate": "has_audio e lido do ARQUIVO por ffprobe; sem trilha o gate IMPRIME que aquele bundle nao prova som, em vez de deixar supor. O eixo de audio continua sendo do capture_audio.py."
+      }
+    }
+  ],
+  "note_ids": "L054 ja estava emitida (pose no probe, 2026-09-06). O pedido citava 'L054'; o registro emitiu ate L055, entao esta licao e L056. issued_through passa a L056."
+}

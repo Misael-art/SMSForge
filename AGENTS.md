@@ -106,6 +106,8 @@ Regras:
 ❌ Símbolo visual em res/ sem proveniência declarada
 ❌ Fechar orçamento sem medir o degrau seguinte — folga não medida é timidez
 ❌ Usar leitura de ferramenta de medição cujo --self-check não passa
+❌ Promover captura de boot técnico a qualidade visual / AAA
+❌ Encerrar execução após diagnóstico, relatório ou um único milestone quando ainda houver ramo causal seguro
 ```
 
 ---
@@ -129,6 +131,8 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Contraste | `audit_luma_floor.py` | contraste < 1 degrau efetivo da paleta mestra |
 | Procedência | `audit_provenance.py` | pixel nascido de código como personagem/cenário |
 | Evidência | `capture_evidence.py` | captura branca/sem informação, emulador ausente |
+| Sessão do emulador | `emulator_session.py` | instância zumbi viva quando um gate vai buscar a janela por nome — sem isso o gate mede a ROM **errada** e emite veredito confiante sobre a sua (§46/L057) |
+| Evidência de estado transitório | `capture_video.py` | grava o **framebuffer** do emulador (256×192, sem compositor) para transição/animação/game feel, que screenshot não sustenta (§45/§36); reprova vídeo fora da canvas do VDP, curto demais ou de tela congelada |
 | Fidelidade de render | `audit_render_fidelity.py` | tela que NÃO mostra a arte autoral (ruído, sprite errado, arte corrompida) — compara a estrutura da fonte com a captura |
 | Semântica da captura | `screenshot_semantic_gate.py` | cor fora da paleta mestra (mockup/render), desktop não recortado, reuso da mesma imagem em dois claims, claim que screenshot não prova |
 | Frescor da evidência | `seal_fresh_evidence_bundle.py` | artefato **anterior** à ROM (mostra outro binário) ou de outra sessão |
@@ -149,6 +153,19 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | **Ferramentas de medição** | `validate_measurement_tools.py` | ferramenta de medição sem `--self-check` passando (§19) |
 | **Grandezas de hardware** | `audit_hardware_constants.py` | número de outro console afirmado como lei do SMS — sprites/scanline, capacidade da SAT, subpaletas, largura da tela, VRAM/RAM, uso de DMA (L001) |
 | **Sincronia doc↔repo** | `audit_doc_sync.py` | doc citando gate inexistente, gate invisível na doutrina, hierarquia de verdade incompleta |
+| Persistência causal | `audit_causal_persistence.py` | duas falhas equivalentes repetidas; documento sem delta tratado como progresso; representação errada virando gate humano (L036, §38) |
+| Época visual / entrega | `audit_visual_delivery.py` | D1/probe/branding/duplicata/escala/HUD promovidos a delivery; boot classificado como qualidade (L036, §39) |
+| Vínculo asset→ROM | `audit_rom_asset_binding.py` | source/res/símbolo/SHA da ROM ausentes ou divergentes (L036, §40) |
+| Review independente | `quality_review_router.py` | autoaprovação, parecer stale, review declarando AAA (L036, §41) |
+| Orquestração | `harness_orchestration.py` | claim/promoção delegados; mais de 3 ramos; worker que promove (L036, §41) |
+| Animação semântica | `audit_animation_semantics.py` | frames reordenados, ação clonada com outro nome, ciclo idêntico, pivot oscilando, estado do GDD ausente (L037, §42) |
+| Captura de lição | `audit_learning_capture.py` | ledger sem JSON, furo de ID não declarado, ferramenta fantasma, persona ensinando doutrina supersedida (L038–L049, §43) |
+| Canal de SFX | `audit_psg_channel_binding.py` | `PSGSFXPlay` em canal diferente do manifesto autorado (L041, §12) |
+| H-scroll / 1ª coluna | `audit_hscroll_blank.py` | `SMS_setBGScrollX` ≠ 0 sem `VDPFEATURE_LEFTCOLBLANK` (L043, §6) |
+| Tamanho de símbolo | `audit_symbol_size_sync.py` | `#define FOO_SIZE` diverge do array ou entre headers (L052, §44) |
+| Redundância PSG | `audit_psg_redundancy.py` | stream com N cópias do mesmo frame; PSGlib já faz loop (L051, §12) |
+| Canal de input | `emulator_input.py` | XTEST/xdotool em Wayland/KWin (L039); canal = kdotool+ydotool (uinput) |
+| Tradução pixel | `prepare_sms_pixel_art.py` | foto/conceito fora da paleta mestra; preset NES/SNES/PICO-8 (L055, §8) |
 
 ## VOCABULÁRIO DE STATUS
 
@@ -157,7 +174,10 @@ documentado ≠ implementado ≠ buildado ≠ testado_em_emulador ≠ validado_b
 ```
 
 Gate final de entrega exige os 7 eixos simultâneos: build, validation_report,
-boot no emulador, gameplay, 60/50 fps, áudio, memory bank atualizado.
+boot no emulador, gameplay, 60/50 fps, áudio, memory bank atualizado — **e**
+época visual `delivery` com vínculo asset→ROM pago. Boot sozinho classifica
+`runtime_probe_passed_visual_epoch_failed`. Relatórios são transições de
+produção, não entregas finais (`causal-persistence-loop.md`).
 
 ---
 

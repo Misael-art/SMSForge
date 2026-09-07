@@ -17,3 +17,9 @@ pool estático. Nada de IA "emergente" sem medição.
 ## Game feel no SMS
 hitstop curto (frames), knockback fixo, screen shake = offset de scroll global.
 Tudo medido em frames — nunca "um tiquinho".
+
+## Física por condição, não por rótulo
+Integração de `y`/gravidade vale enquanto a **altura** pede, em qualquer
+estado da FSM. Amarração a `ST_JUMP` deixa o ator pendurado quando um
+golpe o tira do estado — e de lá ele anda, agacha e soca no ar (L050).
+`airborne()` é altura, não enum.

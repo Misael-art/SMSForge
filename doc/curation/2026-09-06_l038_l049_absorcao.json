@@ -1,0 +1,114 @@
+{
+  "curation_id": "2026-09-06_l038_l049_absorcao",
+  "date": "2026-09-06",
+  "scope": "absorcao_ledger_para_canone",
+  "origin": "Curadoria: L038–L049 existiam só no learning_ledger (prosa com dedup_key). Pacotes A–F: JSON + emenda de lei + ferramenta ou skill. Recorrência não ganha seção nova.",
+  "lessons": [
+    {
+      "id": "L038",
+      "status": "fechada_com_ferramenta",
+      "lesson": "interaction_verdict só testava abs(dx)>=8. A lei §29 já exigia direção. Em MSSF2T, Right moveu 32 px à esquerda e o eixo passou; dois lutadores davam blobs idênticos.",
+      "root_cause": "A ferramenta media menos do que a lei. Relatório no ledger não corrigiu o gate.",
+      "tool_that_measures": "capture_evidence.py (interaction_verdict: direção + identidade)",
+      "rule_section": "SMS_GLOBAL §29",
+      "evidence": "SMS_projects/MSSF2T/out/evidence/input_memory.json — blob 309 px andou para a esquerda com tecla Right e PASS."
+    },
+    {
+      "id": "L039",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Canal de teclado para o Emulicious neste host: xdotool/XTEST NAO atravessa o KWin em sessao KDE/Wayland (getwindowfocus vazio, probe_keys=0x00, reset do emulador falha). Nao era a ROM nem o Java. Canal real: kdotool (foco via DBus) + ydotool (uinput). Canario: Ctrl+BackSpace zera probe_frame. Claims historicos de gameplay-por-xdotool desta linha nao tem lastro. Fechado 2026-09-07 com input_memory.json (backend=wayland, dx=+74/-90, probe_keys 0x08/0x04, SHA 2990757f).",
+      "tool_that_measures": "emulator_input.py + capture_evidence.press_keys + reconcile_claims (input_memory.json)",
+      "rule_section": "SMS_GLOBAL §29, §34",
+      "continues": "L007, L035 (rota de escrita DAP ausente; eco em probe_keys)",
+      "evidence": "SMS_projects/MSSF2T/out/evidence/input_memory.json (schema v2, rom_sha256=2990757f…, canal_teclado_vivo=true)."
+    },
+    {
+      "id": "L040",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Limiares absolutos de forma (bw<=48, bh<=80) só valem em 1×. Scale=2.25 no Emulicious.ini fez o lutador 32×64 virar 72×144 e invertou o veredito.",
+      "tool_that_measures": "capture_evidence.py (capture_scale + limiares nativos)",
+      "rule_section": "SMS_GLOBAL §29",
+      "evidence": "tools/emuladores/emulicious/Emulicious.ini Scale=2.25; mesmo comando, mesma ROM, veredito oposto."
+    },
+    {
+      "id": "L041",
+      "status": "fechada_com_ferramenta",
+      "lesson": "SFX no canal diferente do autorado derruba o mix. sfx_shot nasceu para CHANNEL2 e era tocado em CHANNEL3: 92%→86% ativo; cooldown 14/30/60 não mudava nada.",
+      "tool_that_measures": "audit_psg_channel_binding.py",
+      "rule_section": "SMS_GLOBAL §12",
+      "evidence": "make_psg_assets.py roles vs fight.c; sfx_hurt/sfx_down no canal 3 devolveram 94%."
+    },
+    {
+      "id": "L042",
+      "status": "fechada_com_ferramenta",
+      "lesson": "BG/HUD mais saturados que o lutador sequestram o detector de gameplay. Barril laranja e barra chapada viraram o maior blob com forma de sprite.",
+      "tool_that_measures": "capture_evidence.py (_identity_stable)",
+      "skill_that_teaches": "skills/sms-visual-excellence.md",
+      "rule_section": "SMS_GLOBAL §39",
+      "evidence": "author_stage_ken.py / make_font.py — madeira + moldura escura devolveram a leitura ao personagem."
+    },
+    {
+      "id": "L043",
+      "status": "fechada_com_ferramenta",
+      "lesson": "H-scroll ao vivo no SMS exige LEFTCOLBLANK. Sem isso os 8 px da esquerda mostram lixo do tile ainda não buscado. Em 1× passava despercebido.",
+      "tool_that_measures": "audit_hscroll_blank.py",
+      "rule_section": "SMS_GLOBAL §6",
+      "evidence": "MSSF2T/src/main.c — VDPFEATURE_LEFTCOLBLANK junto do H-scroll."
+    },
+    {
+      "id": "L044",
+      "status": "absorvida_em_skill",
+      "lesson": "Antes de teorizar o VDP, inspecione o conteúdo já carregado. 'KKEN'/'GGUILE' era alfabeto embutido no tileset + fonte nova, não estouro de VBlank.",
+      "skill_that_teaches": "workflows/causal-persistence-loop.md",
+      "rule_section": "SMS_GLOBAL §33",
+      "evidence": "MSSF2T/src/hud.c — dois ciclos de build e uma captura de depuração."
+    },
+    {
+      "id": "L045",
+      "status": "absorvida_em_skill",
+      "lesson": "Espelhar tile em runtime troca ROM por CPU. 10 folhas *_l (9,7 KB) por bitrev derrubaram 59,6→36 fps. static no lugar de local + STREAM_BYTES 256→96 devolveram ~57,5. Curva: 32→59.5, 64→58.3, 96→57.5, 128→55.5, 256→40.",
+      "skill_that_teaches": "skills/sms-z80-sdcc-gotchas.md",
+      "rule_section": "SMS_GLOBAL §10",
+      "evidence": "MSSF2T/src/fight.c e doc/15-tdd.md."
+    },
+    {
+      "id": "L046",
+      "status": "absorvida_em_skill",
+      "lesson": "Line IRQ dispara na linha N depois de recarregar no VBlank. Armar 47 querendo 64 desloca todas as bandas 16 linhas. Banda vazia não prova a quebra.",
+      "skill_that_teaches": "skills/sms-region-timing.md",
+      "rule_section": "SMS_GLOBAL §6",
+      "evidence": "Título na linha 12 (96..103) saiu rolando com a água."
+    },
+    {
+      "id": "L047",
+      "status": "absorvida_em_skill",
+      "lesson": "Troca de tela que escreve name table fora do VBlank perde escritas e deixa resto ('UPER'). Display off + mapa inteiro fecha a classe; limpar linha a linha não.",
+      "skill_that_teaches": "skills/sms-vram-vblank-budget.md",
+      "rule_section": "SMS_GLOBAL §9",
+      "evidence": "MSSF2T/src/fight.c — resto do título por cima da luta."
+    },
+    {
+      "id": "L048",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Captura de áudio silenciosa é corrida de ambiente. Build congelada (v056, 94% horas antes) também saiu muda; v024 tinha som. peak=0 ⇒ matar Java zumbis e gravar controle histórico na mesma rodada. Recorrência da L019: a mensagem sozinha não impediu a segunda ocorrência.",
+      "tool_that_measures": "capture_audio.py (classify_silence + _kill_emulicious_zombies)",
+      "rule_section": "SMS_GLOBAL §31",
+      "evidence": "MSSF2T/out/evidence/audio_ref.wav e audio_pre.wav."
+    },
+    {
+      "id": "L049",
+      "status": "absorvida_em_skill",
+      "lesson": "Com 1553 B livres não cabia logo nem music_title. Abertura por composição (palco com paleta escurecida, fonte existente, lutadores em pose) custou ~518 B incluindo o laço arcade.",
+      "skill_that_teaches": "workflows/new-visual-asset.md",
+      "rule_section": "SMS_GLOBAL §39",
+      "evidence": "MSSF2T/src/fight.c e hud.c."
+    }
+  ],
+  "note_ids": "IDs globais. L012 e L020–L034 são furos declarados em id_registry.json. Recorrência emenda lei existente; não abre seção nova.",
+  "calibration": {
+    "selftest": "49/49 (2026-09-06)",
+    "psg_channel": "arena_nocturna e MSSF2T PASS",
+    "hscroll_blank": "MSSF2T e arena_nocturna PASS; laboratorio_01 FAIL verdadeiro (SMS_setBGScrollX(scrollx) sem LEFTCOLBLANK) — curadoria não altera jogo",
+    "doc_sync": "inbox de arte sem build.sh/.mddev (MGAROU, MREALBOUT) deixa de contar como projeto"
+  }
+}
