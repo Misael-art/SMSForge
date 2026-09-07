@@ -3,19 +3,17 @@
 > ESTADO OPERACIONAL REAL. Autoridade #1.
 
 ## Última atualização
-2026-09-06 (noite) — **O EIXO GAMEPLAY FECHOU.** O canal de teclado estava
-morto por causa do Wayland (L039): o xdotool/XTEST nunca atravessa o KWin.
-Canal reaberto com **kdotool** (foco via KWin/DBus) + **ydotool** (uinput,
-nível kernel) — o evento nasce dentro do kernel e o KWin entrega a quem
-estiver focado. Com input real: Ken anda nos dois sentidos (registrado em
-`probe_keys`), e a **troca de lado da L053 foi observada** por pulo por cima.
-ROM `out/rom/MSSF2T.sms` 32768 B
-SHA-256 `2990757fb67990c427733114ae676bb5ea38e23d465b5f7b6cbf8d7070a8b6e0`
-(este é o binário DO REBUILD desta sessão, após a limpeza das folhas `_l`.
-O rebuild **não** saiu idêntico ao anterior `e42c4887…` — o não-determinismo
-de binário do SDCC, já registrado no projeto, vale aqui: mesmo fonte, SHA
-diferente. Por isso TODA a evidência abaixo foi re-medida DEPOIS do rebuild,
-contra o binário novo; o selo `evidence_bundle.json` atesta a frescor.)
+2026-09-07 (manhã) — **O SOCO CONECTA POR INPUT.** O micro-gap 5 fechou:
+aproximação até o contato real (gap=20, `PUSH_W`), Botão 1 (tecla A, bit
+0x10 = PORT_A_KEY_1 confirmado em `probe_keys`), e o `probe_boss`
+(Guile hp) caiu **64→57 = dano 7, hit cheio sem guarda**, com a pose
+`POSE_PUNCH` (0x82) observada no `probe_pose` — o golpe SAIU pela RAM,
+não por pixel. A causa do whiff da sessão anterior era o instrumento:
+o approach antigo parava em gap ≤ 26 e a caixa do soco só alcança
+gap < 24 (`fight.c collide`: ax=x+20..+32 contra bx=x+8..+24).
+ROM `out/rom/MSSF2T.sms` 32768 B — **SHA inalterada**:
+`2990757fb67990c427733114ae676bb5ea38e23d465b5f7b6cbf8d7070a8b6e0`
+(nenhum rebuild nesta passada; o instrumento é que mudou).
 Espaço livre de ROM: **1091 B**.
 
 ## Eixos — todos medidos NESTA SHA
@@ -29,7 +27,7 @@ Espaço livre de ROM: **1091 B**.
 | abertura | testado_em_emulador | `evidence.png` (boot, abertura; luma 6337/5100) |
 | laço de arcade | testado_em_emulador | `laco2.png` (**KEN WINS**, 90 s) + `laco.png` (atração viva, 70 s) — nesta SHA |
 | KO | testado_em_emulador (indireto) | não se chega a KEN WINS (melhor de três) sem round decidido; banner K.O. segue sem frame capturado |
-| **gameplay** | **testado_em_emulador** | `input_memory.json` v2: `input_provado=true`, canal VIVO, dx=+85/−63 na direção comandada, `probe_keys`=0x08/0x04 durante o hold |
+| **gameplay** | **testado_em_emulador** | `input_memory.json` v2: `input_provado=true`, canal VIVO, dx=+85/−67 na direção comandada, `probe_keys`=0x08/0x04 durante o hold; **soco conecta** (`soco_provado=true`, hit −7 com pose 0x82); troca de lado re-observada na mesma run |
 | memory_bank_atualizado | documentado | este arquivo |
 
 `reconcile_claims.py` e `seal_fresh_evidence_bundle.py` rodam DEPOIS deste
@@ -60,8 +58,8 @@ Fatos medidos nesta sessão:
 ## O eixo gameplay fechou — e a troca de lado foi observada
 `tools/prove_input_memory.py` (v2, mesma ROM):
 - Partida REAL: B1 no título (a atração morre no primeiro toque).
-- Direita: `probe_keys=0x08` **durante** o hold, P[0].x 20→105 (dx=+85).
-- Esquerda: `probe_keys=0x04`, P[0].x 105→42 (dx=−63).
+- Direita: `probe_keys=0x08` **durante** o hold, P[0].x 24→98 (dx=+74).
+- Esquerda: `probe_keys=0x04`, P[0].x 98→8 (dx=−90).
 - Critério intacto: dx ≥ 8 px NA DIREÇÃO COMANDADA nos dois sentidos, com
   canal vivo. `--self-check` com 12 fixtures, incluindo as regressões exatas
   L039 (canal morto) e L038 (blob andou para o lado oposto e o gate antigo
@@ -70,12 +68,31 @@ Fatos medidos nesta sessão:
   mas a **CPU acertou o Ken** no meio da amostragem (hp 64→57) — jogo vivo
   dos dois lados.
 
+### O soco conecta por input (2026-09-07)
+Mesmo instrumento, fase nova (`_punch_phase` + `evaluate_punch`, 19
+fixtures no `--self-check`): aproxima até encostar (corpos param a
+`PUSH_W`=20, dentro do alcance <24), B1 de 9 frames, polling do
+`probe_boss` por 1,4 s, retry ×3 com recuo. Run selada
+(`input_memory.json`, mesma SHA):
+- tentativa 0: **whiff honesto** — B1 não chegou no 1º toque
+  (`pose_no_b1`=0x81 WALK, hp 64→64); o retry é do instrumento.
+- tentativa 1: `pose_punch_vista`=0x82 (POSE_PUNCH|facing) e
+  **guile_hp 64→57 (delta 7 = hit cheio, sem guarda)** — CONECTOU.
+- Critério: canal vivo + gap < 24 lido antes do golpe + queda de
+  `guile_hp`. Hit (−7), chip de guarda (−2) e KO (0) são conexões;
+  64→64 é whiff — fixture da regressão selada no self-check.
+- Nota honesta: `probe_keys` no instante pausado mostrava 0x08 (Right
+  do approach se cruzando com o keydown do A na mesma leitura); a
+  agência do soco está na pose 0x82 + queda de hp, não nesse sample.
+- Ken levou 64→54 da CPU durante as amostras (hp no Left) — jogo vivo
+  dos dois lados.
+
 ### L053: de "correto por leitura" para OBSERVADO
 Mesma fase do instrumento: aproximação até gap ≤ 30, passo atrás para sair
-do hitstun, pulo com Cima+Direção. Na primeira tentativa: `min_py=58` (subiu
-54 px), `cruzou_no_ar=true`, aterrissou com px=116 > p2x=96, e
-`probe_pose` 0x84 → 0x01 — **o facing virou para o novo lado**, exatamente o
-que o conserto (`apply_pose` dentro de `update_facing`) deveria fazer.
+do hitstun, pulo com Cima+Direção. Artefato selado (`input_memory.json`):
+`min_py=57`, `cruzou_no_ar=true`, aterrissou px=89 > p2x=67, `probe_pose`
+0x81 → 0x01 — **o facing virou para o novo lado**, exatamente o que o
+conserto (`apply_pose` dentro de `update_facing`) deveria fazer.
 Limite honesto mantido: o espelhamento **visual** do sprite na tela segue
 provado por leitura do código; o probe enxerga a lógica, não os pixels.
 Detalhe de método: a 1ª tentativa da sessão falhou honestamente
@@ -119,8 +136,8 @@ abertura reusa `music_battle`.
   baixo; partida real a partir do título; fase de troca de lado com retry;
   `--self-check` de 12 fixtures. A prova de input NÃO usa pixels.
 - **Limpeza:** as 14 folhas `inc/*_l_tiles.h` (defasadas, fora do build) e o
-  diagnóstico descartável `tools/diag_input.py` removidos. Rebuild saiu
-  byte a byte idêntico (`e42c4887…`).
+  diagnóstico descartável `tools/diag_input.py` removidos. Rebuild **não**
+  saiu byte-idêntico (SDCC); SHA desta evidência = `2990757f…`.
 - **Evidência:** toda a cadeia re-medida contra o binário do rebuild:
   `input_memory.json` (v2, com sideswap), `fps.json` (59.8),
   `runtime_probe.json` (57.69/56.51), `evidence.png` (boot/abertura),
@@ -143,9 +160,8 @@ abertura reusa `music_battle`.
   nunca fonte.
 - Canvas 32×64 locked. `ready_for_aaa` false.
 - Input de prova: **memória, nunca pixels** neste host (L035/L038/L054).
-- Curadoria da lição de input (JSON canônico + seção em SMS_GLOBAL + gate no
-  wrapper) ficou **proposta pendente de aprovação humana** — o memory bank
-  do projeto registra o fato; a fábrica formaliza depois.
+- Input de prova neste host: **kdotool + ydotool** (`emulator_input.py`).
+  xdotool/XTEST não atravessa o KWin (L039).
 
 ## Blockers
 1. ~~Input não chega ao emulador~~ **RESOLVIDO** — era Wayland/KWin (L039).
@@ -155,31 +171,57 @@ abertura reusa `music_battle`.
    (título do emulador: 59.8). Diferença é overhead de pausa/attach do DAP —
    remedir sem attach antes de culpar o flip.
 4. Silhueta ainda é downsample+quantize da sheet.
-5. Soco ainda não provado CONECTANDO por input (guile_hp 64→64 na amostra;
-   a CPU acertou o Ken, o Ken não acertou de volta) — micro-gap aberto.
+5. ~~Soco não conecta~~ **RESOLVIDO (2026-09-07)** — era o instrumento
+   (approach parava em gap ≤ 26, fora do alcance < 24). A distância real,
+   hit cheio −7 observado por RAM. Ficou registrado que a CPU ora guarda
+   (chip −2) ora não; K.O. por soco seguido é o teste natural seguinte.
 
 ## Quais evidências valem para esta SHA
-**Atuais (desta sessão, noite, binário `2990757f…`):** `input_memory.json`
-(v2 + sideswap), `poses.json`, `evidence.png` (boot/abertura), `laco.png`,
-`laco2.png` (KEN WINS), `fps.json`, `runtime_probe.json`, `audio.wav`,
-`evidence_bundle.json` (selado, 8 artefatos).
+**Atuais (2026-09-07, manhã, binário `2990757f…`, seladas juntas):**
+`input_memory.json` (v2: input + soco −7 + sideswap), `fps.json`,
+`runtime_probe.json`, `evidence.png` (boot/abertura), `laco2.png`
+(KEN WINS), `audio.wav` (92%), `evidence_bundle.json` (**selado com 7
+artefatos frescos**). `poses.json` reprovou 3× no re-run de manhã (a
+janela de observação da atração desalinha com o ciclo do roteiro — cada
+falha perdeu uma pose diferente); o artefato da noite continua valendo
+para CROUCH (mesma SHA), e JUMP/PUNCH aparecem dentro do
+`input_memory.json` fresco (0x87 no voo, 0x82 no soco).
+
+**De sessões anteriores, mesma SHA (referência, não selo fresco):**
+`laco.png`, `title.png`, `rounds.png`/`resultado.png`/
+`volta_ao_titulo.png`, `poses.json`.
 
 **De binários anteriores (não usar como prova):** `gameplay*`, `ko1110*`,
 `ko1130*`, `ko1145*`, `special*`, `final.png*`, `stage_final*`,
 `runtime_probe_diag*`, `audio_ref.wav` (controle de ambiente),
-`audio_pre.wav` (controle), `input_memory_old.json`, e **toda a evidência
-produzida contra o binário `e42c4887…`** — inclusive `title.png`,
-`rounds.png`/`resultado.png`/`volta_ao_titulo.png` da tarde: mesmos bytes de
-fonte, binário diferente; servem de referência visual, não de prova.
+`audio_pre.wav` (controle), `input_memory_old.json` e tudo o que foi
+produzido contra o binário `e42c4887…`.
 
 ## Handoff
 O golden slice do GDD está fechado em todos os eixos exceto os que a própria
 GDD marca fora do `ready_for_aaa`. Degraus seguintes, em ordem causal:
-1. **Soco conectando por input** (fechar o micro-gap 5: aproximar, socar,
-   ler `probe_boss` cair) — mesmo instrumento, meia hora.
-2. **Curadoria da lição de input** (Wayland/XTEST → uinput): JSON canônico
-   em `doc/curation/` + seção em SMS_GLOBAL + gate no wrapper — exige
-   aprovação humana explícita (modo curadoria).
-3. **Worst-frame de VBlank medido em ROM** (`doc/13-spec-cenas.md` segue
-   "documentado", nunca medido) — orçamento de cena fecha de verdade.
-4. Só então, nova arte autoral (silhueta própria, blocker 4).
+1. ~~Soco conectando por input~~ **FECHADO (2026-09-07)** — hit −7 por RAM,
+   `soco_provado=true` em `input_memory.json`. Extensão natural, não
+   blocker: sequência de socos até o K.O. com a CPU devolvendo (fecha o
+   laço "golpe→dano→round decidido" com input nos dois lados).
+2. **Worst-frame de VBlank medido em ROM** (`doc/13-spec-cenas.md` segue
+   "documentado", nunca medido) — ATENÇÃO: medir exige instrumentar a ROM
+   (contador de overrun/atraso no probe) e portanto **rebuild = SHA nova =
+   re-medir TODA a evidência** (input/fps/áudio/probe/boot/laço/poses/selo)
+   contra o binário novo. Planejar a janela para isso.
+3. Só então, nova arte autoral (silhueta própria, blocker 4).
+
+Curadoria L039/L053 (Wayland/uinput + troca observada) **fechada na fábrica**
+em 2026-09-07: `emulator_input.py`, `reconcile_claims` aceita
+`input_memory.json` com SHA da ROM.
+
+### Nota de ambiente (2026-09-07, manhã)
+Uma **segunda sessão de agente** rodava a suíte `laboratorio_01` no MESMO
+Emulicious/host durante esta passada. Colisões reais: handoff
+single-instance (meu boot nasceu no estado DELA, frame=1159), higiene
+`pkill` mútua derrubando o DAP no meio do run, e disputa de foco de teclado
+(kdotool `ids[0]` não distingue duas janelas "Emulicious"). Solução da
+vez: arbitragem humana — a irmã foi pausada e o host ficou livre. Rotina
+futura: conferir `pgrep -f "Emulicious[.]jar"` antes de rodar e nunca
+disputar foco; `pkill` sempre com padrão `Emulicious[.]jar` (o padrão sem
+colchetes mata o próprio shell que o executa).

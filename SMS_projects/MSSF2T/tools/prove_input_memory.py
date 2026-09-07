@@ -39,6 +39,7 @@ import time
 sys.path.insert(0, "/mnt/sdcard/Projects/SMSForge/tools/sms_wrapper")
 
 import capture_evidence as CE                                    # noqa: E402
+import emulator_input as EI                                      # noqa: E402
 import measure_runtime_probe as MRP                              # noqa: E402
 from emulicious_dap import PORT                                  # noqa: E402
 
@@ -63,45 +64,43 @@ ENV = dict(os.environ, YDOTOOL_SOCKET=YDOTOOL_SOCKET)
 SETTLE = 3.0             # boot + titulo estavel
 HOLD_S = 0.8             # direcional pressionado durante a leitura
 FIGHT_TIMEOUT = 15.0     # ROUND(120f) + FIGHT(40f) de banner
-PUNCH_GAP = 26           # px entre corpos para o soco alcancar
+PUNCH_REACH = 24         # caixa do soco conecta com gap < 24 (fight.c collide)
+PUSH_W = 20              # corpos param a 20 px (separate) — dentro do alcance
 
 
 # ---------------------------------------------------------------- logica pura
 def evaluate(samples, canal_vivo):
-    """Criterio de prova: dx >= 8 px NA DIRECAO COMANDADA nos dois sentidos,
-    com o canal de teclado vivo. Pura — o --self-check roda isto."""
-    if not canal_vivo:
-        return False, "canal de teclado morto: nenhuma leitura tem lastro"
-    for s in samples:
-        dx = s["dx"]
-        if dx is None:
-            return False, "leitura de probe_px falhou (" + s["tecla"] + ")"
-        if dx * s["sentido_esperado"] < 8:
-            return False, ("%s deslocou dx=%+d (precisava >= 8 na direcao "
-                           "comandada %+d)" % (s["tecla"], dx,
-                                               s["sentido_esperado"]))
-    return True, "deslocamento na direcao comandada nos dois sentidos"
+    """Criterio canonico: emulator_input.evaluate_direction (L038/L039)."""
+    return EI.evaluate_direction(samples, canal_vivo)
 
 
 def evaluate_swap(before, flight, after):
-    """Troca de lado (L053): cruzou por cima e o facing virou para o novo
-    lado. Pura — o --self-check roda isto com a regressao exata."""
-    if not (before["px"] is not None and before["p2x"] is not None):
-        return False, "leitura do estado inicial falhou"
-    if not (before["px"] < before["p2x"]):
-        return False, "estado inicial nao e Ken a esquerda do Guile"
-    if not flight["pulo"]:
-        return False, ("nao houve pulo (min_py=%s, chao=%d): cruzar no chao "
-                       "e bloqueado pela caixa de corpo"
-                       % (flight["min_py"], GROUND_Y))
-    if not (after["px"] is not None and after["p2x"] is not None
-            and after["px"] > after["p2x"]):
-        return False, "Ken nao aterrissou a direita do Guile (nao cruzou)"
-    if not (before["facing_bit"] and not after["facing_bit"]):
-        return False, ("facing nao virou de 1 para 0 com a troca de lado "
-                       "(antes=%s depois=%s)" % (before["facing"],
-                                                 after["facing"]))
-    return True, "pulo por cima observado e facing virou para o novo lado"
+    """Criterio canonico: emulator_input.evaluate_swap (L053)."""
+    return EI.evaluate_swap(before, flight, after, ground_y=GROUND_Y)
+
+
+def evaluate_punch(before, punch, after):
+    """Soco conecta por input: B1 com canal vivo, Ken a alcance
+    (gap < PUNCH_REACH, lido antes do golpe) e guile_hp caiu. Hit (-7),
+    chip de guarda (-2) e KO (0) sao conexoes; 64->64 e whiff — a
+    regressao exata da amostra selada."""
+    if not punch.get("canal_vivo"):
+        return False, "canal de teclado morto: nenhuma leitura tem lastro"
+    b0 = before.get("guile_hp")
+    if b0 is None:
+        return False, "leitura do guile_hp inicial falhou"
+    if not punch.get("gap_no_limite"):
+        return False, ("Ken nao ficou a alcance do soco "
+                       "(gap=%s, alcance<%d)" % (punch.get("gap"),
+                                                 PUNCH_REACH))
+    b1 = after.get("guile_hp")
+    if b1 is None:
+        return False, "leitura do guile_hp depois do soco falhou"
+    if b1 >= b0:
+        return False, ("B1 dado a alcance e guile_hp %s->%s: whiff — a "
+                       "regressao exata da amostra selada" % (b0, b1))
+    return True, "guile_hp caiu %s->%s apos B1 a alcance (delta %d)" % (
+        b0, b1, b0 - b1)
 
 
 # --------------------------------------------------------------- injecao
@@ -337,9 +336,9 @@ def run():
                             "probe_keys_durante": k})
             prev = x
 
-        # ---- bonus no mesmo instrumento: aproximar e socar (hp do oponente
-        # cai). Extra observavel; NAO faz parte do criterio do eixo.
-        golpe = _punch_bonus(dap, backend)
+        # ---- soco conectando por input (handoff item 1): aproxima a
+        # alcance (gap < 24) e le guile_hp cair. Nao fecha o eixo sozinho.
+        soco = _punch_phase(dap, backend, canal_vivo)
 
         # ---- troca de lado (L053): pulo por cima e facing virando. Fase
         # separada do criterio do eixo; entra no mesmo artefato.
@@ -347,14 +346,19 @@ def run():
 
         ok, motivo = evaluate(samples, canal_vivo)
         metrics = _metrics(backend, canal_vivo, focado, samples, True,
-                           estado, f0, f1, golpe=golpe)
+                           estado, f0, f1)
         metrics["motivo"] = motivo
         metrics["input_provado"] = ok
+        metrics["soco"] = soco
         metrics["sideswap"] = sideswap
         _dump(metrics)
         print("[%s] input->jogador %s (%s)"
               % ("PASS" if ok else "FAIL",
                  "provado" if ok else "NAO provado", motivo))
+        print("[%s] soco conectando por input %s (%s)"
+              % ("PASS" if soco.get("soco_provado") else "FAIL",
+                 "provado" if soco.get("soco_provado") else "NAO provado",
+                 soco.get("motivo")))
         return (0 if ok else 1), metrics
     finally:
         try:
@@ -368,37 +372,124 @@ def run():
                 proc.kill()
 
 
-def _punch_bonus(dap, backend):
-    """Aproxima pelo direcional e aperta B1; devolve o delta de hp do
-    oponente. Falha honesta devolve None — nao faz parte do criterio."""
+def _punch_phase(dap, backend, canal_vivo):
+    """Handoff item 1: o soco CONECTANDO por input — guile_hp cai.
+
+    Causa do whiff selado (64->64): o approach antigo parava em gap<=26 e a
+    caixa do soco so alcancaca gap<24 (fight.c collide: ax=x+20..+32 contra
+    bx=x+8..+24). Os corpos param a PUSH_W=20 (separate), dentro do alcance.
+    CPU a dist<44 soca a cada 64 frames e guarda metade das janelas de
+    ataque: hit -7, chip de guarda -2 — qualquer queda de guile_hp e
+    conexao. Retry x3 com recuo, como na fase de pulo (L053).
+    """
     try:
-        fim = time.time() + 10.0
-        while time.time() < fim:
+        time.sleep(0.3)
+        dap.pause()
+        before = {"guile_hp": dap.read_byte(PROBE_BOSS),
+                  "ken_hp": dap.read_byte(PROBE_HP)}
+        punch = {"canal_vivo": canal_vivo, "gap": None,
+                 "gap_no_limite": False, "tentativas": []}
+        if before["guile_hp"] is None:
+            return {"antes": before, "punch": punch, "after": {},
+                    "soco_provado": False, "motivo": "leitura falhou"}
+
+        for n in range(3):
+            # recuo: sai de hitstun/guarda e reposiciona antes do golpe
             if backend == "wayland":
                 ensure_focus_wayland()
-                hold_wayland("right", 0.5)
+                hold_wayland("left", 0.35)
             else:
-                hold_x11("right", 0.5)
-            dap.pause()
-            px = dap.read_byte(PROBE_PX)
-            p2x = dap.read_byte(PROBE_P2X)
-            bo = dap.read_byte(PROBE_BOSS)
-            if None in (px, p2x, bo):
-                return None
-            if p2x - px <= PUNCH_GAP:
+                hold_x11("left", 0.35)
+            dap.cont()
+            time.sleep(0.4)
+
+            # aproximacao final: anda ate encostar (corpos param a PUSH_W)
+            fim = time.time() + 6.0
+            while time.time() < fim:
                 if backend == "wayland":
-                    hold_wayland("botao1", 0.2)
+                    ensure_focus_wayland()
+                    hold_wayland("right", 0.3)
                 else:
-                    hold_x11("botao1", 0.2)
-                time.sleep(0.8)
+                    hold_x11("right", 0.3)
                 dap.pause()
-                bo2 = dap.read_byte(PROBE_BOSS)
-                print("  soco: guile_hp %s -> %s" % (bo, bo2))
-                return {"guile_hp_antes": bo, "guile_hp_depois": bo2,
-                        "acertou": bo2 is not None and bo2 < bo}
-        return None
+                px = dap.read_byte(PROBE_PX)
+                p2x = dap.read_byte(PROBE_P2X)
+                if None in (px, p2x):
+                    continue
+                if p2x - px <= PUNCH_REACH - 2:
+                    break
+                dap.cont()
+            dap.pause()
+            gap = (dap.read_byte(PROBE_P2X)
+                   - dap.read_byte(PROBE_PX)) if True else None
+            b0 = dap.read_byte(PROBE_BOSS)
+            punch["gap"] = gap
+            punch["gap_no_limite"] = gap is not None and gap < PUNCH_REACH
+
+            # B1: startup 4 + active 4 frames (set_state no 1o frame com b1)
+            if backend == "wayland":
+                ensure_focus_wayland()
+                EI.ydotool_key(EI.EVDEV["a"], True)
+            else:
+                CE._run(["xdotool", "keydown", "a"])
+            time.sleep(0.10)
+            dap.pause()
+            k_b1 = dap.read_byte(PROBE_KEYS)
+            pose_b1 = dap.read_byte(PROBE_POSE)
+            dap.cont()
+            time.sleep(0.10)
+            if backend == "wayland":
+                EI.ydotool_key(EI.EVDEV["a"], False)
+            else:
+                CE._run(["xdotool", "keyup", "a"])
+
+            # janela de observacao: hitstop 6f + recovery 8f, polling rapido
+            min_boss = b0
+            pose_vista = None
+            observacao = []
+            fim = time.time() + 1.4
+            while time.time() < fim:
+                dap.pause()
+                bo = dap.read_byte(PROBE_BOSS)
+                hp = dap.read_byte(PROBE_HP)
+                st = dap.read_byte(PROBE_STATE)
+                pose = dap.read_byte(PROBE_POSE)
+                observacao.append({"boss": bo, "ken_hp": hp,
+                                   "estado": GS.get(st, st),
+                                   "pose": pose})
+                if pose is not None and (pose & 0x7F) == 2:
+                    pose_vista = pose
+                if bo is not None and bo < min_boss:
+                    min_boss = bo
+                dap.cont()
+                time.sleep(0.08)
+            dap.pause()
+            ba = dap.read_byte(PROBE_BOSS)
+            conectou = min_boss < b0
+            punch["tentativas"].append({
+                "n": n, "gap": gap, "guile_hp_antes": b0,
+                "guile_hp_min": min_boss, "guile_hp_depois": ba,
+                "keys_durante_b1": k_b1, "pose_no_b1": pose_b1,
+                "pose_punch_vista": pose_vista,
+                "observacao": observacao})
+            print("  soco tentativa %d: gap=%s keys_b1=0x%02X pose_b1=%s "
+                  "pose_punch=%s guile_hp %s->%s (min %s)%s"
+                  % (n, gap, k_b1 or 0, pose_b1, pose_vista, b0, ba,
+                     min_boss, "  CONECTOU" if conectou else ""))
+            if conectou:
+                break
+            time.sleep(0.2)
+
+        after = {"guile_hp": dap.read_byte(PROBE_BOSS),
+                 "ken_hp": dap.read_byte(PROBE_HP),
+                 "estado": GS.get(dap.read_byte(PROBE_STATE) or 0, "?")}
+        ok, motivo = evaluate_punch(before, punch, after)
+        print("[soco] %s (%s)"
+              % ("CONECTOU POR INPUT" if ok else "NAO conectou", motivo))
+        return {"antes": before, "punch": punch, "after": after,
+                "soco_provado": ok, "motivo": motivo}
     except (OSError, subprocess.SubprocessError):
-        return None
+        return {"soco_provado": False, "motivo": "falha de ambiente"}
 
 
 def _read_fighter(dap):
@@ -691,15 +782,54 @@ def self_check():
     if ok:
         falhas.append("sideswap: leitura None foi aceita")
 
+    # ---- fixtures do soco conectando (handoff item 1 / amostra selada)
+    # 13. Regressao SELADA exata: B1 dado e guile_hp 64->64 (whiff).
+    p_whiff = {"canal_vivo": True, "gap": 24, "gap_no_limite": True}
+    ok, _ = evaluate_punch({"guile_hp": 64}, p_whiff, {"guile_hp": 64})
+    if ok:
+        falhas.append("soco: whiff 64->64 da amostra selada foi aceito")
+
+    # 14. Fora de alcance nao pode passar, nem com hp caindo.
+    p_longe = {"canal_vivo": True, "gap": 30, "gap_no_limite": False}
+    ok, _ = evaluate_punch({"guile_hp": 64}, p_longe, {"guile_hp": 57})
+    if ok:
+        falhas.append("soco: queda de hp fora de alcance foi aceita")
+
+    # 15. Canal morto reprova.
+    p_morto = {"canal_vivo": False, "gap": 20, "gap_no_limite": True}
+    ok, _ = evaluate_punch({"guile_hp": 64}, p_morto, {"guile_hp": 57})
+    if ok:
+        falhas.append("soco: canal morto foi aceito")
+
+    # 16. Hit (-7), chip de guarda (-2) e KO (0) sao conexoes.
+    p_bom = {"canal_vivo": True, "gap": 20, "gap_no_limite": True}
+    ok, motivo_soco = evaluate_punch({"guile_hp": 64}, p_bom,
+                                     {"guile_hp": 57})
+    if not ok:
+        falhas.append("soco: hit -7 foi reprovado: " + motivo_soco)
+    ok, _ = evaluate_punch({"guile_hp": 64}, p_bom, {"guile_hp": 62})
+    if not ok:
+        falhas.append("soco: chip de guarda -2 foi reprovado")
+    ok, _ = evaluate_punch({"guile_hp": 64}, p_bom, {"guile_hp": 0})
+    if not ok:
+        falhas.append("soco: KO foi reprovado")
+
+    # 17. Leitura perdida do hp reprova.
+    ok, _ = evaluate_punch({"guile_hp": None}, p_bom, {"guile_hp": 57})
+    if ok:
+        falhas.append("soco: leitura None foi aceita")
+
     if falhas:
         print("[SELF-CHECK FAIL]")
         for f in falhas:
             print("  - " + f)
         return 1
-    print("[SELF-CHECK PASS] 12 fixtures: L039 canal morto, L038 direcao "
+    print("[SELF-CHECK PASS] 19 fixtures: L039 canal morto, L038 direcao "
           "oposta, dx curto, sentido unico, caminho bom, leitura None, "
           "L053 de costas, facing sem cruzar, sem pulo, estado invertido, "
-          "sideswap caminho bom, sideswap leitura None")
+          "sideswap caminho bom, sideswap leitura None, soco whiff 64->64 "
+          "selado, fora de alcance, canal morto, hit -7, chip -2, KO, "
+          "leitura None")
     return 0
 
 

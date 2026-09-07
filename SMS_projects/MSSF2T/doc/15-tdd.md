@@ -115,11 +115,12 @@ exige direção, identidade e escala nativa em `interaction_verdict`; bundles
 anteriores a essa curadoria fechavam com `abs(dx)>=8` sozinho. Neste projeto
 o canal certo continua sendo memória (`probe_px`).
 
-**Estado atual: o canal de teclado está morto neste ambiente (L039).**
-`probe_keys` lê `0x00` com a tecla pressionada (XSendEvent e XTEST), `xdotool
-getwindowfocus` volta vazio e o atalho de reset do próprio Emulicious não
-funciona — na ROM nova e na `build_v024`. O eixo gameplay fica em aberto por
-ambiente, não por defeito da ROM.
+**Canal neste host (L039 fechada 2026-09-07):** KDE/Wayland. xdotool/XTEST
+não atravessa o KWin. Canal real: **kdotool + ydotool** (`emulator_input.py`).
+Canário: Ctrl+BackSpace zera `probe_frame`. Prova selada:
+`out/evidence/input_memory.json` (dx=+74/−90, `probe_keys` 0x08/0x04,
+SHA `2990757f…`). `reconcile_claims` aceita esse JSON como lastro do eixo
+gameplay. Botão 1 = tecla A (lido em `probe_state` no título).
 
 ### Escala da janela é entrada do gate, não detalhe de UI
 A fábrica (L040) normaliza limiares de forma para a canvas 256×192. Bundles
