@@ -1,0 +1,21 @@
+{
+  "pipeline_id": "quality_review_v1",
+  "description": "Review independente em checkpoints. Produtor nao se autoaprova. Maximo 3 dominios. Nao declara ready_for_aaa.",
+  "steps": [
+    {"id": "Q0_request", "kind": "agent",
+     "label": "quality_review_request hash-bound",
+     "outputs": ["quality_review_request"]},
+    {"id": "Q1_plan", "kind": "agent",
+     "label": "quality_review_router.py plan (max 3)",
+     "gate": {"tool": "tools/sms_wrapper/quality_review_router.py"}},
+    {"id": "Q2_optional_harness", "kind": "agent",
+     "label": "harness_orchestration.py se >=2 ramos longos",
+     "gate": {"tool": "tools/sms_wrapper/harness_orchestration.py"}},
+    {"id": "Q3_reviews", "kind": "agent",
+     "label": "reviews read-only independentes do produtor"},
+    {"id": "Q4_validate", "kind": "agent",
+     "label": "validate-report (stale/autoaprovacao/AAA caem)",
+     "gate": {"tool": "tools/sms_wrapper/quality_review_router.py"}}
+  ],
+  "hard_rule": "defect/risk demonstra revise_before_growth; taste nao bloqueia; claim fica no coordenador."
+}

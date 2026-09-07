@@ -1,0 +1,25 @@
+{
+  "curation_id": "2026-09-07_l055_pixel_translate",
+  "date": "2026-09-07",
+  "scope": "method_port_pixel_art_hermes",
+  "origin": "Skill Hermes pixel-art v2.0.0 (dodo-reach, MIT; paletas Synero/pixel-art-studio). Pedido de incorporar ao agente canônico SMSForge.",
+  "lessons": [
+    {
+      "id": "L055",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Portar o MÉTODO de tradução pixel (realce → posterize → downscale NEAREST → Floyd-Steinberg no grid final). Nao portar paleta NES (54), SNES adaptativa 32, PICO-8, Game Boy, C64, nem presets neon/pastel. A unica paleta de asset e a mestra 6-bit (canal×85, ≤15 uteis + idx0). MP4/GIF com chuva/neon/fireflies nao e evidencia de ROM nem asset em res/. Saida desta traducao nao e personagem/palco delivery sozinha.",
+      "root_cause": "Skill externa oferece 14 presets de outros hardwares. Sem recorte, o agente canônico contaminaria a CRAM (§32/L001) e promoveria vídeo de mood a prova de jogo.",
+      "meta_lesson": "§32 outra vez: porta-se o método (quantizar DEPOIS do downscale para o dither cair no pixel), nunca a grandeza (54 cores NES, block 4px SNES, 32 cores).",
+      "tool_that_measures": "prepare_sms_pixel_art.py",
+      "skill_that_teaches": "skills/sms-pixel-translate.md",
+      "rule_section": "SMS_GLOBAL §8, §32",
+      "not_ported_on_purpose": [
+        "presets nes/snes/pico8/gameboy/c64/apple2/teletext/mspaint/neon/pastel",
+        "pixel_art_video.py e cenas night/urban/snow/fire",
+        "palettes.py com 28 paletas nomeadas de outro hardware",
+        "upscale de volta ao tamanho da foto (poster); SMS fica no grid nativo"
+      ]
+    }
+  ],
+  "attribution": "Método FS-após-downscale: skill pixel-art v2.0.0 MIT. Paleta mestra: sms_palette.py."
+}

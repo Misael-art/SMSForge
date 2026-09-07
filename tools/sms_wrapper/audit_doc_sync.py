@@ -35,11 +35,17 @@ DOC_EXEMPT = {  # existem mas nao precisam figurar na tabela de gates
 }
 TOOL_EXEMPT = {"build_inner.py", "gen_fixtures.py", "selftest.py", "png_io.py",
                "sms_palette.py", "png_to_sms_tiles.py"}
+# Oráculos de autonomia (L036): não usam prefixo audit_ mas são lei operante.
+DOCTRINE_ALWAYS = {"harness_orchestration.py", "quality_review_router.py",
+                   "emulator_input.py", "prepare_sms_pixel_art.py"}
+
+def _is_doctrine_tool(fn):
+    return fn.startswith(MEASURE_PREFIXES) or fn.endswith("_gate.py") or fn in DOCTRINE_ALWAYS
 
 def _tools_in_wrapper(wrapper):
     return {fn for fn in os.listdir(wrapper)
             if fn.endswith(".py") and fn not in TOOL_EXEMPT
-            and (fn.startswith(MEASURE_PREFIXES) or fn.endswith("_gate.py"))}
+            and _is_doctrine_tool(fn)}
 
 def curation_ids(root):
     """IDs de licao sao GLOBAIS entre arquivos de curadoria.
@@ -85,7 +91,7 @@ def audit(root):
     for fn in sorted(cited):
         if fn in TOOL_EXEMPT or fn in DOC_EXEMPT:
             continue
-        if fn.startswith(MEASURE_PREFIXES) or fn.endswith("_gate.py"):
+        if _is_doctrine_tool(fn):
             if not os.path.isfile(os.path.join(wrapper, fn)):
                 problems.append(f"AGENTS.md cita '{fn}' que NAO existe no wrapper")
 
@@ -100,6 +106,11 @@ def audit(root):
         for name in sorted(os.listdir(projects_dir)):
             proj = os.path.join(projects_dir, name)
             if not os.path.isdir(proj) or name.startswith("_"):
+                continue
+            # Inbox de arte / dump sem ser projeto da fabrica: sem build.sh e
+            # sem .mddev nao e projeto. Exigir GDD ali e falso positivo.
+            if not os.path.isfile(os.path.join(proj, "build.sh")) and \
+                    not os.path.isfile(os.path.join(proj, ".mddev", "project.json")):
                 continue
             for rel in TRUTH_HIERARCHY:
                 if not os.path.isfile(os.path.join(proj, rel)):
@@ -167,6 +178,12 @@ def _self_check():
         json.dump({"lessons": [{"id": "L001"}]}, open(os.path.join(cur, "b.json"), "w"))
         assert any("duplicada" in x for x in curation_ids(d)), \
             "faltou pegar ID de licao duplicado entre arquivos"
+
+        # inbox de arte sem build.sh/.mddev nao e projeto
+        art = os.path.join(d, "SMS_projects", "ARTDUMP")
+        os.makedirs(art)
+        p = audit(d)
+        assert not any("ARTDUMP" in x for x in p), f"inbox de arte reprovou: {p}"
     finally:
         shutil.rmtree(d, ignore_errors=True)
     print("[SELF-CHECK OK] doc_sync (gate fantasma, gate invisivel, hierarquia "

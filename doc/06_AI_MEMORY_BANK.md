@@ -4,19 +4,21 @@
 > memory bank de CADA projeto (`SMS_projects/<proj>/doc/10-memory-bank.md`).
 
 ## Última atualização
-2026-08-29 — tela funcional v5 FINAL limpa (283x282, 60fps) + F2/F3 fechadas; L009 registrada, F1 contornado.
+2026-09-07 — L055: tradução pixel na paleta mestra SMS (método FS/NEAREST; sem NES/SNES/PICO-8). L039 uinput e L053 sideswap já no cânone.
 
 ## Status dos eixos (vocabulário obrigatório)
 
 | Eixo | Status | Prova observada |
 |------|--------|-----------------|
 | Estrutura do workspace | implementado | 94 arquivos; árvore completa |
-| Gates executáveis | **testado_em_host (selftest 18/18)** | `python3 tools/sms_wrapper/selftest.py` (18 base + probe opcional) → `[SELFTEST OK]` |
+| Gates executáveis | **testado_em_host (selftest 53/53)** | `python3 tools/sms_wrapper/selftest.py` → `[SELFTEST OK]`; `prepare_sms_pixel_art.py` (L055) + `emulator_input.py` (L039) |
 | Delegação de build do projeto | testado_em_host | `laboratorio_01/build.sh` → FAIL_AMBIENTE exit 2 (honesto) |
 | Toolchain (SDCC 4.6 + devkitSMS) | **INSTALADO (rootless) e PROVADO** | `ensure_toolchain.sh` smoke-test; libs reconstruídas (L004) |
 | Emulator gate | **INSTALADO (Emulicious) e PROVADO** | `laboratorio_01/out/evidence/evidence.json`: viewport variancia 3715; openMSX rejeitado p/ SMS (L005) |
 | Primeira ROM | buildado | `laboratorio_01/out/rom/laboratorio_01.sms` 16384B (build_v011) |
-| Framework .agent | implementado | rules(24 seções)/skills(12)/workflows(8)/pipelines(3) |
+| Framework .agent | implementado | rules(§1–§43)/skills(+canal SFX, LEFTCOLBLANK, line IRQ, composição)/workflows(+asset-first L044, L049)/pipelines(4) |
+| Autonomia / época visual | **testado_em_host (self-check)** | L036+L037: persistência, visual delivery, binding ROM, harness, quality review, semântica de animação |
+| Captura de lição | **testado_em_host (self-check)** | L038–L054 no JSON; L039/L053 atualizadas 2026-09-07 (uinput + sideswap observado) |
 
 ## Bateria de prova (2026-08-25)
 Cada gate aprovou fixture válida E reprovou a inválida correspondente:
@@ -36,6 +38,10 @@ cd SMS_projects/<nome> && ./build.sh   # delega ao wrapper; nunca lógica local
 
 ## Lições canônicas ativas
 
+- `doc/curation/2026-09-06_l050_l054_absorcao.json` — L050–L054: gravidade por condição, redundância PSG, tamanho de símbolo, não torcer a demo, pose no probe.
+- `doc/curation/2026-09-06_l038_l049_absorcao.json` — L038–L049: direção/identidade/escala do eixo gameplay, canal SFX, LEFTCOLBLANK, asset-first, STREAM_BYTES, line IRQ, display-off, zumbis de áudio, composição sob teto de ROM.
+- `doc/curation/id_registry.json` — L012 e L020–L034 são furos; não reutilizar.
+- `doc/curation/2026-09-06_l036_autonomia_visual_epoch.json` — L036 porta método (não número) de persistência causal, época visual, binding ROM, harness e review independente do SGDKForge.
 - `doc/curation/2026-08-25_fundacao.json` — L001 porte re-deriva limites;
   L002 gate calibrado contra falso positivo; L003 fato de revisão exige evidência.
 

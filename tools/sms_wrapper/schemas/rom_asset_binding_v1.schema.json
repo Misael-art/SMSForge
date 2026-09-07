@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "rom_asset_binding_v1",
+  "type": "object",
+  "required": ["schema", "rom_sha256", "entries"],
+  "properties": {
+    "schema": {"type": "string", "enum": ["rom_asset_binding_v1"]},
+    "rom_path": {"type": "string"},
+    "rom_sha256": {"type": "string"},
+    "rom_size_bytes": {"type": "integer"},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["res_path", "symbol", "sha256"],
+        "properties": {
+          "source": {"type": "string"},
+          "res_path": {"type": "string"},
+          "symbol": {"type": "string"},
+          "generated": {"type": "string"},
+          "sha256": {"type": "string"}
+        }
+      }
+    }
+  }
+}

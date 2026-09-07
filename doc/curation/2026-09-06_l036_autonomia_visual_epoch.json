@@ -1,0 +1,45 @@
+{
+  "curation_id": "2026-09-06_l036_autonomia_visual_epoch",
+  "date": "2026-09-06",
+  "scope": "factory_autonomy_visual_epoch",
+  "origin": "Análise do SGDKForge (TAIKETSU ULTRA REBIRTH / visual_delivery_gate / causal-persistence / harness / quality_review) para portar MÉTODO ao SMSForge. Não portar números de Mega Drive.",
+  "lessons": [
+    {
+      "id": "L036",
+      "status": "fechada_com_ferramenta",
+      "lesson": "A fábrica-mãe evoluiu três capacidades que o SMSForge ainda tratava como prosa: (1) persistência causal — relatório não é entrega e duas falhas equivalentes fecham a rota, não o projeto; (2) época visual — boot no emulador prova rota, não qualidade, e a classificação honesta é runtime_probe_passed_visual_epoch_failed; (3) vínculo asset→ROM — source, símbolo e SHA da ROM precisam coincidir ou o claim visual é unproven. Sem esses oráculos um agente para no diagnóstico, promove D1/probe/HAMOOPIG como entrega e trata captura Linux como AAA.",
+      "root_cause": "O porte inicial copiou gates de hardware e evidência (o que o SMS já pagou: 8 sprites/scanline, SAT 64, sem DMA, captura, runtime probe) mas não copiou os oráculos de autonomia e de qualidade visual que o SGDKForge acumulou em produção real (TAIKETSU). Sintaxe P/4bpp e 7 eixos true de boot mascaravam epoch errada.",
+      "meta_lesson": "§32 continua valendo: porta-se o método (epoch, binding, persistência, review independente, teto de 3 ramos), nunca a grandeza (320×224, 128px de lutador MD, XGM2, DMA). Canvas SMS é 256×192; escala de personagem vem do GDD do projeto, não do benchmark MD.",
+      "evidence": "Gates novos com --self-check: audit_causal_persistence.py (F1–F10), audit_visual_delivery.py (D1/probe/HAMOOPIG/duplicata/escala/HUD/binding/320×224), audit_rom_asset_binding.py, harness_orchestration.py, quality_review_router.py.",
+      "tool_that_measures": "audit_causal_persistence.py + audit_visual_delivery.py + audit_rom_asset_binding.py + harness_orchestration.py + quality_review_router.py",
+      "rule_section": "SMS_GLOBAL §38–§41",
+      "companion": "L037 (audit_animation_semantics.py) no mesmo pacote: strip reordenado/ação clonada não passam por animação.",
+      "not_ported_on_purpose": [
+        "DMA queue planner",
+        "captura Windows Forms / seletor de arquivos",
+        "números 320×224, 80 sprites, 4 paletas, SAT 80",
+        "XGM2 como driver padrão",
+        "live_scene_bar completa (depende de oficio MD e schemas sem produtor SMS)",
+        "specialization fighting como default da fábrica"
+      ]
+    },
+    {
+      "id": "L037",
+      "status": "fechada_com_ferramenta",
+      "lesson": "A fábrica-mãe já media semântica de strip (hash de frame, permutação, clone de ação, pivot). Sem isso o SMSForge aceitaria idle reordenado como walk. Porta-se o método de hash de conteúdo, não o validador PIL/320×224.",
+      "root_cause": "Skill de animação existia como prosa; nenhum gate lia os PNGs do ciclo.",
+      "tool_that_measures": "audit_animation_semantics.py",
+      "rule_section": "SMS_GLOBAL §42"
+    }
+  ],
+  "related": {
+    "sgdk_sources": [
+      "tools/sgdk_wrapper/causal_persistence_guard.py",
+      "tools/sgdk_wrapper/.agent/workflows/causal-persistence-loop.md",
+      "tools/sgdk_wrapper/harness_orchestration.py",
+      "tools/sgdk_wrapper/quality_review_router.py",
+      "tools/sgdk_wrapper/schemas/visual_delivery_gate_report.schema.json"
+    ]
+  },
+  "note_ids": "IDs de licao sao GLOBAIS entre arquivos de curadoria; audit_doc_sync verifica unicidade. Ultimo ID antes desta: L035."
+}

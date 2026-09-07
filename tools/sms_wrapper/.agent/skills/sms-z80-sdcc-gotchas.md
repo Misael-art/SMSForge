@@ -6,6 +6,9 @@
 - float/double: software float — PROIBIDOS em runtime quente.
 - RAM 8KB: sem malloc/free; pools estáticos por entidade; stack pequena.
 - `__z88dk_fastcall` / `__sdcc_call(1)`: convenções do header mandam, não a intuição.
+- Locais recarregam via IX; ponteiros `static` no hot path.
+- Espelhar tile em runtime (bitrev) troca ROM por CPU. Curva paga
+  (STREAM_BYTES): 32→59.5 fps, 64→58.3, 96→57.5, 128→55.5, 256→40 (L045).
 
 ## Build canônico (devkitSMS)
 ```

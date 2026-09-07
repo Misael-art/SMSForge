@@ -19,3 +19,17 @@
 - Gate executável > confiança verbal.
 - `.agent` local de projeto NÃO é sobrescrito pelo central (política de sobrescrita).
 - Estado de sessão nunca substitui memory bank/GDD/TDD/evidência.
+- Relatório não é entrega: `workflows/causal-persistence-loop.md`.
+- Boot ≠ qualidade visual: `skills/sms-visual-excellence.md`.
+- Até 3 ramos independentes: `skills/sms-harness-orchestration.md`.
+- Review independente nos checkpoints: `workflows/independent-quality-review.md`.
+- Produção contínua: `workflows/production-loop.md`.
+- Lição só no ledger é prosa: `audit_learning_capture.py` (§43).
+- Input neste host: `emulator_input.py` (kdotool+ydotool). XTEST não
+  atravessa o KWin (L039).
+- Tamanho de símbolo e redundância PSG: `audit_symbol_size_sync.py`,
+  `audit_psg_redundancy.py`. Não torcer a demo (L053).
+- Tradução pixel: `prepare_sms_pixel_art.py` / `sms-pixel-translate.md`.
+  Paleta de outro console é régua (L055).
+
+Números de Mega Drive não entram. Método sim (§32).

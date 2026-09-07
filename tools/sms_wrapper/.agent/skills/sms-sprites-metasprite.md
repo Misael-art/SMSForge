@@ -5,7 +5,9 @@
 - Tamanho GLOBAL **8×8 ou 8×16** (+ zoom ×2, que dobra o PIXEL e não a arte).
   Nenhum modo é mais largo que 8px → entidade larga = metasprite. **Sempre.**
   Detalhe e armadilhas: [`sms-sprite-geometry-modes.md`](sms-sprite-geometry-modes.md) (§25, L006).
-- X armazenado = X+32. Early clock e flips são revisão-dependentes → §23 (provar).
+- X armazenado **sem offset**: `SMS_addSprite(0, …)` desenha na borda
+  esquerda. Early clock (`VDPFEATURE_SHIFTSPRITES`) desloca 8 px, não 32.
+  Flips são revisão-dependentes → §23 (provar).
 - API confirmada: `SMS_initSprites`, `SMS_addMetaSprite_f`, `SMS_copySpritestoSAT` (ver header).
 
 ## Fluxo obrigatório

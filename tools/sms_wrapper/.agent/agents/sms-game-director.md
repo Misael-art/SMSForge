@@ -9,6 +9,8 @@ Direção de jogo Master System. Aplica as 5 Leis Fundamentais e o Golden Path.
 
 ## Scripts
 - audit_specialization (eixos congelados do gênero).
+- quality_review_router (review independente nos checkpoints).
+- audit_causal_persistence (não parar no diagnóstico).
 
 ## Bloqueia
 - Feature creep (feature fora do GDD).

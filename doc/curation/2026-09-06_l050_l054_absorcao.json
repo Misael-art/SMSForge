@@ -1,0 +1,50 @@
+{
+  "curation_id": "2026-09-06_l050_l054_absorcao",
+  "date": "2026-09-06",
+  "scope": "absorcao_ledger_l050_l054",
+  "origin": "Agente registrou L050–L054 só no ledger + fatos no memory bank/TDD do MSSF2T. audit_learning_capture.py reprovou as 5. Mesma vazão da L038–L049 (§43).",
+  "lessons": [
+    {
+      "id": "L050",
+      "status": "absorvida_em_skill",
+      "lesson": "Física de queda vale por CONDIÇÃO (altura), não pelo rótulo do estado. y só no ramo ST_JUMP: levar golpe no ar tira o lutador do estado, a queda para e ele fica pendurado — andando, agachando e socando. Screenshot não flagrou; o probe mostrou IDLE/WALK/CROUCH a y=93 com o chão em 112.",
+      "skill_that_teaches": "skills/game-design-core-loop.md",
+      "rule_section": "SMS_GLOBAL §10",
+      "evidence": "MSSF2T/src/fight.c apply_gravity(); out/evidence/poses.json"
+    },
+    {
+      "id": "L051",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Música ocupava 2881 B para tocar 240 cópias byte a byte do mesmo frame de 12 B. PSGlib já volta ao início no PSGEnd. Cortar para 49 B (e music_title 577→145) recuperou 3264 B, áudio medido idêntico. Antes de sacrificar feature por espaço, medir a redundância.",
+      "tool_that_measures": "audit_psg_redundancy.py",
+      "rule_section": "SMS_GLOBAL §12",
+      "evidence": "MSSF2T/tools/shrink_music_loop.py; inc/music_battle.h 49 B"
+    },
+    {
+      "id": "L052",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Tamanho de asset em dois lugares diverge e o consumidor lê o lugar errado. fight_gfx.h dizia 1024 para folhas de 832; pose_size() mandava o streamer ler 192 B além do array, sem sintoma visível. Corrija gerando o header a partir das folhas, com --check.",
+      "tool_that_measures": "audit_symbol_size_sync.py",
+      "rule_section": "SMS_GLOBAL §44",
+      "evidence": "MSSF2T/tools/gen_fight_gfx.py --check"
+    },
+    {
+      "id": "L053",
+      "status": "fechada_com_ferramenta",
+      "lesson": "Afinar o roteiro da atração para o próprio teste passar é fabricar evidência (evidence_script_tuned_to_pass). O conserto do facing só é exercido por pulo por cima. A 1ª tentativa com canal vivo falhou honestamente (lutador busy, Cima ignorado, min_py=112). O instrumento ganhou retry com recuo — nao a demo. OBSERVADO 2026-09-07: min_py=57, cruzou no ar, px=89>p2x=67, probe_pose 0x81→0x01 (facing virou). A lei 'nao torcer a demo' continua; o fato 'nao observado' nao.",
+      "tool_that_measures": "emulator_input.py (evaluate_swap)",
+      "skill_that_teaches": "skills/evidence-protocol.md",
+      "rule_section": "SMS_GLOBAL §38",
+      "evidence": "SMS_projects/MSSF2T/out/evidence/input_memory.json sideswap_provado=true, pose 129→1, min_py=57."
+    },
+    {
+      "id": "L054",
+      "status": "absorvida_em_skill",
+      "lesson": "Quando o estado dura ~20 frames, screenshot é sorteio — a mesma capture_evidence caiu na luta numa execução e no título em outra. Expor a pose no probe (0xC7F9, facing no bit 7) transformou 'fotografar a pose certa' em 'ler a variável'. prove_poses.py provou agachar/pular e achou o bug da gravidade na mesma passagem.",
+      "skill_that_teaches": "skills/evidence-protocol.md",
+      "rule_section": "SMS_GLOBAL §37",
+      "evidence": "MSSF2T/tools/prove_poses.py; TDD mapa 0xC7F9"
+    }
+  ],
+  "note_ids": "Recorrência de §43: ledger sem JSON. Não abrir L055+ por isso. issued_through passa a L054."
+}

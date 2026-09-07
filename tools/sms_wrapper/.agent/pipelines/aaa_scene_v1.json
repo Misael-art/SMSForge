@@ -31,6 +31,13 @@
      "gate": {"tool": "build_inner.py"}},
     {"id": "S8_evidence", "kind": "agent", "label": "Evidencia em emulador",
      "gate": {"tool": "capture_evidence.py"},
-     "outputs": ["emulator_evidence_v1"]}
+     "outputs": ["emulator_evidence_v1"]},
+    {"id": "S9_visual_delivery", "kind": "agent",
+     "label": "Epoca visual + vinculo asset-ROM (boot != qualidade)",
+     "gates": [
+       {"tool": "audit_visual_delivery.py", "args": ["--delivery"]},
+       {"tool": "audit_rom_asset_binding.py", "args": ["--require"]}
+     ],
+     "rule": "SMS_GLOBAL §39, §40"}
   ]
 }

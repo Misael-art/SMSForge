@@ -38,6 +38,13 @@ CANON = [
     ("largura da tela", r"(\d+)\s*[x×]\s*192", 256, 320),
 ]
 
+# Formas que a L001/L003/L006 pagaram e o gate original nao lia: geometria
+# de sprite e offset de X ainda estavam na lei canônica (§7) depois de
+# refutadas. "metasprite 16x16" e nota de correcao nao reprovam.
+SPRITE_MODE_MD = re.compile(
+    r"8\s*[x×]\s*8\s+ou\s+16\s*[x×]\s*16", re.I)
+X_OFFSET_MD = re.compile(r"X\s*\+\s*32")
+
 # "DMA" so pode aparecer negado: o SMS nao tem DMA. Frases de negacao aceitas.
 NEG_DMA = ("sem dma", "nao existe dma", "não existe dma", "nao ha dma",
            "não há dma", "inexistente", "não tem dma", "nao tem dma")
@@ -84,6 +91,22 @@ def check_text(texto, origem="<texto>"):
                 problems.append(
                     f"{os.path.basename(origem)}:{linha_n}: {rotulo} = {val}, "
                     f"mas no Master System e {correto}{extra}")
+        if SPRITE_MODE_MD.search(linha) and not any(
+                w in low for w in ("corrigido", "refutad", "dizia", "heranca",
+                                   "herança", "mega drive", "megadrive",
+                                   "errado", "metasprite", "supersed",
+                                   "afirmava")):
+            problems.append(
+                f"{os.path.basename(origem)}:{linha_n}: sprite '8x8 ou 16x16' "
+                "como modo VDP — no Master System e 8x8 ou 8x16 (L006)")
+        if X_OFFSET_MD.search(linha) and not any(
+                w in low for w in ("corrigido", "refutad", "dizia", "heranca",
+                                   "herança", "mega drive", "megadrive",
+                                   "nao existe", "não existe", "errado",
+                                   "supersed", "afirmou")):
+            problems.append(
+                f"{os.path.basename(origem)}:{linha_n}: X+32 afirmado como "
+                "offset de sprite — no Master System X=0 e a borda (L003)")
         # "dma" como SUBSTRING casava dentro de "Roadmap" — 3 falsos positivos.
         # E citar DMA para negar/comparar e legitimo. So reprova quando o texto
         # MANDA USAR DMA, que e a falha real (instrucao de outro console).
@@ -144,6 +167,14 @@ def _self_check():
         "lista de fixtures reprovadas quebrada em linhas nao e afirmacao de lei"
     # APROVA a linha que documenta a correcao citando o numero errado
     assert not check_text("Corrigido: dizia 20 sprites por scanline (Mega Drive).")
+    p = check_text("Tamanho global 8×8 OU 16×16 (+ zoom ×2 global).")
+    assert p, f"faltou pegar 8x8 ou 16x16 como modo VDP: {p}"
+    p = check_text("X físico armazenado = X+32; X<32 esconde à esquerda.")
+    assert p, f"faltou pegar X+32: {p}"
+    assert not check_text(
+        "Corrigido 2026-09-01 (L003): dizia X+32 (Mega Drive).")
+    assert not check_text(
+        "Arte 16×16 exige metasprite. TALL e 8×16.")
     print("[SELF-CHECK OK] hardware_constants (reprova numero de outro console "
           "afirmado como lei; aceita os do SMS e as notas de correcao)")
     return 0
