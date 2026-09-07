@@ -93,12 +93,30 @@ def evaluate_punch(before, punch, after):
         return False, ("Ken nao ficou a alcance do soco "
                        "(gap=%s, alcance<%d)" % (punch.get("gap"),
                                                  PUNCH_REACH))
+    # Tecla que nao chegou nao e whiff. A versao antiga nao sabia distinguir
+    # os dois casos e culpava o jogo por falha do canal de input: lia
+    # probe_keys com o emulador pausado, nunca via o bit 0x10 do botao 1, e
+    # ainda assim afirmava "B1 dado a alcance". Sem b1_chegou registrado
+    # (amostra antiga), nao se pode afirmar nem uma coisa nem outra.
+    # Conexao observada DENTRO de uma tentativa vence qualquer leitura global:
+    # o guile_hp de antes/depois atravessa reset de round e mente.
+    if punch.get("conectou"):
+        return True, ("guile_hp caiu %s na tentativa a gap=%s (medido dentro "
+                      "da tentativa, imune a reset de round)"
+                      % (punch.get("delta"), punch.get("gap_do_hit")))
+    if punch.get("b1_chegou") is False:
+        return False, ("botao 1 nunca acendeu 0x10 em probe_keys: a tecla nao "
+                       "chegou ao ROM — nada a concluir sobre o soco")
     b1 = after.get("guile_hp")
     if b1 is None:
         return False, "leitura do guile_hp depois do soco falhou"
     if b1 >= b0:
-        return False, ("B1 dado a alcance e guile_hp %s->%s: whiff — a "
-                       "regressao exata da amostra selada" % (b0, b1))
+        if punch.get("b1_chegou") is None:
+            return False, ("guile_hp %s->%s sem registro de b1_chegou: amostra "
+                           "antiga, nao distingue whiff de tecla perdida"
+                           % (b0, b1))
+        return False, ("B1 confirmado (0x10 em probe_keys) a gap=%s e guile_hp "
+                       "%s->%s: whiff de verdade" % (punch.get("gap"), b0, b1))
     return True, "guile_hp caiu %s->%s apos B1 a alcance (delta %d)" % (
         b0, b1, b0 - b1)
 
@@ -403,22 +421,31 @@ def _punch_phase(dap, backend, canal_vivo):
             dap.cont()
             time.sleep(0.4)
 
-            # aproximacao final: anda ate encostar (corpos param a PUSH_W)
-            fim = time.time() + 6.0
+            # Aproximacao ate encostar. A janela util e ESTREITA: separate()
+            # para os corpos em PUSH_W=20 e a caixa do soco exige gap < 24, ou
+            # seja 4 px de folga. Andar em passos curtos com o emulador pausado
+            # entre eles nao chegava la — media dos runs de 07/09/2026: o laco
+            # esgotava os 6 s parado em gap 42 e 24, e o `continue` da leitura
+            # perdida ainda saia sem dar cont(), deixando o emulador congelado
+            # pelo resto da tentativa. Passada longa com o jogo RODANDO fecha a
+            # distancia de uma vez (Ken anda 2 px/frame; 1.2 s ~ 144 px).
+            fim = time.time() + 12.0
+            gap = None
             while time.time() < fim:
+                dap.cont()
                 if backend == "wayland":
                     ensure_focus_wayland()
-                    hold_wayland("right", 0.3)
+                    hold_wayland("right", 1.2)
                 else:
-                    hold_x11("right", 0.3)
+                    hold_x11("right", 1.2)
                 dap.pause()
                 px = dap.read_byte(PROBE_PX)
                 p2x = dap.read_byte(PROBE_P2X)
                 if None in (px, p2x):
                     continue
-                if p2x - px <= PUNCH_REACH - 2:
+                gap = p2x - px
+                if gap <= PUNCH_REACH - 2:
                     break
-                dap.cont()
             dap.pause()
             gap = (dap.read_byte(PROBE_P2X)
                    - dap.read_byte(PROBE_PX)) if True else None
@@ -426,22 +453,47 @@ def _punch_phase(dap, backend, canal_vivo):
             punch["gap"] = gap
             punch["gap_no_limite"] = gap is not None and gap < PUNCH_REACH
 
-            # B1: startup 4 + active 4 frames (set_state no 1o frame com b1)
+            # B1: startup 4 + active 4 frames. O emulador precisa estar RODANDO
+            # o tempo todo em que a tecla fica baixa — este era o defeito.
+            #
+            # O laco de aproximacao acima sai por `break` com o emulador PAUSADO
+            # (o break pula o dap.cont()). A versao antiga apertava a tecla e lia
+            # probe_keys ANTES de retomar, entao k_b1 era um valor velho, do
+            # ultimo frame emulado — que foi durante o hold de "right". Por isso
+            # as tres tentativas da amostra selada reportaram k_b1=0x08, e 0x08 e
+            # PORT_A_KEY_RIGHT (SMSlib.h:299); o botao 1 e 0x10 e NUNCA apareceu.
+            # A ferramenta concluia "B1 dado a alcance ... whiff" citando um
+            # campo que nao continha B1 nenhum, e o soco levou a fama de
+            # regressao do jogo. Medido em 07/09/2026 com o emulador rodando
+            # durante a tecla: gap=20 -> guile_hp 54->47, dano 7, exatamente o
+            # apply_hit(...,7) de ST_PUNCH em fight.c. O soco sempre funcionou.
+            dap.cont()
             if backend == "wayland":
                 ensure_focus_wayland()
                 EI.ydotool_key(EI.EVDEV["a"], True)
             else:
                 CE._run(["xdotool", "keydown", "a"])
-            time.sleep(0.10)
-            dap.pause()
-            k_b1 = dap.read_byte(PROBE_KEYS)
-            pose_b1 = dap.read_byte(PROBE_POSE)
-            dap.cont()
-            time.sleep(0.10)
+            # Amostra probe_keys COM o jogo andando: 0x10 tem de aparecer de
+            # fato, senao a tecla nao chegou e nao ha soco a julgar.
+            k_b1, pose_b1, b1_visto = None, None, False
+            fim_b1 = time.time() + 0.25          # ~15 frames > startup+active
+            while time.time() < fim_b1:
+                dap.pause()
+                k = dap.read_byte(PROBE_KEYS)
+                p = dap.read_byte(PROBE_POSE)
+                dap.cont()
+                if k is not None:
+                    k_b1 = k if k_b1 is None else (k_b1 | k)
+                    if k & 0x10:
+                        b1_visto = True
+                if p is not None and (p & 0x7F) == 2:
+                    pose_b1 = p
+                time.sleep(0.02)
             if backend == "wayland":
                 EI.ydotool_key(EI.EVDEV["a"], False)
             else:
                 CE._run(["xdotool", "keyup", "a"])
+            punch["b1_chegou"] = b1_visto
 
             # janela de observacao: hitstop 6f + recovery 8f, polling rapido
             min_boss = b0
@@ -476,9 +528,19 @@ def _punch_phase(dap, backend, canal_vivo):
                   "pose_punch=%s guile_hp %s->%s (min %s)%s"
                   % (n, gap, k_b1 or 0, pose_b1, pose_vista, b0, ba,
                      min_boss, "  CONECTOU" if conectou else ""))
+            # O sinal que vale e POR TENTATIVA. Comparar o guile_hp de antes de
+            # tudo com o de depois de tudo atravessa reset de round — o HP volta
+            # a 64 e uma conexao real (54->47) vira "64->64, whiff". Registrado
+            # aqui para o veredito nao depender de leitura global.
+            if punch.get("b1_chegou"):
+                punch["b1_chegou_alguma"] = True
             if conectou:
+                punch["conectou"] = True
+                punch["delta"] = b0 - min_boss
+                punch["gap_do_hit"] = gap
                 break
             time.sleep(0.2)
+        punch["b1_chegou"] = bool(punch.get("b1_chegou_alguma"))
 
         after = {"guile_hp": dap.read_byte(PROBE_BOSS),
                  "ken_hp": dap.read_byte(PROBE_HP),
@@ -783,11 +845,32 @@ def self_check():
         falhas.append("sideswap: leitura None foi aceita")
 
     # ---- fixtures do soco conectando (handoff item 1 / amostra selada)
-    # 13. Regressao SELADA exata: B1 dado e guile_hp 64->64 (whiff).
-    p_whiff = {"canal_vivo": True, "gap": 24, "gap_no_limite": True}
+    # 13. Whiff de verdade: B1 CONFIRMADO no ROM e guile_hp 64->64.
+    p_whiff = {"canal_vivo": True, "gap": 20, "gap_no_limite": True,
+               "b1_chegou": True}
     ok, _ = evaluate_punch({"guile_hp": 64}, p_whiff, {"guile_hp": 64})
     if ok:
-        falhas.append("soco: whiff 64->64 da amostra selada foi aceito")
+        falhas.append("soco: whiff 64->64 com B1 confirmado foi aceito")
+
+    # 13b. Tecla que NAO chegou nao pode ser reportada como whiff — foi assim
+    # que o soco levou fama de regressao do jogo por 1 dia (07/09/2026).
+    p_sem_b1 = {"canal_vivo": True, "gap": 20, "gap_no_limite": True,
+                "b1_chegou": False}
+    ok, motivo_sem = evaluate_punch({"guile_hp": 64}, p_sem_b1,
+                                    {"guile_hp": 64})
+    if ok:
+        falhas.append("soco: tecla perdida foi aceita como sucesso")
+    elif "nao chegou" not in motivo_sem:
+        falhas.append("soco: tecla perdida foi diagnosticada como whiff: "
+                      + motivo_sem)
+
+    # 13c. Amostra ANTIGA (sem o campo) nao pode afirmar whiff.
+    p_antigo = {"canal_vivo": True, "gap": 20, "gap_no_limite": True}
+    ok, motivo_ant = evaluate_punch({"guile_hp": 64}, p_antigo,
+                                    {"guile_hp": 64})
+    if ok or "amostra" not in motivo_ant:
+        falhas.append("soco: amostra sem b1_chegou deveria ser inconclusiva, "
+                      "veio: " + motivo_ant)
 
     # 14. Fora de alcance nao pode passar, nem com hp caindo.
     p_longe = {"canal_vivo": True, "gap": 30, "gap_no_limite": False}
@@ -802,7 +885,8 @@ def self_check():
         falhas.append("soco: canal morto foi aceito")
 
     # 16. Hit (-7), chip de guarda (-2) e KO (0) sao conexoes.
-    p_bom = {"canal_vivo": True, "gap": 20, "gap_no_limite": True}
+    p_bom = {"canal_vivo": True, "gap": 20, "gap_no_limite": True,
+             "b1_chegou": True}
     ok, motivo_soco = evaluate_punch({"guile_hp": 64}, p_bom,
                                      {"guile_hp": 57})
     if not ok:
@@ -824,12 +908,13 @@ def self_check():
         for f in falhas:
             print("  - " + f)
         return 1
-    print("[SELF-CHECK PASS] 19 fixtures: L039 canal morto, L038 direcao "
+    print("[SELF-CHECK PASS] 21 fixtures: L039 canal morto, L038 direcao "
           "oposta, dx curto, sentido unico, caminho bom, leitura None, "
           "L053 de costas, facing sem cruzar, sem pulo, estado invertido, "
-          "sideswap caminho bom, sideswap leitura None, soco whiff 64->64 "
-          "selado, fora de alcance, canal morto, hit -7, chip -2, KO, "
-          "leitura None")
+          "sideswap caminho bom, sideswap leitura None, soco whiff com B1 "
+          "confirmado, soco com tecla perdida (nao e whiff), soco de amostra "
+          "antiga (inconclusivo), fora de alcance, canal morto, hit -7, "
+          "chip -2, KO, leitura None")
     return 0
 
 

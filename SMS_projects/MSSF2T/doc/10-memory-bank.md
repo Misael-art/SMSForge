@@ -274,25 +274,62 @@ comparação por data já acerta sozinha com o mtime de nascimento restaurado.
 
 `selftest.py`: 57/57 verdes depois das três mudanças.
 
-### REGRESSÃO ABERTA — o soco voltou a não conectar
-Este mesmo documento registra, na seção de handoff, "Soco conectando por
-input **FECHADO (2026-09-07)** — hit −7 por RAM, `soco_provado=true`".
-**Não reproduz.** `prove_input_memory.py` nesta ROM, 3 tentativas:
+### O soco: a acusação estava errada, mas o "FECHADO" também
 
-    soco tentativa 0: gap=20 keys_b1=0x08 pose_b1=129 guile_hp 64->64
-    soco tentativa 1: gap=22 keys_b1=0x08 pose_b1=129 pose_punch=130 guile_hp 64->64
-    soco tentativa 2: gap=20 keys_b1=0x08 pose_b1=133 guile_hp 64->64
-    [soco] NAO conectou — whiff, a regressao exata da amostra selada
+Investigado em 07/09/2026 (tarde). **O soco não está quebrado, e também não
+está provado.** As duas afirmações anteriores deste documento erraram, em
+direções opostas.
 
-O B1 chega (`keys_b1=0x08`), a pose de soco troca (130), a distância está
-em 20–22 px, e o HP do Guile não move. A mudança desta sessão foi só de
-áudio, então **não é candidata plausível a causa** — o mais provável é que
-o fechamento da manhã tenha sido observação de uma amostra favorável, não
-propriedade estável. O eixo `gameplay` fecha pelo predicado de
-deslocamento (`input_provado` + canal vivo + SHA), que é o que
-`reconcile_claims` exige; o soco **não** está provado e não deve ser
-reivindicado em release.
+**Conectei o soco à mão, medindo pela RAM:** com o emulador rodando durante
+toda a tecla, `gap=20` → `guile_hp 54→47`, dano **7** — exatamente o
+`apply_hit(a, b, 7)` de `ST_PUNCH` em `fight.c`. Na mesma sessão, `gap=24`
+→ nada, confirmando o limite `gap < 24` derivado da geometria de
+`collide()`: caixa do soco `[px+20, px+32]` contra corpo `[p2x+8, p2x+24]`.
 
-Próximo degrau, antes de qualquer arte nova: reproduzir o whiff de forma
-determinística (frame de ativo do hitbox vs. gap) e decidir se o defeito é
-de alcance, de janela de ativo ou de detecção de colisão.
+**`collide()` está íntegro**, provado sem teclado nenhum: no modo de atração
+a ROM comanda `b1` por código e o HP do Guile cai 64→52→40→28→16→4→0 até o
+KO. O pipeline colisão→dano→probe funciona.
+
+**Por que a ferramenta acusava regressão.** Três defeitos de medição em
+`prove_input_memory.py`, todos corrigidos:
+
+1. O laço de aproximação saía por `break` com o emulador **pausado** (o
+   `break` pula o `dap.cont()`). A tecla era apertada e `probe_keys` lido
+   **antes de retomar** — então `keys_b1` era valor velho, do último frame
+   emulado, que foi durante o hold de "right". Daí o `0x08` das três
+   tentativas da amostra selada: `0x08` é `PORT_A_KEY_RIGHT`; o botão 1 é
+   `0x10` e **nunca apareceu**. A ferramenta afirmava "B1 dado a alcance"
+   citando um campo que não continha B1 nenhum. Agora o jogo roda durante a
+   tecla e `0x10` é exigido de fato (`b1_chegou`).
+2. A aproximação em passos curtos com o emulador pausado entre eles não
+   fechava a distância: esgotava 6 s parada em `gap` 42 e 24. E o `continue`
+   da leitura perdida saía **sem** `cont()`, congelando o emulador pelo resto
+   da tentativa. Passada longa com o jogo rodando chega a `gap=20` de forma
+   consistente.
+3. O veredito comparava `guile_hp` de antes de tudo com o de depois de tudo,
+   **atravessando reset de round** — o HP volta a 64 e uma conexão real
+   (54→47) virava "64→64, whiff". Agora vale o sinal medido dentro da
+   tentativa.
+
+`evaluate_punch` passa a distinguir três casos que antes eram um só: tecla
+que não chegou (nada a concluir), whiff com B1 confirmado, e amostra antiga
+sem o campo (inconclusiva). Self-check: 21 fixtures.
+
+**O que fica em aberto.** Com a ferramenta corrigida, o run de ponta a ponta
+ainda dá negativo — e agora é um negativo *confiável*: `gap=20`, `0x10`
+confirmado em `probe_keys`, pose 130 (PUNCH) observada, `guile_hp 64→64`
+dentro da tentativa. Ou seja: o soco conecta às vezes e falha às vezes, nas
+mesmas condições aparentes. A janela é estreitíssima por construção —
+`separate()` para os corpos em `PUSH_W=20` e a caixa exige `gap < 24`, então
+sobram **4 px** de folga. Suspeita a testar: alguma condição de estado do
+defensor (`hurt_top` sobe de 12 para 34 se ele estiver agachado, o que
+mataria a sobreposição vertical) ou o frame exato em que `collide()` amostra
+dentro da janela ativa de 4 frames.
+
+Próximo degrau: instrumentar a janela ativa (registrar `timer`, `gap` e o
+resultado de cada teste de `collide()` num probe) e decidir se o remédio é
+alargar a caixa, reduzir `PUSH_W`, ou aceitar a janela e documentar.
+Instrumentar exige rebuild = SHA nova = re-medir TODA a evidência.
+
+**Não reivindicar "soco conectando" em release** enquanto isso não fechar.
+
