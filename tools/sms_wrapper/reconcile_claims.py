@@ -58,6 +58,69 @@ def _gameplay_supported(project, ev, rec):
                 and sha
                 and mem.get("rom_sha256") == sha)
 
+def _audio_supported(project):
+    """§26: wav ANTERIOR a ROM e prova de outro binario. O acervo costuma ter
+    .wav de builds antigas; existir nao basta, precisa ser desta ROM.
+
+    Fresco tambem NAO basta: um .wav novo e SILENCIOSO sustentava o eixo.
+    Aconteceu em 2026-09-01 — captura adiantada gerou wav com peak=0 e o eixo
+    passou. Exigir tambem SINAL (audit_audio e quem julga o mix)."""
+    wavs = glob.glob(os.path.join(project, "out", "evidence", "*.wav"))
+    roms = glob.glob(os.path.join(project, "out", "rom", "*.sms"))
+    if not (wavs and roms):
+        return False
+    newest_rom = max(os.path.getmtime(r) for r in roms)
+    import audit_audio
+    for w in wavs:
+        if os.path.getmtime(w) <= newest_rom:
+            continue
+        st = audit_audio.read_wav_stats(w)
+        if st and st[1] > 0:              # peak > 0
+            return True
+    return False
+
+
+def axis_support(project, rec=None):
+    """FONTE UNICA da verdade sobre lastro: {eixo: (sustentado, porque_nao)}.
+
+    Extraida de `reconcile` para que `build_inner.py` DERIVE os eixos daqui em
+    vez de herdar do registro anterior. Antes, nenhuma ferramenta promovia eixo
+    para true: o build inicializava tudo em false e so herdava, entao o primeiro
+    true de qualquer projeto so podia ter vindo de edicao a mao do
+    build_record.json — exatamente o que o runbook release-rom.md proibe. Com os
+    dois lados lendo esta funcao, o veredito nao pode divergir entre quem grava
+    e quem confere."""
+    rec = rec if rec is not None else (_load(os.path.join(
+        project, "out", "build_record.json")) or {})
+    ev = _load(os.path.join(project, "out", "evidence", "evidence.json")) or {}
+    fps = _load(os.path.join(project, "out", "evidence", "fps.json")) or {}
+    return {
+        "build": (
+            bool(glob.glob(os.path.join(project, "out", "rom", "*.sms"))),
+            "nao ha ROM em out/rom/"),
+        "validation_report": (
+            (rec.get("steps", {}) or {}).get("pre_gates") == "pass",
+            "build_record.steps.pre_gates != 'pass'"),
+        "boot_emulador": (
+            bool(ev.get("informative")),
+            "evidence.json nao tem informative=true"),
+        "gameplay": (
+            _gameplay_supported(project, ev, rec),
+            "nem evidence.json.interaction_proven nem input_memory.json "
+            "(input_provado + canal vivo + SHA da ROM) sustentam o eixo"),
+        "fps_constante": (
+            bool(fps.get("constante_50_60")),
+            "fps.json nao tem constante_50_60=true"),
+        "audio": (
+            _audio_supported(project),
+            "nao ha captura de audio (.wav) POSTERIOR a ROM e COM SINAL em "
+            "out/evidence/ (wav antigo, ou novo porem silencioso, nao prova nada)"),
+        "memory_bank_atualizado": (
+            os.path.isfile(os.path.join(project, "doc", "10-memory-bank.md")),
+            "doc/10-memory-bank.md nao existe"),
+    }
+
+
 def reconcile(project):
     """Retorna (problems, report)."""
     problems = []
@@ -67,56 +130,13 @@ def reconcile(project):
         return ["out/build_record.json ausente ou ilegivel — sem claims a conciliar"], report
 
     axes = rec.get("axes", {}) or {}
-    ev = _load(os.path.join(project, "out", "evidence", "evidence.json")) or {}
-    fps = _load(os.path.join(project, "out", "evidence", "fps.json")) or {}
     report["axes_declared"] = axes
 
-    def check(axis, supported, why):
+    for axis, (supported, why) in axis_support(project, rec).items():
         declared = bool(axes.get(axis))
         report["axes"][axis] = {"declared": declared, "supported": supported}
         if declared and not supported:
             problems.append(f"eixo '{axis}' declarado TRUE mas {why}")
-
-    check("build",
-          bool(glob.glob(os.path.join(project, "out", "rom", "*.sms"))),
-          "nao ha ROM em out/rom/")
-    check("validation_report",
-          (rec.get("steps", {}) or {}).get("pre_gates") == "pass",
-          "build_record.steps.pre_gates != 'pass'")
-    check("boot_emulador",
-          bool(ev.get("informative")),
-          "evidence.json nao tem informative=true")
-    check("gameplay",
-          _gameplay_supported(project, ev, rec),
-          "nem evidence.json.interaction_proven nem input_memory.json "
-          "(input_provado + canal vivo + SHA da ROM) sustentam o eixo")
-    check("fps_constante",
-          bool(fps.get("constante_50_60")),
-          "fps.json nao tem constante_50_60=true")
-    # §26: wav ANTERIOR a ROM e prova de outro binario. O acervo costuma ter
-    # .wav de builds antigas; existir nao basta, precisa ser desta ROM.
-    wavs = glob.glob(os.path.join(project, "out", "evidence", "*.wav"))
-    roms = glob.glob(os.path.join(project, "out", "rom", "*.sms"))
-    # Fresco NAO basta: um .wav novo e SILENCIOSO sustentava o eixo. Aconteceu
-    # em 2026-09-01 — captura adiantada gerou wav com peak=0 e o eixo passou.
-    # Exigir tambem que o audio tenha SINAL (audit_audio e quem julga o mix).
-    fresh_wav = False
-    if wavs and roms:
-        newest_rom = max(os.path.getmtime(r) for r in roms)
-        import audit_audio
-        for w in wavs:
-            if os.path.getmtime(w) <= newest_rom:
-                continue
-            st = audit_audio.read_wav_stats(w)
-            if st and st[1] > 0:          # peak > 0
-                fresh_wav = True
-                break
-    check("audio", fresh_wav,
-          "nao ha captura de audio (.wav) POSTERIOR a ROM e COM SINAL em "
-          "out/evidence/ (wav antigo, ou novo porem silencioso, nao prova nada)")
-    check("memory_bank_atualizado",
-          os.path.isfile(os.path.join(project, "doc", "10-memory-bank.md")),
-          "doc/10-memory-bank.md nao existe")
 
     report["coherent"] = not problems
     return problems, report

@@ -225,3 +225,74 @@ vez: arbitragem humana — a irmã foi pausada e o host ficou livre. Rotina
 futura: conferir `pgrep -f "Emulicious[.]jar"` antes de rodar e nunca
 disputar foco; `pkill` sempre com padrão `Emulicious[.]jar` (o padrão sem
 colchetes mata o próprio shell que o executa).
+
+## Ciclo 2026-09-07 (tarde) — trilha do cenário do Ken + dois defeitos de gate
+
+### O que entrou na ROM
+`music_battle` era uma sirene de 6 notas em uníssono nos três osciladores
+(49 B, 12 frames repetidos 240×). Entrou no lugar um tema autoral: Lá menor
+com G# emprestado da menor harmônica na cadência, 150 BPM, 8 compassos,
+loop de 12,8 s, quatro canais com papéis separados (lead / harmonia que
+vira arpejo nas viradas / baixo motor em colcheias / percussão de ruído).
+Gerador: `tools/gen_music_ken_stage.py`, que serializa direto no formato
+PSGlib. 945 B — `_CODE` vai a 0x7F2D e **sobram 211 bytes** no cartucho de
+32 KB. Qualquer asset novo daqui pra frente exige banking.
+
+Verificado no emulador, não só no papel: as viradas de acorde F3/G3/D3/E3
+aparecem na captura de áudio real nas mesmas posições de tempo do render de
+referência, dentro de 0,2 s.
+
+### Defeito 1 — `audit_audio` media continuidade, não presença de som
+O gate contava `|amostra| > 200` uma a uma. Toda onda periódica cruza o
+zero, e cada cruzamento entrava como amostra "inativa": **quanto mais rica
+a polifonia, pior a nota**. A sirene antiga (1 cruzamento de zero por
+segundo) marcava 99,9%; o tema novo, sem nenhuma lacuna de silêncio além de
+11 ms no boot, reprovava com 88%. Subir as atenuações do PSG elevou o peak
+e ainda assim baixou o índice — prova de que o eixo medido não era nível.
+Agora mede RMS em janelas de 10 ms. Silêncio continua dando 0%.
+
+### Defeito 2 — nenhuma ferramenta promovia eixo para `true`
+`build_inner.py` inicializava os 7 eixos em `false` e só **herdava** os
+`true` do registro anterior; `reconcile_claims.py` apenas conferia. Logo o
+primeiro `true` de qualquer projeto só podia ter vindo de edição à mão do
+`build_record.json` — o que `release-rom.md` proíbe. Os eixos não tinham
+como fechar pelo caminho legítimo.
+
+Correção: os predicados viraram `reconcile_claims.axis_support()`, fonte
+única, e `build_inner` **deriva** dali em vez de herdar. Quem grava e quem
+confere não podem mais divergir.
+
+### Defeito 3 (descoberto pela correção anterior)
+Com a derivação ligada, `boot_emulador`, `fps_constante` e
+`memory_bank_atualizado` ficaram `true` sustentados por artefatos **8h mais
+velhos** que a ROM. Causa: `demote_stale_axes` tinha um atalho que, quando
+o sha não mudava entre dois builds, retornava `PRESERVADO` e **pulava a
+demoção inteira**. O atalho existia porque recompilar renovava o mtime da
+ROM — causa já corrigida na raiz por `rom_birth_mtime`. Era remendo sobre
+problema morto, e deixava passar evidência genuinamente velha. Removido: a
+comparação por data já acerta sozinha com o mtime de nascimento restaurado.
+
+`selftest.py`: 57/57 verdes depois das três mudanças.
+
+### REGRESSÃO ABERTA — o soco voltou a não conectar
+Este mesmo documento registra, na seção de handoff, "Soco conectando por
+input **FECHADO (2026-09-07)** — hit −7 por RAM, `soco_provado=true`".
+**Não reproduz.** `prove_input_memory.py` nesta ROM, 3 tentativas:
+
+    soco tentativa 0: gap=20 keys_b1=0x08 pose_b1=129 guile_hp 64->64
+    soco tentativa 1: gap=22 keys_b1=0x08 pose_b1=129 pose_punch=130 guile_hp 64->64
+    soco tentativa 2: gap=20 keys_b1=0x08 pose_b1=133 guile_hp 64->64
+    [soco] NAO conectou — whiff, a regressao exata da amostra selada
+
+O B1 chega (`keys_b1=0x08`), a pose de soco troca (130), a distância está
+em 20–22 px, e o HP do Guile não move. A mudança desta sessão foi só de
+áudio, então **não é candidata plausível a causa** — o mais provável é que
+o fechamento da manhã tenha sido observação de uma amostra favorável, não
+propriedade estável. O eixo `gameplay` fecha pelo predicado de
+deslocamento (`input_provado` + canal vivo + SHA), que é o que
+`reconcile_claims` exige; o soco **não** está provado e não deve ser
+reivindicado em release.
+
+Próximo degrau, antes de qualquer arte nova: reproduzir o whiff de forma
+determinística (frame de ativo do hitbox vs. gap) e decidir se o defeito é
+de alcance, de janela de ativo ou de detecção de colisão.

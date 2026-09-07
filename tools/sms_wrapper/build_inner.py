@@ -147,12 +147,20 @@ def demote_stale_axes(project, rom, axes, prev_sha=None):
     foi assim que a entrega F6 do laboratorio_01 acabou sustentada por capturas
     6h mais VELHAS que a ROM entregue.
     """
-    # §26 fala em binario NOVO. Rebuild que produz o MESMO binario (mesmo
-    # sha256) nao invalida evidencia: o que a evidencia mostra continua sendo
-    # este executavel. Comparar so mtime rebaixava eixos a cada build no vazio.
-    if prev_sha and _sha256(rom) == prev_sha:
-        return [("PRESERVADO", "binario identico ao anterior (sha inalterado): "
-                 "a evidencia continua mostrando ESTE executavel")]
+    # NAO ha atalho por sha aqui. Havia: quando o rebuild produzia binario
+    # identico, a funcao retornava PRESERVADO e pulava a democao inteira. O
+    # motivo era legitimo na epoca — recompilar renovava o mtime da ROM e
+    # rebaixava eixos a cada build no vazio — mas essa causa foi corrigida na
+    # RAIZ por rom_birth_mtime, que devolve a data de nascimento do executavel
+    # antes desta checagem. O atalho virou um segundo remendo para um problema
+    # que ja nao existia, e passou a deixar passar evidencia genuinamente velha:
+    # em 07/09/2026 os eixos boot_emulador, fps_constante e memory_bank do
+    # MSSF2T ficaram TRUE sustentados por artefatos 8h MAIS VELHOS que a ROM,
+    # porque o sha nao tinha mudado entre dois builds.
+    #
+    # Com o mtime de nascimento restaurado, a comparacao por data ja da o
+    # resultado certo sozinha: evidencia gravada depois que este executavel
+    # surgiu sobrevive ao rebuild identico; evidencia anterior a ele cai.
     rom_mtime = os.path.getmtime(rom)
     notes = []
     for axis, rel in AXIS_EVIDENCE.items():
@@ -288,8 +296,6 @@ def main():
                       "boot_emulador": False, "gameplay": False,
                       "fps_constante": False, "audio": False,
                       "memory_bank_atualizado": False}
-    # Herda eixos de runtime ja conquistados, mas SO os que continuam com lastro:
-    # demote_stale_axes rebaixa todo eixo cuja evidencia seja anterior a esta ROM.
     prev = os.path.join(project, "out", "build_record.json")
     prev_sha, prev_mtime = None, None
     if os.path.exists(prev):
@@ -297,11 +303,6 @@ def main():
             old = json.load(open(prev))
             prev_sha = old.get("rom_sha256")
             prev_mtime = old.get("rom_mtime")
-            # Somente eixos de RUNTIME se herdam. `build` e `validation_report`
-            # descrevem ESTA execucao e nunca vem do registro anterior.
-            for k in AXIS_EVIDENCE:
-                if old.get("axes", {}).get(k):
-                    record["axes"][k] = True
         except (json.JSONDecodeError, OSError):
             pass
     # Binario IDENTICO = o mesmo artefato. Recompilar renova o mtime sem mudar
@@ -314,6 +315,28 @@ def main():
     born = rom_birth_mtime(project, rom)
     if born and born < os.path.getmtime(rom):
         os.utime(rom, (born, born))
+
+    # Eixos de runtime sao DERIVADOS da evidencia, nunca herdados do registro
+    # anterior. A heranca nao tinha como comecar: o build inicializa tudo em
+    # false e so copiava true de um registro anterior, entao o primeiro true de
+    # qualquer projeto so podia ter vindo de edicao a mao do build_record.json —
+    # o que o runbook release-rom.md proibe. A derivacao usa os MESMOS
+    # predicados de reconcile_claims.axis_support, para que quem grava e quem
+    # confere nao possam divergir.
+    #
+    # Roda DEPOIS de devolver o mtime de nascimento da ROM: o lastro de audio
+    # compara a data do .wav com a da ROM, e derivar antes faria um rebuild
+    # byte a byte identico invalidar a propria evidencia que acabou de valer.
+    import reconcile_claims
+    for axis, (supported, _why) in reconcile_claims.axis_support(
+            project, record).items():
+        if axis in AXIS_EVIDENCE:
+            record["axes"][axis] = supported
+
+    # Segunda barreira, e nao redundante: axis_support le o CONTEUDO do json
+    # (informative=true, constante_50_60=true), enquanto demote_stale_axes olha
+    # a DATA do arquivo. Um evidence.json afirmando informative=true, porem
+    # gravado antes desta ROM, passa no primeiro e cai aqui.
     demoted = demote_stale_axes(project, rom, record["axes"], prev_sha)
     record["rom_sha256"] = _sha256(rom)
     record["rom_mtime"] = os.path.getmtime(rom)
