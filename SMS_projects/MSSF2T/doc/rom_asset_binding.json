@@ -1,0 +1,98 @@
+{
+  "schema": "rom_asset_binding_v1",
+  "rom_path": "out/rom/MSSF2T.sms",
+  "rom_sha256": "09ed345a82c4bbc599afa8389d15bb6d98ee782731303a1f53cd10fe66c279fd",
+  "rom_size_bytes": 32768,
+  "entries": [
+    {
+      "source": "rascunho/stage_ken_dock_guide.png",
+      "res_path": "res/bg/stage_ken_dock.png",
+      "symbol": "stage_ken_dock_tiles",
+      "sha256": "73224bdd9edfbdb940c96613f56887db2fc0b3644ffeb9d4b61f2989a2a1b1b6"
+    },
+    {
+      "source": "rascunho/guile_hit_guide.png",
+      "res_path": "res/fighters/guile_hit.png",
+      "symbol": "guile_hit_tiles",
+      "sha256": "5aaea896b4c1a87c94db00774bfbf14c597bdad7d4860957aadc9235f7c40371"
+    },
+    {
+      "source": "rascunho/guile_idle_guide.png",
+      "res_path": "res/fighters/guile_idle.png",
+      "symbol": "guile_idle_tiles",
+      "sha256": "d26c244b26c07ecc9fca120414dbb19c4560093e9db1e852c236ce400b080aff"
+    },
+    {
+      "source": "rascunho/guile_ko_guide.png",
+      "res_path": "res/fighters/guile_ko.png",
+      "symbol": "guile_ko_tiles",
+      "sha256": "bcbf063373b11ac8182f5829676415cf7f9b8bc9911b9db7ae5fb680c7ec8987"
+    },
+    {
+      "source": "rascunho/guile_punch_guide.png",
+      "res_path": "res/fighters/guile_punch.png",
+      "symbol": "guile_punch_tiles",
+      "sha256": "a0276090c6a558f95717c7603a59a9a5048047d8b08b91266e38960e26038e01"
+    },
+    {
+      "source": "rascunho/guile_special_guide.png",
+      "res_path": "res/fighters/guile_special.png",
+      "symbol": "guile_special_tiles",
+      "sha256": "46d81ed4edd2af81857ad381f5067cdebf92e9d3a942f61a15a0c68dbe48801c"
+    },
+    {
+      "source": "rascunho/guile_walk_guide.png",
+      "res_path": "res/fighters/guile_walk.png",
+      "symbol": "guile_walk_tiles",
+      "sha256": "939087d826b0e07c9b17bf89866e741c533353b528c0d2e5877df2802be35014"
+    },
+    {
+      "source": "rascunho/ken_hit_guide.png",
+      "res_path": "res/fighters/ken_hit.png",
+      "symbol": "ken_hit_tiles",
+      "sha256": "8275ad202e2d1cd23c1a1eeec1b539af9aaa23a5f365b5901153cc7eea52a796"
+    },
+    {
+      "source": "rascunho/ken_idle_guide.png",
+      "res_path": "res/fighters/ken_idle.png",
+      "symbol": "ken_idle_tiles",
+      "sha256": "dfd59e66ed078d31b2dee78421ebedc012989c470767b0e4019890f22166874e"
+    },
+    {
+      "source": "rascunho/ken_ko_guide.png",
+      "res_path": "res/fighters/ken_ko.png",
+      "symbol": "ken_ko_tiles",
+      "sha256": "2d10fd31a828872f512bc447b8d415f6cd773e84320d8a5f61af1555b6fbf776"
+    },
+    {
+      "source": "rascunho/ken_punch_guide.png",
+      "res_path": "res/fighters/ken_punch.png",
+      "symbol": "ken_punch_tiles",
+      "sha256": "ed80ca734115060a0b72da03456d6e117f66528e9211a0f1fe193da3ebef9cf4"
+    },
+    {
+      "source": "rascunho/ken_special_guide.png",
+      "res_path": "res/fighters/ken_special.png",
+      "symbol": "ken_special_tiles",
+      "sha256": "865b1a36590e411dabdab90812f711eb83d2ce39f3916dfedbb07e9723b853fc"
+    },
+    {
+      "source": "rascunho/ken_walk_guide.png",
+      "res_path": "res/fighters/ken_walk.png",
+      "symbol": "ken_walk_tiles",
+      "sha256": "e4d8b4287ea50b44bbd7458534a49ad597b0268f51a9b37cf492c5667e194e59"
+    },
+    {
+      "source": "rascunho/hadouken_guide.png",
+      "res_path": "res/sprites/hadouken.png",
+      "symbol": "hadouken_tiles",
+      "sha256": "c2421756ba1ef6adfb4af6ff212671282a1c1e5ff81f4c9eec7f48655400c3a6"
+    },
+    {
+      "source": "rascunho/sonicboom_guide.png",
+      "res_path": "res/sprites/sonicboom.png",
+      "symbol": "sonicboom_tiles",
+      "sha256": "f44e4fb66b4bd6d441a1b89517363e0372ce8fb83fad03d278a7160b36a74f02"
+    }
+  ]
+}

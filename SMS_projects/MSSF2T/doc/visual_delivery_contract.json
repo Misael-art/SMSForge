@@ -1,0 +1,64 @@
+{
+  "schema": "visual_delivery_contract_v1",
+  "visual_epoch": "delivery",
+  "classification": "delivery_candidate",
+  "delivery_intent": true,
+  "claim": "prototipo jogavel",
+  "canvas": {
+    "w": 256,
+    "h": 192,
+    "console": "sms"
+  },
+  "characters": [
+    {
+      "id": "ken",
+      "png": "res/fighters/ken_idle.png",
+      "role": "personagem",
+      "min_visible_height_px": 48
+    },
+    {
+      "id": "guile",
+      "png": "res/fighters/guile_idle.png",
+      "role": "personagem",
+      "min_visible_height_px": 48
+    }
+  ],
+  "stage": {
+    "bga": "res/bg/stage_ken_dock.png",
+    "contains_branding": false
+  },
+  "hud": {
+    "boxes": [
+      {
+        "name": "hp_p1",
+        "x": 16,
+        "y": 8,
+        "w": 64,
+        "h": 8
+      },
+      {
+        "name": "hp_p2",
+        "x": 176,
+        "y": 8,
+        "w": 64,
+        "h": 8
+      },
+      {
+        "name": "name_p1",
+        "x": 8,
+        "y": 0,
+        "w": 32,
+        "h": 8
+      },
+      {
+        "name": "name_p2",
+        "x": 200,
+        "y": 0,
+        "w": 48,
+        "h": 8
+      }
+    ]
+  },
+  "binding_map": "doc/rom_asset_binding.json",
+  "rom_path": "out/rom/MSSF2T.sms"
+}
