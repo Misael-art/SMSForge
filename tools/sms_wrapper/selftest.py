@@ -101,7 +101,9 @@ def main():
               "capture_video.py",
               "make_psg_assets.py",
               "png_to_sms_tiles.py",
-              "prepare_sms_pixel_art.py"):
+              "prepare_sms_pixel_art.py",
+              "audit_audio_provenance.py",
+              "measure_worst_frame.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")

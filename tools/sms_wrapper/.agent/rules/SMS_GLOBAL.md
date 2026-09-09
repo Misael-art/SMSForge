@@ -535,3 +535,84 @@ defeito, não só o estado.
 **Detecção é por JVM, não por linha de comando:** `pgrep -f` casa também o SHELL
 que invocou a ferramenta — medido, 3 PIDs onde havia 1 emulador. Confirme
 `argv[0]` ser `java`, senão o gate aborta por causa de quem o chamou.
+
+## 47. Proveniência de áudio tem gate próprio
+O `audit_provenance.py` cobre só PNG — e foi por esse furo que um `.psg`
+entrou na ROM sem entrada no manifest: `music_ken_stage.psg` (MSSF2T,
+2026-09-07) foi parar no `res/audio/` e nenhum gate tinha o que reprovar
+(L058). O `audit_psg_channel_binding.py` lê o mesmo manifest, mas só amarra
+canal de SFX: arquivo coberto por UM gate não fica coberto nos outros eixos.
+Manifest: `doc/audio_provenance_manifest.json`, mesma estrutura
+`{"assets": [...]}` com `file` relativo (ex.: `res/audio/x.psg`) que o gate
+de canal já consome — o gate novo é aditivo, não substitui ninguém.
+Três eixos, todos executáveis:
+1. **Cobertura:** todo `.psg` em `res/audio/` tem entrada no manifest.
+   Órfão reprova — "está na ROM" não é procedência.
+2. **Integridade:** `sha256` e `bytes` declarados batem com o blob em disco;
+   asset que mudou sem re-declarar reprova (mesmo princípio do visual).
+3. **Referência de port:** `origin` com transcrição/port/arranjo exige
+   `reference` `{file, sha256}` — o arquivo referenciado existe e o hash
+   bate. Jogo portado de referência comercial com trilha "autoral genérica"
+   no lugar do porte é troca silenciosa de obra (L059); port sem referência
+   hasheada não é port provado, é intenção. Autoral pura não deve reference.
+Gate: `audit_audio_provenance.py`.
+
+
+## 48. Prova de golpe contra a IA lê o estado do oponente (L060)
+Whiff não é defeito de colisão enquanto o defensor não estiver na prova. O
+"soco conecta às vezes" do MSSF2T virou três semanas de teoria errada
+("janela de 4 px" entre `PUSH_W` e a caixa) porque a leitura de código não
+era instrumentada. Os probes dataram a causa real: a IA recua ANDANDO com
+guarda quando o jogador ataca e `(g_frame & 8)` (ST_WALK_B, gap 20->28
+dentro da janela ativa), contra-ataca antes do nosso ativo e acerta chute em
+quem agacha. Regra executável:
+1. Prova de golpe carrega `P[1].state`/`P[1].guard` (byte do oponente) junto
+   com o resultado — whiff sem estado do defensor não tem causa.
+2. Cronometragem contra IA é por TEMPO DE RELÓGIO com o emulador rodando
+   contínuo; polling DAP pausado tem granularidade de 2-4 frames e janela
+   fixa de frames erra por ±8 px (medido).
+3. Atribuição de dano a golpe exige dano compatível (soco 7, chute 10,
+   projétil 12, chip 2) — queda de 10 com "pose de soco por perto" é chute,
+   não soco.
+Gate: `prove_input_memory.py` (punch_window, linha_tempo_b1, P1_STATES).
+
+## 49. Orçamento de frame se mede com instrumento na ROM (L061)
+Orçamento "declarado" em spec não fecha eixo nenhum — e o degrau seguinte é
+um instrumento que mora na ROM, não na bancada. Padrão do probe SMRT:
+`probe_vline` (VCounter lido NO FIM do trabalho do frame, antes do wait de
+VBlank) + `probe_vovf` (contador saturante de frames com vline >= limiar de
+VBlank). O contador é a evidência dura (imune a amostragem); o vline é o
+contexto. Derrame não derruba fps — espreme o streaming de VRAM, então
+"fps 60" não absolve orçamento estourado: mediu-se 247 frames derramados em
+~2700 com fps 60 (MSSF2T v085, modo atração). Pior caso declarado é o que a
+medição usa (troca de pose + HUD + projéteis), não o caminho vazio.
+Gate: `measure_worst_frame.py` (por projeto; molde com `--self-check`).
+
+## 50. Estado raro de UI se captura com roteiro que o força (L062)
+Banner de 120 frames não cai em keyframe uniforme — três gravações de 100s
+perderam o "K.O." com 8/12 frames. Roteiro executável: (1) input que tira a
+ROM do modo atração e FORÇA o estado (pressão contínua em direção ao
+oponente esvazia hp antes do TIME UP); (2) gravação com folga (o round é
+mais longo que o palpite); (3) extração densa (fps=1) para localizar o
+frame; (4) frame extraído vira artefato nomeado, o vídeo selado prova a
+cadeia. Sorte de keyframe não é método; roteiro é.
+Gate: `capture_video.py` (--press com roteiro de força).
+
+## 51. Falha total de canal DAP: suspeitar de diálogo modal e de vão de sessão (L063, L064)
+Dois modos de falha total, ambos com cara de "ambiente instável":
+1. **Diálogo modal bloqueia o carregamento da ROM** (L063): o Emulicious
+   abriu "Update Behaviour" no boot; a ROM da linha de comando nunca carrega,
+   o debugger interno nasce null e TODO `evaluate` NPE-ia
+   ("DAPDebugger.debugger is null") com a porta TCP VIVA — as ferramentas
+   diziam "canal DAP não ficou vivo" e a culpa caía no jogo/medição.
+   Diagnóstico executável: título da janela sem o nome da ROM + janela de
+   diálogo via `kdotool search`. Correção persistente no ini (`Update=0`);
+   config do emulador é suspeita padrão quando o canário NPE-ia com porta
+   respondendo.
+2. **Evidência fresca morre em vão entre turnos** (L064): a janela de frescor
+   do selo (120 min) atravessa vãos de horas entre turnos do agente — a
+   cadeia completa (capturas -> selo) roda em UM único comando, sem depender
+   de turno. E `rom_asset_binding.json` é escrito à mão: atualizar no mesmo
+   ciclo do rebuild — defasou duas gerações (09ed345a -> 1800c79c ->
+   0f4963c0) antes de alguém reparar.
+Gate: `emulator_session.py` + `seal_fresh_evidence_bundle.py`.

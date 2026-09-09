@@ -130,6 +130,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Geometria de sprite | `audit_sprite_mode.py` | arte mais larga que o modo sem metasprite (L006, §25) |
 | Contraste | `audit_luma_floor.py` | contraste < 1 degrau efetivo da paleta mestra |
 | Procedência | `audit_provenance.py` | pixel nascido de código como personagem/cenário |
+| Proveniência de áudio | `audit_audio_provenance.py` | .psg sem entrada no manifest de áudio, sha256/bytes divergentes, faixa portada sem referência hasheada (L058, §47) |
 | Evidência | `capture_evidence.py` | captura branca/sem informação, emulador ausente |
 | Sessão do emulador | `emulator_session.py` | instância zumbi viva quando um gate vai buscar a janela por nome — sem isso o gate mede a ROM **errada** e emite veredito confiante sobre a sua (§46/L057) |
 | Evidência de estado transitório | `capture_video.py` | grava o **framebuffer** do emulador (256×192, sem compositor) para transição/animação/game feel, que screenshot não sustenta (§45/§36); reprova vídeo fora da canvas do VDP, curto demais ou de tela congelada |
@@ -166,6 +167,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Redundância PSG | `audit_psg_redundancy.py` | stream com N cópias do mesmo frame; PSGlib já faz loop (L051, §12) |
 | Canal de input | `emulator_input.py` | XTEST/xdotool em Wayland/KWin (L039); canal = kdotool+ydotool (uinput) |
 | Tradução pixel | `prepare_sms_pixel_art.py` | foto/conceito fora da paleta mestra; preset NES/SNES/PICO-8 (L055, §8) |
+| Worst-frame | `measure_worst_frame.py` | orçamento de VBlank declarado e não medido; derrame sem número (L061, §49) |
 
 ## VOCABULÁRIO DE STATUS
 
