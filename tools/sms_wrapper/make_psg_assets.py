@@ -113,7 +113,19 @@ def main():
     audio = os.path.join(project, "res", "audio")
     os.makedirs(inc, exist_ok=True)
     os.makedirs(audio, exist_ok=True)
+    # MERGE, nao sobrescrita: carrega o manifest existente e atualiza por
+    # campo "file", preservando entradas que este gerador nao conhece (ex.
+    # musicas emitidas por gen_music_ken_ref.py). Reescrever o arquivo
+    # inteiro apagaria a proveniencia alheia a cada regeneracao de SFX.
+    manifest_path = os.path.join(project, "doc",
+                                 "audio_provenance_manifest.json")
     manifest = []
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            carregado = json.load(f)
+        if isinstance(carregado, dict):
+            manifest = [a for a in carregado.get("assets", [])
+                        if isinstance(a, dict) and "file" in a]
     roles = {
         "sfx_shot": ("hero dispara", "SFX_CHANNEL2", 6),
         "sfx_hit": ("tiro colide e gera impacto", "SFX_CHANNELS2AND3", 6),
@@ -128,18 +140,23 @@ def main():
             f.write(blob)
         write_header(os.path.join(inc, symbol + ".h"), symbol, blob)
         role, channels, frames = roles[symbol]
-        manifest.append({"file": os.path.relpath(psg, project),
-                         "origin": "stream autoral sintetizado para PSGlib",
-                         "author": "SMSForge",
-                         "tool": "make_psg_assets.py",
-                         "role": role,
-                         "channels": channels,
-                         "frames": frames,
-                         "sha256": hashlib.sha256(blob).hexdigest(),
-                         "bytes": len(blob), "format": "PSGlib stream"})
+        entrada = {"file": os.path.relpath(psg, project),
+                   "origin": "stream autoral sintetizado para PSGlib",
+                   "author": "SMSForge",
+                   "tool": "make_psg_assets.py",
+                   "role": role,
+                   "channels": channels,
+                   "frames": frames,
+                   "sha256": hashlib.sha256(blob).hexdigest(),
+                   "bytes": len(blob), "format": "PSGlib stream"}
+        for i, existente in enumerate(manifest):
+            if existente["file"] == entrada["file"]:
+                manifest[i] = entrada
+                break
+        else:
+            manifest.append(entrada)
         print(f"[OK] {os.path.relpath(psg, project)} {len(blob)}B")
-    with open(os.path.join(project, "doc", "audio_provenance_manifest.json"),
-              "w", encoding="utf-8") as f:
+    with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump({"assets": manifest}, f, indent=2)
     return 0
 
