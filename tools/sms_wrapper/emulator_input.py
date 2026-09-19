@@ -96,11 +96,16 @@ def ydotool_key(code, down):
     _run(["ydotool", "key", spec], env=ENV)
 
 
-def press_spec(spec, x11_window=None, x11_input=None):
+def press_spec(spec, x11_window=None, x11_input=None, refocus=True):
     """Executa 'Right=400,Left=200'. Retorna (done, backend, focused).
 
     done = [(tecla, ms), ...] na ordem enviada. Lista curta = foco falhou
     no meio (fail-closed, L007/L039).
+
+    refocus=True (padrao): reativa a janela ANTES de cada tecla. Em Wayland
+    o focus_wayland() dorme ~300 ms — ~18 frames NTSC. Isso estoura um
+    buffer de comando de 8 ticks (QCF). Gestos encadeados devem usar
+    refocus=False depois de um foco unico no comeco.
     """
     backend = select_backend()
     if backend is None:
@@ -112,12 +117,17 @@ def press_spec(spec, x11_window=None, x11_input=None):
         focused = focus_wayland()
         if not focused:
             return [], backend, False
+    elif x11_window is not None:
+        focused = focus_x11(x11_window, x11_input or x11_window)
+        if not focused:
+            return [], backend, False
     for step in [s.strip() for s in spec.split(",") if s.strip()]:
         key, _, ms = step.partition("=")
         ms = int(ms or 400)
         if backend == "wayland":
-            if not focus_wayland():
-                return done, backend, False
+            if refocus:
+                if not focus_wayland():
+                    return done, backend, False
             code = EVDEV.get(key)
             if code is None:
                 return done, backend, True
@@ -129,9 +139,10 @@ def press_spec(spec, x11_window=None, x11_input=None):
             iid = x11_input or x11_window
             if x11_window is None:
                 return done, backend, False
-            focused = focus_x11(x11_window, iid)
-            if not focused:
-                return done, backend, False
+            if refocus:
+                focused = focus_x11(x11_window, iid)
+                if not focused:
+                    return done, backend, False
             _run(["xdotool", "keydown", "--window", str(iid), key],
                  timeout=max(10, ms // 1000 + 10))
             time.sleep(ms / 1000.0)
@@ -195,6 +206,9 @@ def _self_check():
     assert b in ("wayland", "x11", None)
     steps = [s.strip() for s in "Right=400,Left=200".split(",") if s.strip()]
     assert len(steps) == 2 and steps[0].startswith("Right")
+    import inspect
+    assert "refocus" in inspect.signature(press_spec).parameters
+    assert inspect.signature(press_spec).parameters["refocus"].default is True
     ok, _ = evaluate_direction([], False)
     assert not ok, "L039: canal morto foi aceito"
     ok, _ = evaluate_direction(
