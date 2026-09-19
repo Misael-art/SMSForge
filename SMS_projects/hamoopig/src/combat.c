@@ -52,6 +52,7 @@ static void apply_one(const Contact *e)
         return;
     }
     a->hit_used = 1;
+    audio_hit();
     if (e->kind == CE_GUARD) {
         dmg = 2;
         if (d->hp > dmg) {

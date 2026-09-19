@@ -1,12 +1,11 @@
 # CONTINUIDADE — HAMOOPIG SMS
 
 - **Data:** 2026-09-19
-- **Marco atual:** Etapa 1–2 observadas. Etapa 3 **especial+projétil observados** (ainda sem captura visual da bola no ar).
-- **Último item concluído:** v006 QCF com `refocus=False` + B1 hold na janela de 8 ticks; dummy KO por projétil
-- **Próximo item executável:** guarda (chip 2) e throw; PSG; worst-frame. Não alargar o hist.
-- **Hash:** `4d6bfa4005b27412551fa3f8a041db813c69e163ce3dd2e7c8cf422cdb707964` (32768 B, build_v006)
-- **Comandos:** `cd SMS_projects/hamoopig && ./build.sh`
-- **Testes:** probe 59.42/59.42. special PASS (SP 32→4, fire=2, HP 8→0, hist 2-2-6-6).
-- **Evidências:** `out/evidence/special_probe.json`, `runtime_probe.json`, `title.png`, `fight.png`
-- **Adaptação:** especial aceita B1 hold enquanto QCF vive nos 8 ticks (não é hist maior).
-- **Dívida:** áudio, arte, HUD completo, palco, guarda/throw, Kensaiden, git até commit humano se o add não for desejado
+- **Marco:** guarda chip-2 **observada**. Throw **implementado não observado**. PSG sinal 49%. Worst-frame **derramou** (597/20s).
+- **Hash:** `7a8951eef4c886e03631bffcefec55e45ae94fd1aedbb16f566f618679f361bd` (v009, 32768 B)
+- **Último item:** L065–L068 registradas; BLOCK dummy; chip 2; B1+B2 throw; PSG; worst-frame
+- **Próximo:** mapear B2 ou redesenhar throw com teclas conhecidas; reduzir vovf; BGM no título
+- **Provas:** `guard_probe.json` (64→62, p2g=1); `worst_frame.json` derramou; `audio.wav` peak 7470 49%
+- **Select:** Down = P2 BLOCK, Up = DUMMY, B2 cicla se o teclado entregar
+- **Throw:** B1+B2, dano 10, MF_THROW
+- **Não alargar hist[8]**

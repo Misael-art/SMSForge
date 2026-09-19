@@ -281,6 +281,18 @@
     "doc/curation/2026-09-08_l060_l064_ciclo_mssf2t.json"
    ],
    "dedup_key": "l060_l064_ciclo_mssf2t_2026_09_08"
+  },
+  {
+   "ts": "2026-09-19",
+   "kind": "curation",
+   "summary": "L065-L068: QCF no HAMOOPIG SMS. press_spec com refoco ~300 ms entre teclas estoura hist de 8 ticks (L065); amostra 0,9 s depois so ve neutro (L066); qcf=1 com especial idle era B1 so na borda — hold na janela, nao hist maior (L067); build_record e snapshot de compile, memory bank e autoridade #1, nao editar axes a mao (L068).",
+   "sources": [
+    "doc/curation/2026-09-19_l065_l068_qcf_harness.json",
+    "tools/sms_wrapper/emulator_input.py",
+    "SMS_projects/hamoopig/out/evidence/special_probe.json",
+    "SMS_projects/hamoopig/src/fighter.c"
+   ],
+   "dedup_key": "l065_l068_qcf_harness_2026_09_19"
   }
  ]
 }

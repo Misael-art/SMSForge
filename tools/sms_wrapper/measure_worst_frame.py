@@ -7,9 +7,12 @@ schema 1):
   - probe_vline (0xC7EA): VCounter lido NO FIM do trabalho do frame, antes
     do SMS_waitForVBlank. Valor >= limiar (0xC0 = linha 192 NTSC) = o
     trabalho do frame derramou no VBlank — o tempo do streaming de VRAM.
-  - probe_vovf (0xC7EB): contador SATURANTE (máx 255) de frames com
-    vline >= limiar. Delta de leituras = evidência dura, imune a
-    amostragem.
+  - probe_vovf (0xC7EB, word): contador não saturante de frames com vline >=
+    limiar. Delta de leituras = evidência dura, imune a amostragem e ao antigo
+    falso teto em 255.
+  - probe_phase (0xC7ED): última fase observada (1 simulação, 2 preparação,
+    3 antes do VBlank, 4 após upload/render); probe_missed (0xC7EE) conta os
+    frames que alcançaram o início do VBlank.
 A janela medida é o MODO ATRAÇÃO da ROM (CPU x CPU: especiais, projéteis,
 trocas de pose com stream de ~1 KB, HUD e banners) — o pior caso real do
 golden slice. Derrame não derruba fps: espreme o streaming de VRAM, então
@@ -45,6 +48,8 @@ from emulicious_dap import PORT                                  # noqa: E402
 
 PROBE_VLINE = 0xC7EA
 PROBE_VOVF = 0xC7EB
+PROBE_PHASE = 0xC7ED
+PROBE_MISSED = 0xC7EE
 PROBE_STATE = 0xC7F6
 VLIMIAR = 0xC0            # linha 192 NTSC: inicio do VBlank
 GS = {0: "ROUND", 1: "FIGHT", 2: "KO", 3: "RESULT", 4: "TITLE"}
@@ -129,23 +134,25 @@ def _session(dap, out_dir, out_name, seconds):
     while time.time() < fim:
         dap.pause()
         vl = dap.read_byte(PROBE_VLINE)
-        vf = dap.read_byte(PROBE_VOVF)
+        vf = dap.read_word(PROBE_VOVF)
+        ph = dap.read_byte(PROBE_PHASE)
+        ms = dap.read_byte(PROBE_MISSED)
         st = dap.read_byte(PROBE_STATE)
         dap.cont()
         if vf is not None and vovf_inicio is None:
             vovf_inicio = vf
         samples.append({"t": round(seconds - (fim - time.time()), 1),
-                        "vline": vl, "vovf": vf,
+                        "vline": vl, "vovf": vf, "phase": ph, "missed": ms,
                         "estado": GS.get(st, st)})
         time.sleep(1.0)
     dap.pause()
-    vovf_fim = dap.read_byte(PROBE_VOVF)
+    vovf_fim = dap.read_word(PROBE_VOVF)
     dap.cont()
     res = analyze(samples, vovf_inicio, vovf_fim, VLIMIAR)
     res["janela_s"] = seconds
     res["vovf_inicio"] = vovf_inicio
     res["vovf_fim"] = vovf_fim
-    res["estados_vistos"] = sorted({s["estado"] for s in samples})
+    res["estados_vistos"] = sorted({str(s["estado"]) for s in samples})
     res["amostras_brutas"] = samples
     with open(os.path.join(out_dir, out_name + ".json"), "w") as f:
         json.dump(res, f, indent=1)

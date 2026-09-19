@@ -4,6 +4,7 @@ static const MoveDef mv_punch = {4, 4, 8, 7, 12, 8, 4, 0, {12, 10, 12, 8}};
 static const MoveDef mv_kick  = {6, 4, 10, 10, 14, 10, 5, 0, {8, 20, 14, 10}};
 static const MoveDef mv_hadou = {10, 4, 18, 12, 16, 12, 6, MF_PROJ, {12, 8, 16, 10}};
 static const MoveDef mv_slam  = {8, 6, 16, 14, 18, 12, 8, 0, {8, 8, 16, 20}};
+static const MoveDef mv_throw = {4, 6, 12, 10, 16, 0, 6, MF_THROW, {2, 8, 20, 20}};
 
 static const FighterDef def_ryo = {
     FID_RYO, 2, 8, 1, &mv_punch, &mv_kick, &mv_hadou
@@ -28,7 +29,8 @@ const FighterDef *fighter_def(unsigned char id)
 
 static unsigned char is_attack(unsigned int st)
 {
-    return (unsigned char)(st == ST_PUNCH || st == ST_KICK || st == ST_SPECIAL);
+    return (unsigned char)(st == ST_PUNCH || st == ST_KICK || st == ST_SPECIAL
+                           || st == ST_THROW);
 }
 
 static unsigned char is_busy(unsigned int st)
@@ -49,7 +51,7 @@ void fighter_set_state(unsigned char who, unsigned int st)
     }
     f->state = st;
     f->timer = 0;
-    if (st == ST_PUNCH || st == ST_KICK || st == ST_SPECIAL) {
+    if (st == ST_PUNCH || st == ST_KICK || st == ST_SPECIAL || st == ST_THROW) {
         f->pose = POSE_PUNCH;
     } else if (st == ST_HIT || st == ST_KO) {
         f->pose = POSE_PUNCH;
@@ -62,6 +64,7 @@ void fighter_set_state(unsigned char who, unsigned int st)
         f->fx = f->x + (f->facing ? 16 : -8);
         f->fy = f->y + 8;
         f->fvx = (signed char)(f->facing ? 3 : -3);
+        audio_shot();
     }
 }
 
@@ -76,6 +79,9 @@ static const MoveDef *move_of(const Fighter *f)
     }
     if (f->state == ST_SPECIAL) {
         return d->special;
+    }
+    if (f->state == ST_THROW) {
+        return &mv_throw;
     }
     return d->punch;
 }
@@ -188,6 +194,16 @@ static void fighter_logic(unsigned char who)
 
     if (f->control == CONTROL_CPU) {
         dummy_ai(who);
+    } else if (f->control == CONTROL_BLOCK) {
+        unsigned char b;
+        for (b = 0; b < INP_COUNT; b++) {
+            P[who].keys[b] = KEY_FREE;
+        }
+        if (P[who].facing) {
+            P[who].keys[INP_LEFT] = KEY_HOLD;
+        } else {
+            P[who].keys[INP_RIGHT] = KEY_HOLD;
+        }
     }
     hist_push(who);
     apply_gravity(who);
@@ -261,6 +277,18 @@ static void fighter_logic(unsigned char who)
         fighter_set_state(who, ST_SPECIAL);
         return;
     }
+    {
+        signed int g = P[1].x - P[0].x;
+        if (g < 0) {
+            g = -g;
+        }
+        if (g <= 24 && f->y >= GROUND_Y && P[who ^ 1].y >= GROUND_Y &&
+            (heldk(who, INP_B1) || pressk(who, INP_B1)) &&
+            (heldk(who, INP_B2) || pressk(who, INP_B2))) {
+            fighter_set_state(who, ST_THROW);
+            return;
+        }
+    }
     if (pressk(who, INP_B1)) {
         fighter_set_state(who, ST_PUNCH);
         return;
@@ -279,6 +307,10 @@ static void fighter_logic(unsigned char who)
         return;
     }
     if (f->guard) {
+        if (f->control == CONTROL_BLOCK) {
+            fighter_set_state(who, ST_GUARD);
+            return;
+        }
         fighter_set_state(who, ST_WALK_B);
         nx = f->x + (f->facing ? -(signed int)d->walk_spd : (signed int)d->walk_spd);
         if (nx < STAGE_X_MIN) {
@@ -416,7 +448,13 @@ static void collect_contacts(void)
     for (a = 0; a < 2; a++) {
         d = (unsigned char)(a ^ 1);
         if (boxes_hit(a, d)) {
-            kind = P[d].guard ? CE_GUARD : CE_HIT;
+            if (move_of(&P[a])->flags & MF_THROW) {
+                kind = CE_THROW;
+            } else if (P[d].guard) {
+                kind = CE_GUARD;
+            } else {
+                kind = CE_HIT;
+            }
             combat_emit(a, d, kind, P[a].attack_inst, move_of(&P[a])->damage,
                         P[a].state);
         }
@@ -549,6 +587,7 @@ void fight_enter(void)
         }
     }
     hud_enter_fight();
+    audio_fight();
     fight_reset_round();
 }
 

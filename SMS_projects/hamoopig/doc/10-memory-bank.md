@@ -3,44 +3,43 @@
 > ESTADO OPERACIONAL REAL. Autoridade #1.
 
 ## Última atualização
-2026-09-19 — **v006: QCF + projétil OBSERVADOS.** Protótipo técnico parcial, não porte completo.
+2026-09-19 — **v009: guarda chip-2 observada. Throw implementado, não observado (B2 no teclado). PSG com sinal, mix 49%. Worst-frame derramou.**
 
 ROM `out/rom/hamoopig.sms` 32768 B, SHA-256
-`4d6bfa4005b27412551fa3f8a041db813c69e163ce3dd2e7c8cf422cdb707964`
-(changelog `build_v006`). Origem HAMOOPIG **não modificada**. MSSF2T **não modificado**.
+`7a8951eef4c886e03631bffcefec55e45ae94fd1aedbb16f566f618679f361bd`
+(changelog `build_v009`). Origem HAMOOPIG não modificada.
 
-## Eixos de entrega (7)
+## Eixos
 | Eixo | Status | Prova |
 |------|--------|-------|
-| build | buildado | 32768 B, SHA `4d6bfa40…` |
+| build | buildado | 32768 B, SHA `7a8951ee…` |
 | validation_report | buildado | pre_gates pass |
-| boot no emulador | testado_em_emulador | `title.png` / `fight.png`; probe SMRT |
-| gameplay | testado_em_emulador (andar, soco, especial) | `special_probe.json`: hist 2,2,6,6; qcf=1; SP 32→4; fire=2; HP dummy 8→0 |
-| 60/50 fps | testado_em_emulador | `runtime_probe.json` 59.42 / 59.42 |
-| áudio | não iniciado | — |
-| memory bank atualizado | documentado | este arquivo |
+| boot | testado_em_emulador | probe SMRT |
+| gameplay | testado_em_emulador (soco, especial, **guarda**) | `guard_probe.json` HP 64→62, p2g=1, ctrl=4 |
+| fps | parcial | probe janela 58.2 / 28.12 (segunda contaminada); worst-frame derramou |
+| áudio | implementado, mix abaixo do piso | `audio.wav` peak=7470, 49% ativo (<90%: BGM só na luta) |
+| memory bank | documentado | este arquivo |
 
-`out/build_record.json` continua com eixos de runtime `false` porque é gerado no **compile** e a fábrica só promove `gameplay` via `input_memory.json` / `interaction_proven`. **Não editar à mão.** Autoridade #1 é este memory bank.
+## Guarda
+Select **Down** = P2 `CONTROL_BLOCK` (dummy parado segurando trás). Soco → chip **2**. `guard_probe.json`.
 
-## QCF — o que a instrumentação mostrou
-1. `press_spec` com refoco por tecla (~300 ms) estoura o hist de 8 ticks. Corrigido: `refocus=False` no gesto.
-2. Amostra 0,9 s depois do gesto só via 5 (neutro). Amostra ≤50 ms depois ainda contém 2 e 6.
-3. Na v005, `qcf=1` com hist `[5,2,5,6,…]` mas especial não entrava: B1 só na **borda**. Recuo SMS: B1 **hold** enquanto o QCF ainda está na janela de 8 ticks. Hist **não** foi alargado.
-4. v006 `at_qcf`: hist `[2,2,6,6,5,5,5,5]`, `qcf=1`, `fire=2` (projétil consumido no hit), SP 32→4 (custo 32 + ganho 4 do hit), HP 8→0, estado 99 = `ST_WIN` (611 & 0xFF).
+## Throw
+Contrato 2 botões: **B1+B2** a gap≤24, dano 10, ignora guarda. `prove_throw.py` com A+S e A+Z deu delta 7 (soco): o Emulicious deste host mapeia B1=A; B2 não foi encontrado no teclado. Código presente, **não observado**.
 
-## Observado
-- Título / select / luta técnica 16×32
-- Soco dano 7; especial/projétil dano que zerou o dummy
-- Probe hist em `0xC7D0` (temporário de diagnóstico, útil manter)
+## QCF/projétil
+Continua o resultado da v006 (SHA anterior): hist 2-2-6-6, fire=2. Não re-provado nesta SHA.
 
-## Ainda não é porte
-Arte final, animações, golpes próprios, guarda/throw/multihit **provados**, HUD completo, palcos, áudio, worst-frame, PAL, Kensaiden, revanche filmada.
+## Worst-frame
+`worst_frame.json`: veredito **derramou**, vovf_delta=597 em 20 s, vline_max=255. Folga zero. Degrau: reduzir trabalho pré-VBlank (PSGFrame+HUD+SAT).
 
-## Blocker dominante
-Guarda e throw observáveis; depois partida/revanche completa; áudio; worst-frame; arte.
+## Lições de fábrica
+L065–L068 em `doc/curation/2026-09-19_l065_l068_qcf_harness.json`, SMS_GLOBAL §52–§53.
+
+## Blocker
+Throw observado (achar B2 ou comando só com D-pad+B1); pior-quadro; mix de áudio na abertura; arte.
 
 ## Handoff
-1. Provar guarda (recuar + chip 2) e throw se couber no 2 botões
-2. PSG de hit/especial
-3. Worst-frame + scanline
-4. Reautoria 32×64; Ken sem pixels Capcom; Kensaiden depois do contrato
+1. Mapear B2 no Emulicious ou throw em comando D-pad conhecido
+2. Cortar trabalho de frame (vovf)
+3. BGM desde o título para o piso 90%
+4. Arte 32×64; Kensaiden depois

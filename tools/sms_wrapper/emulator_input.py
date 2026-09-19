@@ -21,6 +21,7 @@ EVDEV = {
     "Right": 106, "Left": 105, "Up": 103, "Down": 108,
     "right": 106, "left": 105, "up": 103, "down": 108,
     "a": 30, "A": 30, "botao1": 30,
+    "s": 31, "S": 31, "botao2": 31,
     "z": 44, "Z": 44, "x": 45, "X": 45,
     "Return": 28, "space": 57, "Space": 57,
     "BackSpace": 14, "ctrl": 29,
@@ -151,6 +152,41 @@ def press_spec(spec, x11_window=None, x11_input=None, refocus=True):
     return done, backend, focused
 
 
+def press_chord(keys, ms=200, x11_window=None, x11_input=None, refocus=True):
+    """Segura varias teclas ao mesmo tempo (throw B1+B2). keys=['a','x']."""
+    backend = select_backend()
+    if backend is None:
+        return [], None, False
+    codes = []
+    for key in keys:
+        c = EVDEV.get(key)
+        if c is None:
+            return [], backend, False
+        codes.append(c)
+    if backend == "wayland":
+        ensure_ydotool_daemon()
+        if refocus and not focus_wayland():
+            return [], backend, False
+        for c in codes:
+            ydotool_key(c, True)
+        time.sleep(ms / 1000.0)
+        for c in reversed(codes):
+            ydotool_key(c, False)
+        return list(keys), backend, True
+    iid = x11_input or x11_window
+    if x11_window is None:
+        return [], backend, False
+    if refocus:
+        if not focus_x11(x11_window, iid):
+            return [], backend, False
+    for key in keys:
+        _run(["xdotool", "keydown", "--window", str(iid), key])
+    time.sleep(ms / 1000.0)
+    for key in reversed(keys):
+        _run(["xdotool", "keyup", "--window", str(iid), key])
+    return list(keys), backend, True
+
+
 def tap_reset():
     """Atalho de reset do Emulicious (Ctrl+BackSpace). Canario do canal."""
     backend = select_backend()
@@ -209,6 +245,12 @@ def _self_check():
     import inspect
     assert "refocus" in inspect.signature(press_spec).parameters
     assert inspect.signature(press_spec).parameters["refocus"].default is True
+    # L065: 8 ticks a 60 Hz cabem ~133 ms; dois refocos de 300 ms nao cabem.
+    def qcf_fits(hist_n, fps, inter_key_ms, dir_holds_ms):
+        span = sum(dir_holds_ms) + inter_key_ms * (len(dir_holds_ms) - 1)
+        return span <= (hist_n / float(fps)) * 1000.0
+    assert not qcf_fits(8, 60, 300, [40, 40]), "L065: refoco 300ms coube em 8 ticks"
+    assert qcf_fits(8, 60, 0, [40, 40]), "QCF sem refoco deveria caber"
     ok, _ = evaluate_direction([], False)
     assert not ok, "L039: canal morto foi aceito"
     ok, _ = evaluate_direction(

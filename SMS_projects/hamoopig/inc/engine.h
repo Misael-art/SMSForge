@@ -65,6 +65,11 @@ void fight_update(void);
 void fight_present(void);
 const FighterDef *fighter_def(unsigned char id);
 void fighter_set_state(unsigned char who, unsigned int st);
+void audio_boot(void);
+void audio_fight(void);
+void audio_tick(void);
+void audio_hit(void);
+void audio_shot(void);
 
 void combat_begin_tick(void);
 void combat_emit(unsigned char atk, unsigned char def, unsigned char kind,
@@ -84,6 +89,8 @@ extern volatile unsigned char __at(0xC7D8) probe_hist_i;
 extern volatile unsigned char __at(0xC7D9) probe_qcf;
 extern volatile unsigned char __at(0xC7DA) probe_dir;
 extern volatile unsigned char __at(0xC7DB) probe_fire;
+extern volatile unsigned char __at(0xC7DC) probe_p2g;
+extern volatile unsigned char __at(0xC7DD) probe_ctrl;
 
 extern volatile unsigned char __at(0xC7E0) probe_magic0;
 extern volatile unsigned char __at(0xC7E1) probe_magic1;

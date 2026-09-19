@@ -5,6 +5,8 @@ volatile unsigned char __at(0xC7D8) probe_hist_i;
 volatile unsigned char __at(0xC7D9) probe_qcf;
 volatile unsigned char __at(0xC7DA) probe_dir;
 volatile unsigned char __at(0xC7DB) probe_fire;
+volatile unsigned char __at(0xC7DC) probe_p2g;
+volatile unsigned char __at(0xC7DD) probe_ctrl;
 volatile unsigned char __at(0xC7E0) probe_magic0;
 volatile unsigned char __at(0xC7E1) probe_magic1;
 volatile unsigned char __at(0xC7E2) probe_magic2;
@@ -86,4 +88,6 @@ void probe_frame_end(unsigned int raw, unsigned char vline)
     probe_qcf = fighter_qcf(0);
     probe_dir = P[0].hist[(unsigned char)((P[0].hist_i - 1) & 7)];
     probe_fire = P[0].fire_on;
+    probe_p2g = P[1].guard;
+    probe_ctrl = g_control[1];
 }

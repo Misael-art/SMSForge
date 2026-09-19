@@ -89,6 +89,7 @@ void main(void)
     SMS_displayOff();
     SMS_useFirstHalfTilesforSprites(1);
     gfx_boot();
+    audio_boot();
     probe_init();
     g_sel_p1 = FID_RYO;
     g_sel_p2 = FID_MUSGO;
@@ -113,6 +114,7 @@ void main(void)
             probe_missed++;
         }
         SMS_waitForVBlank();
+        audio_tick();
         g_frame++;
         game_present();
         probe_phase = 4;

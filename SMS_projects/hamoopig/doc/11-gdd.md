@@ -39,7 +39,8 @@ Escolher lutadores → aproximar/afastar → normal ou especial → guarda ou hi
 Mega Drive: 6 botões. SMS: D-pad + 2 botões + Pause/NMI.
 - B1 = soco / confirma / especial (QCF+B1). Especial aceita B1 **hold** enquanto o QCF ainda está nos 8 ticks de direção (não alarga o buffer).
 - B2 = chute
-- Recuar = guarda
+- B1+B2 = throw (dano 10, ignora guarda), gap ≤ 24
+- Recuar = guarda (chip 2). Select **Down** = P2 dummy BLOCK (parado).
 - Pause = sair da luta para o título
 Forças L/M/H colapsam em um normal por botão; distância ainda escolhe o move da tabela.
 

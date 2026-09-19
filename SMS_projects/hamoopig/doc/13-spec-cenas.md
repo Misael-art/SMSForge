@@ -36,5 +36,5 @@ Ainda **não medido**. Método previsto: `measure_worst_frame.py` + probe `vline
 8 quando os dois lutadores compartilham linhas. Manifesto de simulação pendente.
 
 ### fps / worst-frame
-fps do loop (probe, SHA `9e3cc240…`): janelas 58.91 e 59.55, spread 0.64, `frame_advance` 723.
-Worst-frame (vline/vovf): **não medido** nesta SHA. Não declarar folga.
+fps do loop (probe, SHA `7a8951ee…`): janela 1 = 58.2; janela 2 = 28.12 (não constante).
+Worst-frame (`worst_frame.json`, 20 s): **derramou**, vovf_delta=597, vline_max=255. Folga zero.

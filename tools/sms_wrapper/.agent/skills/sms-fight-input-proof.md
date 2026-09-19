@@ -42,6 +42,14 @@ leitura de código da caixa de colisão NÃO é resposta.
   aperto.
 - **CLI do usuário**: o canal é kdotool (foco KWin/DBus) + ydotool (uinput)
   — L039. xdotool/XTEST não atravessa Wayland/KWin.
+- **Refoco entre teclas de um QCF** (L065): `press_spec` default reativa a
+  janela a cada passo (~300 ms no Wayland = ~18 frames). Hist de 8 ticks
+  (~133 ms) perde o Down. Usar `refocus=False` no gesto. Não alargar o
+  buffer do jogo (L067).
+- **Amostra do hist depois da janela** (L066): 0,9 s depois só há neutro.
+  Ler hist/qcf no máximo alguns frames após o A.
+- **B1 só na borda** (L067): `qcf==1` com especial ainda idle — o botão
+  chegou em HOLD. Aceitar hold na janela de 8; não crescer o hist.
 
 ## Molde vivo
 

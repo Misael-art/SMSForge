@@ -21,6 +21,7 @@
 #define ST_HIT      501u
 #define ST_KO       570u
 #define ST_WIN      611u
+#define ST_THROW    113u
 #define ST_SPECIAL  700u
 
 #define KEY_FREE     0u
@@ -31,7 +32,8 @@
 #define CONTROL_HUMAN  0u
 #define CONTROL_CPU    1u
 #define CONTROL_DUMMY  2u
-#define CONTROL_REPLAY 3u
+#define CONTROL_REPLAY 3
+#define CONTROL_BLOCK  4u
 
 #define FID_RYO    1u
 #define FID_KEN    2u

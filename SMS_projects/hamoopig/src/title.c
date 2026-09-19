@@ -35,7 +35,7 @@ void title_enter(void)
 void title_update(void)
 {
     s_local++;
-    if (input_pressed(0, INP_B1)) {
+    if (input_pressed(0, INP_B1) || s_local > 180) {
         scene_request(SCENE_SELECT);
     }
 }
@@ -54,8 +54,12 @@ void select_enter(void)
     text_at(4, 10, "P2 MUSGO");
     text_at(4, 14, "LEFT RIGHT ID");
     text_at(4, 16, "B1 CONFIRM");
+    text_at(4, 18, "B2 P2 MODE");
+    text_at(16, 18, "DUMMY");
     g_sel_p1 = FID_RYO;
     g_sel_p2 = FID_MUSGO;
+    g_control[0] = CONTROL_HUMAN;
+    g_control[1] = CONTROL_DUMMY;
 }
 
 void select_update(void)
@@ -71,6 +75,26 @@ void select_update(void)
     if (input_pressed(1, INP_LEFT) || input_pressed(1, INP_RIGHT)) {
         g_sel_p2 = (g_sel_p2 == FID_MUSGO) ? FID_RYO : FID_MUSGO;
         text_at(7, 10, (g_sel_p2 == FID_RYO) ? "RYO  " : "MUSGO");
+    }
+    if (input_pressed(0, INP_DOWN)) {
+        g_control[1] = CONTROL_BLOCK;
+        text_at(16, 18, "BLOCK");
+    }
+    if (input_pressed(0, INP_UP)) {
+        g_control[1] = CONTROL_DUMMY;
+        text_at(16, 18, "DUMMY");
+    }
+    if (input_pressed(0, INP_B2)) {
+        if (g_control[1] == CONTROL_DUMMY) {
+            g_control[1] = CONTROL_BLOCK;
+            text_at(16, 18, "BLOCK");
+        } else if (g_control[1] == CONTROL_BLOCK) {
+            g_control[1] = CONTROL_CPU;
+            text_at(16, 18, "CPU  ");
+        } else {
+            g_control[1] = CONTROL_DUMMY;
+            text_at(16, 18, "DUMMY");
+        }
     }
     if (input_pressed(0, INP_B1) || s_local > 300) {
         scene_request(SCENE_FIGHT);

@@ -616,3 +616,29 @@ Dois modos de falha total, ambos com cara de "ambiente instável":
    ciclo do rebuild — defasou duas gerações (09ed345a -> 1800c79c ->
    0f4963c0) antes de alguém reparar.
 Gate: `emulator_session.py` + `seal_fresh_evidence_bundle.py`.
+
+## 52. Gesto de comando nao paga delay de harness (L065, L066, L067)
+Um buffer de 8 ticks a 60 Hz é ~133 ms. `press_spec()` que chama
+`focus_wayland()` (~300 ms) **antes de cada tecla** espalha Down→Right→A
+por ~18 frames e o Down sai do hist antes do A. Isso nao prova que o QCF
+da ROM esta quebrado.
+
+Regras executaveis:
+1. Gestos encadeados usam **um unico foco** e `press_spec(..., refocus=False)`.
+   Default `refocus=True` permanece para teclas isoladas (andar, soco).
+2. Prova de QCF le hist/qcf/SP/estado no maximo alguns frames apos o botao,
+   nao 0,9 s depois (a janela de 8 ticks ja e so neutro).
+3. Se `qcf==1` e o especial nao entra, suspeitar da **borda** de B1
+   (KEY_PRESSED) atrasada 1-3 frames — aceitar HOLD na mesma janela de 8.
+   Nao alargar `hist[]` para caber o harness.
+Gate: `emulator_input.py` (`refocus`, `qcf_fits` no `--self-check`).
+HAMOOPIG: `tools/prove_special.py` + probe `0xC7D0`.
+
+## 53. build_record nao e memory bank (L068)
+`out/build_record.json` grava eixos no compile. Runtime nasce `false` e so
+sobe no **proximo** build se `axis_support()` achar artefato no contrato da
+fabrica (`evidence.json` informative, `fps.json`, `input_memory.json`).
+Editar `axes` a mao e proibido (release-rom). Divergencia "memory bank diz
+testado / build_record diz false" e esperada ate o rebuild com evidencias
+mais novas que a ROM — autoridade #1 continua o memory bank.
+Gate: `reconcile_claims.py` (reprova `true` sem lastro; nao promove a mao).
