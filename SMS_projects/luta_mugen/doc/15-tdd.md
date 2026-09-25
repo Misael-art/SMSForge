@@ -87,12 +87,12 @@ Distribuição de largura de sprite (colunas de 8 px): mediana 69×83 px;
 |-------------|---------|
 | sons PCM (33, todos unsupported) | **Nada porta direto.** Reautoria PSG: 6 SFX (soco, chute, especial, hit, KO, round) + 1 BGM, declarados em manifest de áudio. Ken audível = zero PCM. |
 | comandos com b/c/x/y/z (77) | **Remapeio manual**: tabela de comandos do runtime só aceita {direções, A, start}; combo especial passa para QCB+A etc. na faixa `manual`, reautorado 1 lutador. |
-| `scanline>8` (243 poses) | **Downscale/reautoria de arte** no S4: sprite ≤64 px de largura; quem não couber vira pose `manual` (recorte) ou sai do corte. |
+| `scanline>8` (243 poses) | **Escala travada 2026-09-25 (GDD §Escala do lutador)**: TALL 8×16, lutador ≤4 sprites/linha × ≤3 de altura (~32×48 px), downscale 1:4 fixo no conversor; quem ainda estourar vira `manual` (reautoria) e não entra no build. Flicker para mascarar overflow é proibido. |
 | `sat>64` (232 frames de efeito) | **Fora do MVP** — intros/victory screens fullscreen não cabem na SAT; ficam no IR como documentação do acervo. |
 | `sprite-ausente` (11 frames) | **Fora** — dependem de sprites de sistema (fightfx) que não estão no pacote do personagem. |
 | paleta >15 úteis (16 sprites) | Quantização no conversor + revisão visual; `manual` até passar em `audit_validate_resources`. |
 | controladores unsupported (21) | 17 blending/rastro → substituídos por sprite-extra ou omitidos; 2 fightfx → omitidos; 1 flash de paleta → CRAM dinâmica no VBlank se sobrar tempo; 1 multiplicador → fora do escopo (sem dano variável no MVP). |
-| 12 paletas do .act | P2 (dummy) = troca de subpaleta do MESMO tileset — custo zero de VRAM, usa `pal2..pal12` já presentes no pacote. |
+| 12 paletas do .act | P2 (dummy) = **shift de faixa de índice** no MESMO sprite palette (o SMS tem UMA paleta de sprite; sem escolha por sprite — SMSlib.h:249-250). Paletas ACT de P1/P2 devem caber em 15 úteis conjuntas; custo = cópia dos padrões com índices deslocados (medido no Plano 2 Task 2), não zero. |
 
 ## Mapa de memória (RAM) — candidatos, a fechar no Plano 2 com o runtime escrito
 | Faixa | Tamanho | Conteúdo |

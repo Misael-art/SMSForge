@@ -81,6 +81,28 @@ bloqueada.
 2º lutador no build muda personagem, paleta, frame data e especial sem editar
 nenhum `.c` do núcleo.
 
+## Escala do lutador — TRAVADA (2026-09-25, decisão humana sobre medição)
+
+Medição que força a decisão (`s4_generation_report.json`, Ken do corte S3):
+pior pose × 2 lutadores = **pico 32 sprites/scanline (teto 8), SAT 256 (teto 64)**.
+Ken em escala nativa MUGEN não cabe no VDP; 270/463 sprites (58%) têm >8 colunas.
+
+Contrato (vale para TODO personagem consumido pelo motor):
+
+| Item | Valor travado |
+|------|---------------|
+| Modo de sprite | `SPRITEMODE_TALL` 8×16 (SMSlib.h:57) |
+| Largura do lutador em qualquer scanline | **≤4 sprites/linha ≈ 32 px** |
+| Altura do lutador | **≤3 sprites TALL ≈ 48 px** (2 linhas lógicas de pose) |
+| Orçamento da cena versus | 2 lutadores = pico 8/linha **exato**; faíscas/sombra só existem porque a regra limita o lutador, nunca o contrário |
+| Conversor | downscale **1:4 fixo** aplicado ao gerar arte; pose que ainda estoura entra como `manual` (reautoria), **nunca** entra no build |
+| Proibido | flicker/rotação de prioridade para mascarar overflow (falsa audácia — SMS_GLOBAL) |
+| Troca de piloto | escala é do MOTOR, não do personagem: trocar Ken por outro personagem não reabre a escala |
+
+Consequência registrada: o recorte visual é grande (Ken nativo até 128 px → 32 px).
+É o preço medido do versus 2 jogadores no SMS; estética análoga aos versus
+lançados para o hardware (régua em Benchmarks).
+
 ## Pipeline verificável (E do MD → S do SMS)
 
 | Etapa | Entrega | Critério de aceite |
