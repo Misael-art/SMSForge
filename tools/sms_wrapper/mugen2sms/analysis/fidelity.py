@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import sms_budget as B
+from mugen2sms.converters import sms_scale as SC
 
 
 @dataclass
@@ -57,12 +58,14 @@ def classify_character(ch, limits: B.SmsLimits) -> FidelityReport:
             if sp is None:
                 rep.add(Element(f"anim:{n}.{i}", "unsupported", "sprite-ausente"))
                 continue
-            cols = B.columns(sp.width)
             entries = B.sat_entries(sp.width, sp.height)
             if entries > limits.sat_max:
                 classe, motivo = "unsupported", f"sat>{limits.sat_max}:{entries}"
-            elif cols > limits.sprites_per_line:
-                classe, motivo = "approximate", f"scanline>{limits.sprites_per_line}:{cols}"
+            elif SC.exceeds_budget(sp.width, sp.height):
+                # contrato de escala do GDD (2026-09-25): nem 1:4 salva -> reautoria
+                classe, motivo = "manual", "estourou-apos-escala"
+            elif SC.needs_scale(sp.width, sp.height):
+                classe, motivo = "approximate", "downscale1:4"
             else:
                 classe, motivo = "direct", ""
             rep.add(Element(f"anim:{n}.{i}", classe, motivo))
@@ -96,7 +99,8 @@ def classify_character(ch, limits: B.SmsLimits) -> FidelityReport:
 
 
 def _self_check() -> int:
-    """Caso-limite embutido: pose de 9 colunas e som PCM devem aparecer com as classes certas."""
+    """Caso-limite embutido: pose de 9 colunas (cabe apos 1:4) e som PCM devem
+    aparecer com as classes certas; `downscale1:4` e o motivo do contrato de escala."""
     from mugen2sms.character import CState
     from mugen2sms.ir import controllers as C
     from mugen2sms.parsers import air, snd, sff
@@ -113,8 +117,8 @@ def _self_check() -> int:
     fails = []
     if rep.by_id["anim:0.0"].classe != "approximate":
         fails.append("pose larga nao virou approximate")
-    if not rep.by_id["anim:0.0"].motivo.startswith("scanline"):
-        fails.append("motivo de scanline ausente")
+    if not rep.by_id["anim:0.0"].motivo.startswith("downscale"):
+        fails.append("motivo de downscale obrigatorio ausente")
     if rep.by_id["sound:1,0"].classe != "unsupported":
         fails.append("PCM nao virou unsupported")
     if sum(rep.totals.values()) != len(rep.per_element):

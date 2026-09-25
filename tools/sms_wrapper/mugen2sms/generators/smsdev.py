@@ -28,6 +28,7 @@ from pathlib import Path
 from ..converters.sms_tiles import to_sms_pose
 from ..converters.sms_clsn import to_clsn_tables
 from ..converters.sms_cmd import to_patterns
+from ..converters import sms_scale as SC
 
 
 @dataclass
@@ -96,7 +97,11 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
                 man.excluded.append({"id": f"anim:{n}.{i}", "classe": "unsupported",
                                      "motivo": "sprite-ausente"})
                 continue
-            pose = to_sms_pose(sp)
+            if SC.needs_scale(sp.width, sp.height):
+                # contrato de escala GDD: so o que nao cabe em 1:1 e reduzido 1:4
+                pose = to_sms_pose(SC.downscale_indexed(sp))
+            else:
+                pose = to_sms_pose(sp)
             stem = f"{s}_A{n}F{i}"
             artifacts.append(Artifact(f"{stem}_TILES", b"".join(pose.tiles), "sff"))
             artifacts.append(Artifact(f"{stem}_PAL", bytes(pose.palette), "sff+act"))
@@ -136,7 +141,12 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
 
 
 def _worst_scene(ch, fid, size="8x8"):
-    """Cena pior-frame: maior pose gerada, ego + oponente colados no mesmo y."""
+    """Cena pior-frame: maior pose GERADA (pos-escala), ego + oponente colados no mesmo y.
+
+    `size="8x8"` e deliberadamente pessimista: conta cada linha de 8 px como linha
+    varrida; em SPRITEMODE_TALL cada entrada cobre 16 px, entao o pico real so pode
+    ser menor que o medido aqui.
+    """
     poses = []
     by_key = {(sp.group, sp.image): sp for sp in ch.sprites}
     for n, action in ch.anims.items():
@@ -147,7 +157,10 @@ def _worst_scene(ch, fid, size="8x8"):
             sp = by_key.get((fr.group, fr.image))
             if sp is None:
                 continue
-            tw, th = -(-sp.width // 8), -(-sp.height // 8)
+            w, h = (sp.width, sp.height)
+            if SC.needs_scale(w, h):
+                w, h = w // SC.SCALE, h // SC.SCALE
+            tw, th = -(-w // 8), -(-h // 8)
             poses.append((tw * th, tw, th, n, i))
     if not poses:
         return None

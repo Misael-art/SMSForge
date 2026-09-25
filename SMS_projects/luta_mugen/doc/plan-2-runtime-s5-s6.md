@@ -73,11 +73,12 @@ gate.
 **Interfaces:**
 - Consumes: `Pose/placements` de `converters/sms_tiles.to_sms_pose`; `classify_character(ch, limits)` de `analysis/fidelity`.
 - Produz: `sms_scale.MAX_COLS = 4`, `sms_scale.MAX_TALL_ROWS = 3`, `sms_scale.SCALE = 4`,
-  `sms_scale.downscale_indexed(img: dict, k: int) -> dict` (mesmo shape de
-  `png_io.read_indexed_png`: `{w,h,palette,pixels}`),
-  `sms_scale.pose_runtime_size(w_px, h_px) -> tuple[int,int]` (pós-1:4, arredondado p/ cima em tiles),
-  `sms_scale.exceeds_budget(w_px, h_px) -> bool` (colunas de 8 px pós-escala > MAX_COLS na
-  maior linha, ou linhas TALL > MAX_TALL_ROWS).
+  `sms_scale.downscale_indexed(sp, k=4) -> SimpleNamespace(width,height,pixels,palette,group,image)`
+  (nearest topo-esquerda, mesmo método de `prepare_sms_pixel_art.py`; o input é o sprite
+  IR — `.width/.height/.pixels flat/.palette RGB tuples),
+  `sms_scale.pose_runtime_size(w_px, h_px) -> tuple[int,int]` (pós-1:4, por excesso),
+  `sms_scale.needs_scale(w,h) -> bool` (não cabe 4 col × 3 TALL em 1:1),
+  `sms_scale.exceeds_budget(w,h) -> bool` (nem 1:4 salva → `manual`).
 
 - [ ] **Step 1: Teste falho** — `tests/test_sms_scale.py`:
 
@@ -125,9 +126,10 @@ python3 -m generators.smsdev "/mnt/sdcard/Projects/Mugenesis/Base de Estudo/char
 ```
   (o CLI real é `smsdev <pacote> --out <dir>` — generators/smsdev.py:169-170; rodada
   local a partir de `tools/sms_wrapper/mugen2sms`, ~3 min em background)
-  Esperado: `s4_generation_report.json` com `gate_scanline.veredito` ainda **FAIL**
-  (o formato de bytes do runtime — Task 2 — ainda não limita a SAT a 2 poses × 12);
-  **nenhum traceback**; `excluded_by_classe` cresceu com `estourou-apos-escala`.
+  Esperado: `s4_generation_report.json` sem traceback e com `estourou-apos-escala`
+  em `excluded_by_classe.manual`. O `gate_scanline` pode **virar PASS já aqui**
+  (worst-scene agora conta a pose pós-escala) — reportar o número medido, sem
+  assumir veredito.
 
 - [ ] **Step 6: Re-pin do manifest + commit** (rode o script que recalcula
   `local_sha256_after_deviation` dos 3 arquivos editados + registra `sms_scale.py`):

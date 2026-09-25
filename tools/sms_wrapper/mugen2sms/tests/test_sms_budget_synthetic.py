@@ -49,18 +49,32 @@ def test_used_colors_ignores_transparent_index0():
     assert used_colors(sprite(0, 8, 8, bytes([0, 2, 3]))) == 2
 
 
-def test_pose_within_limits_is_direct():
-    pose = sprite(0, w=32, h=64)
+def test_pose_within_escala_do_gdd_e_direct():
+    pose = sprite(0, w=32, h=48)                      # <=4 colunas x <=3 linhas TALL
     rep = classify_character(char_with([pose], dict([anim(0, [frame(5900, 0)])])), SmsLimits())
     assert rep.by_id["anim:0.0"].classe == "direct"
     assert rep.by_id["sprite:5900,0"].classe == "direct"
 
 
-def test_wide_pose_classified_approximate():
-    pose = sprite(0, w=72, h=64)                       # 9 colunas > 8 sprites/linha
+def test_pose_alta_demais_para_1x1_vira_downscale_aproximate():
+    pose = sprite(0, w=32, h=64)                       # 4 linhas TALL > 3 -> precisa 1:4
     rep = classify_character(char_with([pose], dict([anim(0, [frame(5900, 0)])])), SmsLimits())
     assert rep.by_id["anim:0.0"].classe == "approximate"
-    assert rep.by_id["anim:0.0"].motivo.startswith("scanline")
+    assert rep.by_id["anim:0.0"].motivo == "downscale1:4"
+
+
+def test_pose_larga_vira_downscale_aproximate():
+    pose = sprite(0, w=72, h=64)                       # 9 colunas; cabe apos 1:4 -> approximate
+    rep = classify_character(char_with([pose], dict([anim(0, [frame(5900, 0)])])), SmsLimits())
+    assert rep.by_id["anim:0.0"].classe == "approximate"
+    assert rep.by_id["anim:0.0"].motivo == "downscale1:4"
+
+
+def test_pose_que_nem_1_4_salva_vira_manual():
+    pose = sprite(0, w=192, h=24)                      # 48 px pos-escala = 6 colunas > 4
+    rep = classify_character(char_with([pose], dict([anim(0, [frame(5900, 0)])])), SmsLimits())
+    assert rep.by_id["anim:0.0"].classe == "manual"
+    assert rep.by_id["anim:0.0"].motivo == "estourou-apos-escala"
 
 
 def test_pose_beyond_sat_is_unsupported():
