@@ -298,17 +298,19 @@ void fight_draw(void);              /* precedentes MSSF2T: projéteis antes, SAT
 extern volatile unsigned char dbg_frame;  /* __at() só com volatile (L009) */
 ```
 
-- [ ] **Step 1:** Máquina por dados: `states_<slug>[]` destilados no S2/S4 (anim,
+- [x] **Step 1:** Máquina por dados: `states_<slug>[]` destilados no S2/S4 (anim,
   flags `physics|hitcheck|blockable`, janela startup/active/recovery vinda de
   `clsn` por frame). Tick: `if (++p->tick >= frames[...].dur) {p->tick=0; próxima
   frame;}`. Física: `vx, vy` em Q8.8 (tabelas `const signed int grav_tbl[]`;
   NUNCA `int16 * 8.5`). Colisão: AABB em colunas inteiras (`box_overlap`), hit →
   `hitstop=8`, knockback da tabela do estado, dano constante por golpe (sem
   multiplicador — fora do corte, TDD).
-- [ ] **Step 2:** Idle/walk/jump/crouch/punch1/punch2/block para o sintético;
+- [x] **Step 2:** Idle/walk/jump/crouch/punch1/punch2/block para o sintético;
   animação avança sem input (ver Task 5 para input vivo).
-- [ ] **Step 3:** Build + boot; `measure_frame_advance.py` (contador `dbg_frame`)
+- [x] **Step 3:** Build + boot; `measure_frame_advance.py` (contador `dbg_frame`)
   → 50–60; commit `feat(luta_mugen): FSM interpretado por tabelas + clsn em software`.
+  Medido: 59.6 fps constante (célula período 128, 60 s, 23× sobreamostragem);
+  boot determinístico PASS 2 runs; ROM `145a0433…fb16`.
 
 ---
 

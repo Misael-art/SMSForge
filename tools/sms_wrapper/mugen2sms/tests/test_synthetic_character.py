@@ -26,10 +26,28 @@ def test_synthetic_character_loads_and_serializes(character):
 
 def test_sprites_include_link_and_pcx_sizes(character):
     by_img = {s.image: s for s in character.sprites}
-    assert set(by_img) == {0, 1, 2}
+    assert set(by_img) == set(range(9))
     assert by_img[0].width == SPRITE_W and by_img[0].height == SPRITE_H
     assert by_img[2].linked_from is not None, "link nao resolvido"
     assert by_img[2].pixels == by_img[0].pixels
+
+
+def test_action_anims_are_distinct_per_action(character):
+    """T4: o fixture cobre idle/walk/jump/crouch/guard/punch1/punch2 sem clonar acao."""
+    assert {0, 20, 40, 100, 120, 200, 201} <= set(character.anims)
+    a20 = character.anims[20]
+    assert len(a20.frames) == 2
+    assert a20.frames[0].image != a20.frames[1].image, "walk nao alterna padrao"
+    # cada pose de acao usa imagem SFF propria (0=link do idle, 2=link do punch1)
+    def imgs(n):
+        return {character.anims[n].frames[i].image
+                for i in range(len(character.anims[n].frames))}
+    assert imgs(0) == {0} and imgs(20) == {3, 4} and imgs(40) == {7}
+    assert imgs(100) == {5} and imgs(120) == {6} and imgs(201) == {8, 7, 4}
+    # crouch tem hurtbox mais baixa que idle — caixa distingue a acao
+    assert character.anims[100].frames[0].clsn2 == [(-8, -12, 8, 0)]
+    assert character.anims[201].frames[0].clsn1 == [(0, -16, 16, -4)]
+    assert len(character.anims[201].frames) == 3
 
 
 def test_anims_frames_and_clsn_survive(character):

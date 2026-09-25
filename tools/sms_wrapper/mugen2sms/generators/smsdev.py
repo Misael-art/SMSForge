@@ -19,7 +19,7 @@ Formato dos simbolos por pose (consumido pelo runtime do Plano 2):
                                tile de runtime = pool_idx*2 (indice par, SPRITEMODE_TALL)
   <S>_A<anim>F<frame>_PAL    : 16 palavras CRAM u8 (RGB r|g<<2|b<<4, SMSlib.h)
   <S>_A<anim>F<frame>_AXIS   : par int16 (x,y) do eixo MUGEN, compensado no runtime
-  <S>_A<anim>F<frame>_CLSN   : quádruplas int16 (hit vem primeiro, depois hurt), terminador sentinela
+  <S>_A<anim>F<frame>_CLSN   : quádruplas int16 em DUAS secoes (hit | hurt), cada uma terminada por sentinela -32767
 """
 from __future__ import annotations
 
@@ -108,8 +108,13 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
             artifacts.append(Artifact(f"{stem}_AXIS", struct.pack("<2h", fr.x, fr.y), "air"))
             hit, hurt = clsn[n][i]
             if hit or hurt:
-                data = b"".join(struct.pack("<h", v) for v in (hit + hurt)) \
-                    + struct.pack("<h", -32767)          # sentinela de fim
+                # DUAS secoes terminadas por sentinela: hit (clsn1) primeiro,
+                # hurt (clsn2) depois. Com uma so sentinela o runtime nao
+                # distingue caixa de golpe de hurtbox — colisao exige isso.
+                data = b"".join(struct.pack("<h", v) for v in hit) \
+                    + struct.pack("<h", -32767) \
+                    + b"".join(struct.pack("<h", v) for v in hurt) \
+                    + struct.pack("<h", -32767)
                 artifacts.append(Artifact(f"{stem}_CLSN", data, "air"))
 
     patterns, skipped = to_patterns(ch.commands)

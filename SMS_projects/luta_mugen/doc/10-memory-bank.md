@@ -5,24 +5,25 @@
 > não substitui este arquivo.
 
 ## Última atualização
-2026-09-25 (tarde) — Plano 2 Tasks 1–3 executadas: escala 1:4 aplicada no
-conversor (S4.5a), formato de runtime SMS com metasprite TALL+espelhos (S4.5b,
-commit `4313dd1`), e **cena 01 `probe_import` testada em emulador** com a
-primeira ROM deste projeto (fixture sintético `mini`; Ken continua fora do Git).
+2026-09-25 (noite) — Plano 2 Task 4 executada: interpretador FSM por tabelas
+(`src/fight.c`) com física Q8.8, colisão clsn hit/hurt em software, hitstop,
+knockback e pushback bloqueado; cena 01 rodando com sequência determinística
+de 13 inputs scriptados. ROM `145a0433…fb16` reverificada nos gates de boot,
+frame advance e boot determinístico. Tests Python: 79/79.
 
 ## Eixos de entrega (7) — gate final exige os 7 simultâneos
 | Eixo | Status | Prova |
 |------|--------|-------|
-| build | testado_em_emulador (cena 01) | `build.sh` → `out/rom/luta_mugen.sms` 16 KB, SHA `274d3109…d7b8` |
-| validation_report | parcial | capture PASS, `audit_deterministic_boot` PASS (2 runs idênticos), `audit_render_fidelity` PASS 100%, `audit_sprite_line_sim` pico 4/linha SAT 8/64 sem violação, `measure_fps` 6×60 |
-| boot no emulador | testado_em_emulador | `out/evidence/cena01_probe.png` — viewport variancia 818.2 |
-| gameplay | não iniciado | input zero nesta cena (Task 5) |
-| 60/50 fps | testado_em_emulador (cena 01) | `out/evidence/cena01_fps.json` (título do emulador; laço de frame ainda sem contador — probe SMRT vem na Task 4) |
+| build | testado_em_emulador (cena 01 FSM) | `build.sh` → `out/rom/luta_mugen.sms` 16 KB, SHA `145a0433…fb16` (anterior cena 01 probe: `274d3109…d7b8`) |
+| validation_report | parcial | `t4_boot.json` capture PASS, `audit_deterministic_boot` PASS (2 runs idênticos, esta ROM), `t4_frame_advance_128.json` 59.6 fps constante |
+| boot no emulador | testado_em_emulador | `out/evidence/t4_boot.png` — dois lutadores no chão pós-knockback + HUD de dígitos; viewport variancia 2423.3 |
+| gameplay | parcial | FSM completo (idle/walk/jump/crouch/guard/punch1/punch2, hitstop, bloqueio) dirigido por `script[]` determinístico; input VIVO ainda zero (Task 5) |
+| 60/50 fps | testado_em_emulador | `out/evidence/t4_frame_advance_128.json` — contador `dbg_frame` da própria ROM, célula 29 (período 128), 23× sobreamostragem, 28 trocas, constante True |
 | áudio | não iniciado | PCM classificado unsupported; reautoria PSG (6 SFX + 1 BGM) ainda não escrita |
 | memory bank atualizado | implementado | esta seção, nesta data |
 
 > Vocabulário: `documentado ≠ implementado ≠ buildado ≠ testado_em_emulador`.
-> O motor (ferramentas) está em `implementado com testes Python` — 63/63 verdes
+> O motor (ferramentas) está em `implementado com testes Python` — 79/79 verdes
 > (`tools/sms_wrapper/mugen2sms/tests/`, executado 2026-09-25). Isso NÃO é
 > eixo de entrega do jogo.
 
@@ -63,6 +64,30 @@ primeira ROM deste projeto (fixture sintético `mini`; Ken continua fora do Git)
 - Ken redondo S4.5b: 3.921 artefatos / 376.226 B (+199.396 B de espelhos — o
   custo real da ausência de flip), gate worst-scene PASS peak 8 / SAT 32.
 
+## O que FOI OBSERVADO (Plano 2 Task 4 — FSM + física + clsn)
+- `src/fight.c` interpreta tabelas compiladas do fixture `mini`: 7 animações
+  (0/20/40/100/120/200/201), 8 estados, física Q8.8 inteira (vx 512 fwd /
+  −384 back, JUMP_VY 2560, GRAV 128 ≈ 40 frames de ar), hitbox AABB em
+  software com janela = frame de startup, hitstop 8 nos dois lutadores,
+  pushback 16 (8 se bloqueado), knockback posicional, auto-facing no chão.
+- **Formato CLSN mudou (desvio consciente, re-pinnado no contrato de doação
+  `ccb56ad9…`)**: duas seções com sentinela `-32767` cada —
+  `<hit i16×4…> -32767 <hurt i16×4…> -32767`. Motivo: o runtime precisa
+  distinguir hitbox de hurtbox por frame; o formato antigo (lista única) não
+  permite. Fixture sintético expandido: 9 imagens / 7 animações com sprite e
+  clsn DISTINTOS por ação (anti-clonagem virou contrato de teste).
+- Telemetria de frame na BG: `dbg_frame` (`__at` com volatile, L009) exportado
+  em 3 dígitos hexadecimais por glifos de quadrante 2×2 (células 29/30/31);
+  pixels procedurais de telemetria são a exceção declarada da diretriz
+  estética. Célula de período 8 (dígito 2) é INSAMPLÁVEL neste host
+  (Nyquist 1,2 < 3,0 — `t4_frame_advance.json` FAIL honesto); a medição
+  canonica usa a célula de período 128 com janela de 60 s.
+- Compromisso de paleta PAGÁVEL na Task 7: o SMS tem uma paleta de sprite; P1
+  carrega o `_PAL` do frame atual e P2 em pose diferente herda a cor de P1.
+- Blocker do gate de boot determinístico era um zumbi `capture_evidence --keep`
+  (L057): o gate mediu a janela ERRADA e deu FAIL falso; morto o zumbi, PASS
+  com 2 execuções de estado idêntico.
+
 ## Decisões registradas
 - Motor = ferramentas em `tools/sms_wrapper/mugen2sms/`; runtime interpreta
   tabelas compiladas; CNS-em-runtime recusado (2026-09-25).
@@ -78,12 +103,11 @@ primeira ROM deste projeto (fixture sintético `mini`; Ken continua fora do Git)
 ## Blocker dominante atual
 O contrato de escala FOI aplicado e medido (S4.5a/S4.5b: gate worst-scene do
 Ken PASS, pico 8/linha, SAT 32 — `out/local_study/generated/s4_generation_report.json`,
-gitignored). Blocker novo, da cena 01: um bug de C no runtime (`meta_rebase`
-comparando `unsigned char` com `(signed char)METASPRITE_END` = −128 → loop
-infinito comendo a RAM) travou a ROM no frame 180 e foi diagnosticado LENDO
-MEMÓRIA VIA DAP (PC preso em `_meta_rebase`, `g_frame` corrompido), não por
-pixels. Corrigido e reverificado. Próximo gate real: interpretador FSM +
-contador de frame com probe SMRT (Task 4) e input vivo (Task 5).
+gitignored). O FSM da Task 4 roda, avança frame e colide em software com boot
+determinístico comprovado. Blocker dominante agora: **input vivo** — o eixo que
+reprovou MSSF2T. A ROM só reage a `script[]` interno; nada foi provado do
+teclado do host até a janela do emulador (Task 5, gate primeiro:
+`emulator_input.py --self-check` ANTES de a ROM reagir).
 
 ## Lições abertas
 - L-aberta-1: `validate_measurement_tools.py` descobre ferramentas por prefixo
@@ -97,7 +121,8 @@ contador de frame com probe SMRT (Task 4) e input vivo (Task 5).
   + evidência capturada na cena 01.
 
 ## Handoff
-Executar `doc/plan-2-runtime-s5-s6.md` (a ser criado nesta sequência:
-T2.0 escala no conversor → cena 01 probe → runtime S5 → golden slice S6).
-Primeiro comando do próximo agente: ler o Plano 2, Task 0, e rodar os testes
-focados de `mugen2sms` para confirmar baseline verde (63 passed).
+Executar `doc/plan-2-runtime-s5-s6.md` — Tasks 0–4 fechadas; próximo ramo é a
+**Task 5 (input vivo)**. Primeiro comando do próximo agente:
+`python3 tools/sms_wrapper/emulator_input.py --self-check` (canal uinput
+kdotool/ydotool; NUNCA XTEST em Wayland/KWin — L039) e baseline verde de
+`tools/sms_wrapper/mugen2sms/tests/` (79 testes).

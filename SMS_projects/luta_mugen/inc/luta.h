@@ -13,28 +13,41 @@
  *   SMS_addMetaSprite / METASPRITE_END:214-216
  *   SMS_loadTiles                     :130  (4bpp, 32 B/tile, tamanho em bytes)
  *   SMS_setBGPaletteColor/_Sprite     :249-250 (palavra 6-bit r|g<<2|b<<4)
+ *
+ * CLSN (T4): quádruplas int16 little-endian em DUAS secoes — hit (clsn1) e
+ * hurt (clsn2) — cada uma terminada pela sentinela -32767 (0x01 0x80).
+ * Secao vazia comeca com a sentinela. Coordenadas MUGEN: x relativo ao eixo,
+ * y negativo ACIMA do chao (clsn2 do idle = -8,-16,8,0 = corpo inteiro).
+ * AXIS: par int16 (x, y) = canto superior-esquerdo da pose relativo ao eixo.
  */
 #ifndef LUTA_H
 #define LUTA_H
 
 #include "SMSlib.h"
 
-/* Uma frame de animacao: duracao em frames de 60/50 Hz + ponteiro p/ triplas.
- * O tile base de cada pose e decidido em runtime (streaming, Task 6); aqui so
- * existe um carregamento estatico linear. */
-typedef struct { unsigned char dur; const unsigned char *meta; } Frame;
+/* Uma frame de animacao: duracao em frames de 60/50 Hz (255 = "segura"),
+ * base de tiles do pose no pool de VRAM e ponteiros para os blobs gerados
+ * do mesmo indice de pose (META/METAL/AXIS sempre existem; CLSN so quando
+ * o frame declara caixas — NULL entao). */
+typedef struct { unsigned char dur, base;
+                 const unsigned char *meta, *metal, *clsn, *axis; } Frame;
 
 /* Caixa de colisao (clsn do AIR): cantos em px MUGEN (y para cima), achatar
- * para AABB de tela acontece no runtime (Task 4). */
-typedef struct { signed char x, y; unsigned short w, h; } Box;
+ * para AABB de tela acontece no runtime (fight.c). */
+typedef struct { signed char x1, y1, x2, y2; } Box;
 
-typedef struct {
-    unsigned char id;                       /* pose id (estados referenciam por id) */
-    unsigned char n_frames; const Frame *frames;
-} Anim;
+typedef struct { unsigned char id;                  /* anim id do AIR */
+                 unsigned char n_frames, loop;      /* loop: repete do inicio */
+                 const Frame *frames; } Anim;
 
-typedef struct { unsigned char facing; signed int x; signed int y; /* Q8.8 */
-                 unsigned char anim, frame, tick; unsigned short life; } Fighter;
+/* Posicao em Q8.8: x = px de tela (0..255.99), y = ALTURA acima do chao
+ * (0 = no chao; evita sinal em estado quente). vx/vy Q8.8 com sinal. */
+typedef struct { unsigned char facing;              /* 0=dir, 1=esq */
+                 unsigned int x, y;
+                 signed int vx, vy;
+                 unsigned char state, anim, frame, tick;
+                 unsigned char hit_done, hitstop, keys_prev;
+                 unsigned short life; } Fighter;
 
 /* Sprites leem a primeira metade da VRAM: base 0 (SMSlib.h:53, L006). */
 #define FIGHTER_TILE_BASE 0x00

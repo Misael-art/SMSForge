@@ -90,8 +90,8 @@
       "local": "generators/smsdev.py",
       "origin": "local_original",
       "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
-      "local_sha256_after_deviation": "8fd83a40ccd724c9850dd78335ea0b3fd456897ce02b8621622f0195bdd8773c",
-      "note_deviation": "S4.5b: _MAP (tile|flip) substituido por TILES/META/METAL no formato de runtime SMS"
+      "local_sha256_after_deviation": "ccb56ad9b00a70b31b72d6d720228884b2647c4f5cf3be073cc23ae2546bee65",
+      "note_deviation": "S4.5b: _MAP (tile|flip) substituido por TILES/META/METAL no formato de runtime SMS; T4: CLSN passa a duas secoes (hit|hurt) com sentinela -32767 cada — runtime precisa distinguir caixa de golpe de hurtbox"
     },
     {
       "local": "inventory.py",
