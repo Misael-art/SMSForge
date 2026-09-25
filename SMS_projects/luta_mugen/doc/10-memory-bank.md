@@ -5,21 +5,21 @@
 > não substitui este arquivo.
 
 ## Última atualização
-2026-09-25 — Plano 1 (S0–S4) executado e commitado no branch
-`feat/luta-mugen-motor`; checkpoint S3 aprovado pelo usuário ("prossiga");
-decisão de escala do lutador TRAVADA pelo usuário (TALL 8×16, ~32×48 px) e
-registrada no GDD. Nada passou de Python-testado: não existe ROM.
+2026-09-25 (tarde) — Plano 2 Tasks 1–3 executadas: escala 1:4 aplicada no
+conversor (S4.5a), formato de runtime SMS com metasprite TALL+espelhos (S4.5b,
+commit `4313dd1`), e **cena 01 `probe_import` testada em emulador** com a
+primeira ROM deste projeto (fixture sintético `mini`; Ken continua fora do Git).
 
 ## Eixos de entrega (7) — gate final exige os 7 simultâneos
 | Eixo | Status | Prova |
 |------|--------|-------|
-| build | não iniciado | nenhuma ROM compilada; `build_inner.py` ainda não foi invocado neste projeto |
-| validation_report | não iniciado | gates de resources/sprite-line só rodam no round local Ken (fora do Git); projeto sem `res/` próprio |
-| boot no emulador | não iniciado | — |
-| gameplay | não iniciado | — |
-| 60/50 fps | não iniciado | — |
+| build | testado_em_emulador (cena 01) | `build.sh` → `out/rom/luta_mugen.sms` 16 KB, SHA `274d3109…d7b8` |
+| validation_report | parcial | capture PASS, `audit_deterministic_boot` PASS (2 runs idênticos), `audit_render_fidelity` PASS 100%, `audit_sprite_line_sim` pico 4/linha SAT 8/64 sem violação, `measure_fps` 6×60 |
+| boot no emulador | testado_em_emulador | `out/evidence/cena01_probe.png` — viewport variancia 818.2 |
+| gameplay | não iniciado | input zero nesta cena (Task 5) |
+| 60/50 fps | testado_em_emulador (cena 01) | `out/evidence/cena01_fps.json` (título do emulador; laço de frame ainda sem contador — probe SMRT vem na Task 4) |
 | áudio | não iniciado | PCM classificado unsupported; reautoria PSG (6 SFX + 1 BGM) ainda não escrita |
-| memory bank atualizado | implementado | este arquivo, nesta data |
+| memory bank atualizado | implementado | esta seção, nesta data |
 
 > Vocabulário: `documentado ≠ implementado ≠ buildado ≠ testado_em_emulador`.
 > O motor (ferramentas) está em `implementado com testes Python` — 63/63 verdes
@@ -48,6 +48,21 @@ registrada no GDD. Nada passou de Python-testado: não existe ROM.
   do Plano 2, com gate (o mesmo `audit_sprite_line_sim` que deu FAIL deve
   dar PASS com a escala aplicada).
 
+## O que FOI OBSERVADO (Plano 2 até Task 3)
+- Leis de hardware MEDIDAS na cena 01 (não assumidas): par TALL
+  `(pattern, pattern+1)` = (topo, base) — probe branco/preto mostrou branco em
+  cima; origem de `SMS_addMetaSprite` = 1ª linha visível do topo da pose;
+  espelho-h renderiza como OUTRO padrão (METAL no oponente); fixture com
+  trailer de paleta PCX + `same=0` no subheader produz PAL visível (0x25).
+- O harness `capture_evidence.py` reprova cena cujo conteúdo fica FORA da
+  metade central da imagem (viewport box = canvas x64..191, y29..137) — a cena
+  01 foi recentrada (chão na linha 16, lutadores x=96/152) em vez de maquiar o
+  gate.
+- `-set Update=0` do Emulicious só pinta depois do primeiro redraw (~2 s de
+  Java): burst de capturas precisa aguardar a janela existir E o floor aparecer.
+- Ken redondo S4.5b: 3.921 artefatos / 376.226 B (+199.396 B de espelhos — o
+  custo real da ausência de flip), gate worst-scene PASS peak 8 / SAT 32.
+
 ## Decisões registradas
 - Motor = ferramentas em `tools/sms_wrapper/mugen2sms/`; runtime interpreta
   tabelas compiladas; CNS-em-runtime recusado (2026-09-25).
@@ -61,9 +76,14 @@ registrada no GDD. Nada passou de Python-testado: não existe ROM.
 - Escala do lutador travada (ver acima) — decisão do usuário, não do agente.
 
 ## Blocker dominante atual
-Aplicar o contrato de escala no conversor/generador e re-medir a pior cena
-(FALHA conhecida: 32/linha → alvo ≤8/linha com folga zero-de-flicker).
-Tudo depois disso (S5 runtime, cena 02) depende deste número verde.
+O contrato de escala FOI aplicado e medido (S4.5a/S4.5b: gate worst-scene do
+Ken PASS, pico 8/linha, SAT 32 — `out/local_study/generated/s4_generation_report.json`,
+gitignored). Blocker novo, da cena 01: um bug de C no runtime (`meta_rebase`
+comparando `unsigned char` com `(signed char)METASPRITE_END` = −128 → loop
+infinito comendo a RAM) travou a ROM no frame 180 e foi diagnosticado LENDO
+MEMÓRIA VIA DAP (PC preso em `_meta_rebase`, `g_frame` corrompido), não por
+pixels. Corrigido e reverificado. Próximo gate real: interpretador FSM +
+contador de frame com probe SMRT (Task 4) e input vivo (Task 5).
 
 ## Lições abertas
 - L-aberta-1: `validate_measurement_tools.py` descobre ferramentas por prefixo

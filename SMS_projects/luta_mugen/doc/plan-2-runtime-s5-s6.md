@@ -80,7 +80,7 @@ gate.
   `sms_scale.needs_scale(w,h) -> bool` (não cabe 4 col × 3 TALL em 1:1),
   `sms_scale.exceeds_budget(w,h) -> bool` (nem 1:4 salva → `manual`).
 
-- [ ] **Step 1: Teste falho** — `tests/test_sms_scale.py`:
+- [x] **Step 1: Teste falho** — `tests/test_sms_scale.py`:
 
 ```python
 from converters import sms_scale as sc
@@ -101,15 +101,15 @@ def test_orcamento_pose_poca_escala():
     assert sc.exceeds_budget(192, 48)
 ```
 
-- [ ] **Step 2:** `pytest tests/test_sms_scale.py -v` → FAIL (`No module named ... sms_scale`).
+- [x] **Step 2:** `pytest tests/test_sms_scale.py -v` → FAIL (`No module named ... sms_scale`).
 
-- [ ] **Step 3: Implementar `sms_scale.py`** — `downscale_indexed` amostra nearest
+- [x] **Step 3: Implementar `sms_scale.py`** — `downscale_indexed` amostra nearest
   (`px[y*k//h][x*k//w]`), preserva `palette` intacta (cores já são do contrato — a
   paleta não muda ao reduzir; só a contagem de pixels). `pose_runtime_size`:
   `cols = -(-w8 // 8)` com `w8 = -(-w_px // SCALE)`; idem linhas TALL (16 px).
   `exceeds_budget = cols > MAX_COLS or rows > MAX_TALL_ROWS`. Sem dependências novas.
 
-- [ ] **Step 4: Ligar no fluxo.** Em `generators/smsdev.generate`, antes de
+- [x] **Step 4: Ligar no fluxo.** Em `generators/smsdev.generate`, antes de
   `to_sms_pose(sp)`, aplicar `downscale_indexed(sp_img, sc.SCALE)`; se
   `sc.exceeds_budget(w,h)` da pose resultante → adicionar `Element("pose:<n>.<i>",
   "manual", "estourou-apos-escala")` ao relatório e **pular** a arte (linha no
@@ -117,7 +117,7 @@ def test_orcamento_pose_poca_escala():
   `analysis/fidelity.classify_character`, a regra `scanline>8` passa a usar o
   orçamento **pós-escala** (`pose_runtime_size` da bounding box da pose × 2 lutadores).
 
-- [ ] **Step 5: Testes verdes + round Ken local** (arte fora do Git):
+- [x] **Step 5: Testes verdes + round Ken local** (arte fora do Git):
 
 ```bash
 cd tools/sms_wrapper/mugen2sms && python3 -m pytest tests/ -q           # esperado: tudo verde
@@ -131,7 +131,7 @@ python3 -m generators.smsdev "/mnt/sdcard/Projects/Mugenesis/Base de Estudo/char
   (worst-scene agora conta a pose pós-escala) — reportar o número medido, sem
   assumir veredito.
 
-- [ ] **Step 6: Re-pin do manifest + commit** (rode o script que recalcula
+- [x] **Step 6: Re-pin do manifest + commit** (rode o script que recalcula
   `local_sha256_after_deviation` dos 3 arquivos editados + registra `sms_scale.py`):
 
 ```bash
@@ -169,7 +169,7 @@ git commit -m "feat(mugen2sms): S4.5a downscale 1:4 travado pelo GDD no converso
     restrição medida é `|pal(P1) ∪ pal(P2)| ≤ 15` — sprite palette única do SMS,
     SMSlib.h:249-250).
 
-- [ ] **Step 1: Teste falho** — `tests/test_runtime_format.py`:
+- [x] **Step 1: Teste falho** — `tests/test_runtime_format.py`:
 
 ```python
 from generators import runtime_format as rf
@@ -197,14 +197,14 @@ def test_flip_vira_tile_espelhado_distinto():
     assert blob[mirrored*32 : (mirrored+1)*32] != pose.tiles[1]  # espelho é OUTRO padrão
 ```
 
-- [ ] **Step 2:** `pytest tests/test_runtime_format.py -v` → FAIL (`No module named`).
+- [x] **Step 2:** `pytest tests/test_runtime_format.py -v` → FAIL (`No module named`).
 
-- [ ] **Step 3: Implementar `runtime_format.py`** conforme interfaces acima. Regras
+- [x] **Step 3: Implementar `runtime_format.py`** conforme interfaces acima. Regras
   duras: `dx = tx*8`, `dy = -(altura - (ty*16+16))` (origem do metasprite = pés,
   como MSSF2T espera); tile espelhado é alocado depois dos normais (dedup por
   conteúdo do blob). `shift_palette_indices` soma `offset` só a índices `!=0`.
 
-- [ ] **Step 4: Emitir runtime no `smsdev.generate`** — por personagem:
+- [x] **Step 4: Emitir runtime no `smsdev.generate`** — por personagem:
   `<slug>_runtime.c` com tabelas nomeadas:
 
 ```c
@@ -216,7 +216,7 @@ const signed int clsn_<slug>[];                                      /* int16, j
 const unsigned char patt_<slug>[];                                   /* StepCodes do sms_cmd */
 ```
 
-- [ ] **Step 5: Gate do harness tem que virar verde.** Rodar o round Ken local; o
+- [x] **Step 5: Gate do harness tem que virar verde.** Rodar o round Ken local; o
   worst-scene do `s4_generation_report.json` agora conta **por formato de runtime**:
   2 lutadores × ≤4 sprites/linha + entradas de espelho não contam na scanline.
 
@@ -228,7 +228,7 @@ python3 -c 'import json;g=json.load(open("../../SMS_projects/luta_mugen/out/loca
   Esperado: `PASS 8 ≤64` (pico ≤8, SAT ≤64). **Se não virar PASS, parar e reportar o
   número — não há terceiro caminho** (a escala é contrato do GDD).
 
-- [ ] **Step 6:** suíte completa + re-pin + commit
+- [x] **Step 6:** suíte completa + re-pin + commit
   `feat(mugen2sms): S4.5b formato de runtime SMS; gate worst-scene do Ken vira <veredito>`.
 
 ---
@@ -260,7 +260,7 @@ typedef struct { unsigned char facing; signed int x; signed int y; /* Q8.8 */
 #define FIGHTER_TILE_BASE 0x00    /* sprites no 1º half (SMSlib.h:53, L006) */
 ```
 
-- [ ] **Step 1:** Escrever `main.c` da cena 01: `SMS_displayOff();
+- [x] **Step 1:** Escrever `main.c` da cena 01: `SMS_displayOff();
   SMS_useFirstHalfTilesforSprites(1); SMS_setSpriteMode(SPRITEMODE_TALL);` carregar
   `tiles_`, paletas (`SMS_setBGPaletteColor`/`SMS_setSpritePaletteColor` por entrada),
   nome table com rodapé de tiles sólidos (`SMS_setTileatXY`), desenhar a frame 0 de
@@ -270,12 +270,12 @@ typedef struct { unsigned char facing; signed int x; signed int y; /* Q8.8 */
   topo/base — renderizar um tile-teste 0=branco/1=preto na cena 01 e conferir na
   captura; se o VDP inverter o par, corrigir `pack_tiles_tall` (ordem topo↔base) com
   teste novo na Task 2 — não remendar no runtime.
-- [ ] **Step 2: Build gate:** `bash SMS_projects/luta_mugen/build.sh` → ROM; erro de
+- [x] **Step 2: Build gate:** `bash SMS_projects/luta_mugen/build.sh` → ROM; erro de
   link >48 KB já antecipa a Task 6 (banco) — neste ponto o sintético cabe linear.
-- [ ] **Step 3:** `python3 tools/sms_wrapper/emulator_session.py --project SMS_projects/luta_mugen --rom <rom>`
+- [x] **Step 3:** `python3 tools/sms_wrapper/emulator_session.py --project SMS_projects/luta_mugen --rom <rom>`
   e `capture_evidence.py` → screenshot não-branca; `audit_deterministic_boot.py --rom`
   → PASS; `audit_render_fidelity.py` (estrutura da fonte vs captura — sprite presente).
-- [ ] **Step 4: Preencher `doc/13-spec-cenas.md` cena 01** com VRAM/picos da MEDIDA
+- [x] **Step 4: Preencher `doc/13-spec-cenas.md` cena 01** com VRAM/picos da MEDIDA
   (não estimativa). Commit: `feat(luta_mugen): cena 01 probe — tabela gerada vira ROM no emulador`.
 
 ---

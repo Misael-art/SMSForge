@@ -36,9 +36,11 @@ def _solid(idx: int) -> bytes:
 
 def build(root: Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
-    pal = bytes([i % 256 for i in range(768)])
-    s0 = _pcx_8bpp(SPRITE_W, SPRITE_H, _solid(3))
-    s1 = _pcx_8bpp(SPRITE_W, SPRITE_H, _solid(5))
+    pal = bytes(((e * 37 + 11 * c) % 256) for e in range(256) for c in range(3))
+    # PCX sem trailer de paleta faz o parser herdar prev_pal (preto) — o trailer
+    # e obrigatorio aqui senão o conversor produz CRAM 0 e a cena some no VDP.
+    s0 = _pcx_8bpp(SPRITE_W, SPRITE_H, _solid(3), pal)
+    s1 = _pcx_8bpp(SPRITE_W, SPRITE_H, _solid(5), pal)
     # terceiro sprite: link para o indice 0 (0 bytes) — MUGEN usa muito
     n = 3
     sub0 = 512                                             # "first" = primeiro subheader (convencao do parser)
@@ -57,7 +59,7 @@ def build(root: Path) -> Path:
             [(GROUP, 0, s0, 0), (GROUP, 1, s1, 0), (GROUP, 2, b"", 0)],
             positions, positions[1:] + [0]):
         sub = struct.pack("<IIhhHHHB", nxt, len(blob),
-                          SPRITE_W // 2, SPRITE_H, grp, img, link, 1)
+                          SPRITE_W // 2, SPRITE_H, grp, img, link, 0)  # same=0: cada PCX traz a propria paleta
         chain += bytes(sub).ljust(32, b"\x00") + blob
     (root / "mini.sff").write_bytes(head + chain)
     (root / "pal1.act").write_bytes(pal)
