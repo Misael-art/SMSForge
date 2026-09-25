@@ -148,13 +148,75 @@ def summarize(entries: list[dict]) -> dict:
     }
 
 
+def _build_self_check_root(tmp: Path) -> Path:
+    """Acervo sintetico: 1 zip com .def de personagem, .sff v1 e um readme."""
+    (tmp / "chars").mkdir(parents=True)
+    def_text = ('; fixture\n[Info]\nname = "Mini"\nauthor = "fixture"\n'
+                '[Files]\ncns = mini.cns\ncmd = mini.cmd\n')
+    sff_head = b"ElecbyteSpr\x00" + bytes([0, 1, 0, 1])   # 12 B de assinatura + versao "1.0.1.0"
+    with zipfile.ZipFile(tmp / "chars" / "mini.zip", "w", zipfile.ZIP_STORED) as z:
+        z.writestr("mini.def", def_text)
+        z.writestr("data.sff", sff_head + b"\x00" * 496)  # 512 B de header
+        z.writestr("readme.txt", "fixture sintetic - nao e arte real")
+    return tmp
+
+
+def self_check() -> int:
+    import shutil, tempfile
+    tmp = Path(tempfile.mkdtemp(prefix="mugen2sms_inv_"))
+    fails: list[str] = []
+    try:
+        root = _build_self_check_root(tmp)
+        zips = sorted(root.rglob("*.zip"))
+        if len(zips) != 1:
+            fails.append(f"esperava 1 zip sintetico, veio {len(zips)}")
+        entries = [inspect_zip(z, root) for z in zips]
+        s = summarize(entries)
+        e = entries[0]
+        if s.get("archives") != 1:
+            fails.append(f"archives != 1: {s.get("archives")}")
+        if s.get("archives_with_errors") != 0:
+            fails.append(f"archives_with_errors != 0: {e['errors']}")
+        if e["defs"] != [{"file": "mini.def", "kind": "character",
+                          "info": {"name": "Mini", "author": "fixture"}}]:
+            fails.append(f"defs divergem: {e['defs']}")
+        if not any(v["version"] == "1.0.1.0" for v in e["sff_versions"]):
+            fails.append(f"sff v1 nao detectado: {e['sff_versions']}")
+        if not e["license_candidates"]:
+            fails.append("readme nao virou license candidate")
+        if s.get("ext_counts") != {".def": 1, ".sff": 1, ".txt": 1}:
+            fails.append(f"ext_counts divergem: {s.get("ext_counts")}")
+        # determinismo: mesma entrada, mesma saida serializada
+        again = summarize([inspect_zip(z, root) for z in zips])
+        if json.dumps(s, sort_keys=True) != json.dumps(again, sort_keys=True):
+            fails.append("saida nao deterministica entre leituras")
+        # o self-check nao pode passar com summarize corrompido:
+        if summarize([]).get("archives") != 0:
+            fails.append("summarize([]) com archives != 0")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if fails:
+        for f in fails:
+            print(f"[SELF-CHECK FAIL] {f}", file=sys.stderr)
+        return 1
+    print("[SELF-CHECK OK] inventory")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("root", type=Path)
-    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("root", type=Path, nargs="?")
+    ap.add_argument("--out", type=Path, required=False)
     ap.add_argument("--skip", action="append", default=["fullgames"],
                     help="categorias de topo a ignorar (default: fullgames)")
+    ap.add_argument("--self-check", action="store_true",
+                    help="valida o pipeline com um acervo sintetico embutido (§19)")
     a = ap.parse_args(argv)
+    if a.self_check:
+        return self_check()
+    if not a.root or not a.out:
+        print("[FAIL] uso: inventory <acervo_dir> --out <json> (ou --self-check)", file=sys.stderr)
+        return 3
     root = a.root.resolve()
     zips = sorted(p for p in root.rglob("*.zip") if p.relative_to(root).parts[0] not in a.skip)
     entries = []

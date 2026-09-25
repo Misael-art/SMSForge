@@ -30,7 +30,9 @@
     {
       "local": "inventory.py",
       "donor_abspath_at_copy_time": "/mnt/sdcard/Projects/Sgdk Forge/tools/mugen2sgdk_forge/mugen2sgdk_forge/inventory.py",
-      "donor_sha256": "b965085864bc6fcc57516753d263b5177b7bfff4a183f7dda53fc84e1c6920a0"
+      "donor_sha256": "b965085864bc6fcc57516753d263b5177b7bfff4a183f7dda53fc84e1c6920a0",
+      "deviation": "S1: + --self-check com acervo sintetico embutido (\u00a719); pipeline de inspecao inalterado",
+      "local_sha256_after_deviation": "30f9eb0d6fd0016bda8edc49cd78fd0f46a24b9bb2fedbc7d8ff2bf1bf450696"
     },
     {
       "local": "ir/__init__.py",

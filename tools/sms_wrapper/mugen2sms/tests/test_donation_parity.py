@@ -37,6 +37,10 @@ def test_local_file_is_donor_plus_rename(local):
         assert local.read_text() == "", f"{rel} novo deve comecar vazio"
         return
     donor = Path(entry["donor_abspath_at_copy_time"])
+    if "local_sha256_after_deviation" in entry:  # desvio intencional pino no hash local
+        assert hashlib.sha256(local.read_bytes()).hexdigest() == entry["local_sha256_after_deviation"], \
+            f"{rel} mudou apos o pino: atualizar manifest conscientemente"
+        return
     if not donor.exists():
         pytest.skip("doador ausente neste host — SHA do manifest basta")
     assert hashlib.sha256(donor.read_bytes()).hexdigest() == entry["donor_sha256"], \
