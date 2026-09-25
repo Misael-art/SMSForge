@@ -43,11 +43,11 @@ def test_dedup_por_conteudo_do_par():
     assert mirrors == {0: 0}
 
 
-def test_triples_dx_dy_tile_com_terminador():
-    # anchor = pes: dy = -(altura - (linha*16+16)); dx = coluna*8
+def test_triples_origem_topo_convencao_mssf2t():
+    # convencao provada em ROM (ken_idle_meta): dy = linha*16 para baixo, origem no topo
     b = rf.build_frames(_pose_2rows(), tile_base=0x20)
-    assert b == bytes([0x00, -16 & 0xFF, 0x20,               # linha de cima
-                       0x00, 0x00, 0x20,                     # linha dos pes
+    assert b == bytes([0x00, 0x00, 0x20,               # linha de cima
+                       0x00, 0x10, 0x20,               # linha de baixo: dy=16
                        0x80])
 
 

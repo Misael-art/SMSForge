@@ -2,8 +2,10 @@
 
 - Metasprite = triplas `dx, dy, tile` terminadas por dx=0x80 (`METASPRITE_END`,
   SMSlib.h:214-216); byte-a-byte idêntico ao formato provado em ROM por
-  MSSF2T (`SMS_projects/MSSF2T/src/fight.c:1095-1129`). Origem = pés do lutador:
-  `dx = coluna*8`, `dy = -(altura - (linha*16+16))` (linha de baixo dy=0).
+  MSSF2T (`ken_idle_meta` em SMS_projects/MSSF2T/inc/ken_idle_tiles.h:58-64 e
+  SMS_addMetaSprite em SMSlib_metasprite.c upstream: dx/dy assinados somados à
+  origem, tile absoluto). Origem = topo-esquerda da pose: `dx = coluna*8`,
+  `dy = linha*16` (para baixo; runtime converte pés->topo conhecendo a altura).
 - Tiles em modo `SPRITEMODE_TALL` (8x16, SMSlib.h:54-57): o VDP lê pares
   (topo, base) em índices par/ímpar consecutivos — índice de runtime sempre par
   (`pool_idx*2`), blob = concatenação de pares de 64 B dedupados por conteúdo.
@@ -73,13 +75,12 @@ def pack_tiles_tall(pose) -> tuple[bytes, dict[int, int]]:
 
 def build_frames(pose, tile_base: int = 0, facing: int = 0) -> bytes:
     """Triplas (dx, dy, tile) + terminador 0x80; tile = tile_base + pool_idx*2."""
-    _, order, mirrors, tw, rows = _layout(pose)
-    h_px = rows * 16
+    _, order, mirrors, tw, _rows = _layout(pose)
     out = bytearray()
     for tx, row, idx in order:
         i = mirrors[idx] if facing else idx
         dx = (tw - 1 - tx) * 8 if facing else tx * 8
-        dy = -(h_px - (row * 16 + 16))
+        dy = row * 16
         out += bytes([dx & 0xFF, dy & 0xFF, (tile_base + i * 2) & 0xFF])
     out.append(0x80)
     return bytes(out)

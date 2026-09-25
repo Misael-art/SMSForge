@@ -195,7 +195,13 @@
       "local": "generators/runtime_format.py",
       "origin": "local_original",
       "motivo": "S4.5b formato de runtime do SMS criado no fork (metasprite 3B MSSF2T-provado, pares TALL, espelho-H como padrao, P2 por shift de indice); nao doado",
-      "local_sha256_after_deviation": "2395e6ab71b3396eb11964b38bac22753b04d676b91dde9bde313a4736c3f18d"
+      "local_sha256_after_deviation": "13aefdc342af151b8ef0498d34995f43249d682c5f8684dfee33bf119d3391f7"
+    },
+    {
+      "local": "generators/emit_synth.py",
+      "origin": "local_original",
+      "motivo": "CLI que emite o fixture sintetico (mini) como header C committavel p/ cenas do runtime — arte real nunca entra no git; nao doado",
+      "local_sha256_after_deviation": "d501f1dfdf0f1850d0b929dab6f5df942bf152b3519b4441b8f7109a74d931c3"
     }
   ]
 }
