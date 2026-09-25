@@ -139,6 +139,18 @@
       "origin": "local_original",
       "motivo": "arquivo de estudo S2: parseia personagem real e mede o IR; criado no fork SMS, nao doado",
       "local_sha256_after_deviation": "e032d40a871c287bafc00684dd12cbe9efaedb9e074ddadf565535654d9b940e"
+    },
+    {
+      "local": "analysis/sms_budget.py",
+      "origin": "local_original",
+      "motivo": "camada analysis SMS criada no fork (orcamento VDP + fidelidade por recurso); nao doada",
+      "local_sha256_after_deviation": "a5da917dd23f8ab440686001ce62830d70aee4e4995b6600d15f3925dbb94408"
+    },
+    {
+      "local": "analysis/fidelity.py",
+      "origin": "local_original",
+      "motivo": "camada analysis SMS criada no fork (orcamento VDP + fidelidade por recurso); nao doada",
+      "local_sha256_after_deviation": "13b132c46c83f5cfb30dbe84a225d766253f180582f090cfa5f3c7eb6c6698a8"
     }
   ]
 }
