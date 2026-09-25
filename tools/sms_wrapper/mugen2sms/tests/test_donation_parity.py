@@ -33,6 +33,11 @@ def test_local_file_is_donor_plus_rename(local):
     rel = str(local.relative_to(ROOT))
     entry = next((e for e in _manifest()["files"] if e["local"] == rel), None)
     assert entry, f"{rel} sem registro no manifest"
+    if entry.get("origin") == "local_original":     # modulo criado no fork SMS, pino por hash
+        assert "donor_abspath_at_copy_time" not in entry, f"{rel} nao pode ter doador e origin local"
+        assert hashlib.sha256(local.read_bytes()).hexdigest() == entry["local_sha256_after_deviation"], \
+            f"{rel} mudou apos o pino: atualizar manifest conscientemente"
+        return
     if "donor_abspath_at_copy_time" not in entry:   # modulo novo do fork SMS
         assert local.read_text() == "", f"{rel} novo deve comecar vazio"
         return

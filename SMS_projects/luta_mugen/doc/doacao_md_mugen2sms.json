@@ -1,5 +1,5 @@
 {
-  "origin": "mugen2sgdk_forge (SGDK Forge, branch de E3) \u2014 copia em 2026-09-25",
+  "origin": "mugen2sgdk_forge (SGDK Forge, branch de E3) — copia em 2026-09-25",
   "policy": "uso local; redistribuicao dos derivados bloqueada no GDD",
   "files": [
     {
@@ -19,19 +19,19 @@
     },
     {
       "local": "converters/__init__.py",
-      "note": "init do doador (referencia a SGDK) descartado; local esvaziado \u2014 modulo SMS nasce na S4",
+      "note": "init do doador (referencia a SGDK) descartado; local esvaziado — modulo SMS nasce na S4",
       "discarded_donor_docstring": true
     },
     {
       "local": "generators/__init__.py",
-      "note": "init do doador (referencia a SGDK) descartado; local esvaziado \u2014 modulo SMS nasce na S4",
+      "note": "init do doador (referencia a SGDK) descartado; local esvaziado — modulo SMS nasce na S4",
       "discarded_donor_docstring": true
     },
     {
       "local": "inventory.py",
       "donor_abspath_at_copy_time": "/mnt/sdcard/Projects/Sgdk Forge/tools/mugen2sgdk_forge/mugen2sgdk_forge/inventory.py",
       "donor_sha256": "b965085864bc6fcc57516753d263b5177b7bfff4a183f7dda53fc84e1c6920a0",
-      "deviation": "S1: + --self-check com acervo sintetico embutido (\u00a719); pipeline de inspecao inalterado",
+      "deviation": "S1: + --self-check com acervo sintetico embutido (§19); pipeline de inspecao inalterado",
       "local_sha256_after_deviation": "30f9eb0d6fd0016bda8edc49cd78fd0f46a24b9bb2fedbc7d8ff2bf1bf450696"
     },
     {
@@ -123,6 +123,22 @@
       "local": "validate/__init__.py",
       "donor": null,
       "donor_sha256": null
+    },
+    {
+      "local": "data/__init__.py",
+      "donor_abspath_at_copy_time": "/mnt/sdcard/Projects/Sgdk Forge/tools/mugen2sgdk_forge/mugen2sgdk_forge/data/__init__.py",
+      "donor_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "local": "data/common_forge.cns",
+      "donor_abspath_at_copy_time": "/mnt/sdcard/Projects/Sgdk Forge/tools/mugen2sgdk_forge/mugen2sgdk_forge/data/common_forge.cns",
+      "donor_sha256": "b4db950295cec76df96e22b6ae729dc0db0f19de5155fd169d0a3c933ec712c3"
+    },
+    {
+      "local": "ken_full_parse.py",
+      "origin": "local_original",
+      "motivo": "arquivo de estudo S2: parseia personagem real e mede o IR; criado no fork SMS, nao doado",
+      "local_sha256_after_deviation": "e032d40a871c287bafc00684dd12cbe9efaedb9e074ddadf565535654d9b940e"
     }
   ]
 }
