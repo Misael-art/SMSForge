@@ -69,7 +69,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]          # .../mugen2sms
-MANIFEST = ROOT.parent.parent / "SMS_projects/luta_mugen/doc/doacao_md_mugen2sms.json"
+MANIFEST = ROOT.parents[2] / "SMS_projects/luta_mugen/doc/doacao_md_mugen2sms.json"
 DONOR_TOKEN = "mugen2sgdk_forge"
 
 def _norm(text: str) -> str:
@@ -90,6 +90,9 @@ def test_local_file_is_donor_plus_rename(local):
     entry = next((e for e in json.loads(MANIFEST.read_text())["files"]
                   if e["local"] == rel), None)
     assert entry, f"{rel} sem registro no manifest"
+    if "donor_abspath_at_copy_time" not in entry:   # modulo novo do fork SMS
+        assert local.read_text() == "", f"{rel} novo deve comecar vazio"
+        return
     donor = Path(entry["donor_abspath_at_copy_time"])
     if not donor.exists():
         pytest.skip("doador ausente neste host — SHA do manifest basta")
