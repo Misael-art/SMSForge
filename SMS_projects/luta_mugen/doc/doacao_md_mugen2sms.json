@@ -151,6 +151,36 @@
       "origin": "local_original",
       "motivo": "camada analysis SMS criada no fork (orcamento VDP + fidelidade por recurso); nao doada",
       "local_sha256_after_deviation": "13b132c46c83f5cfb30dbe84a225d766253f180582f090cfa5f3c7eb6c6698a8"
+    },
+    {
+      "local": "converters/sms_tiles.py",
+      "origin": "local_original",
+      "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
+      "local_sha256_after_deviation": "040d99057793ec697079770c6691074b2bd84eb8a9a8082d6f5956507e685d0d"
+    },
+    {
+      "local": "converters/sms_clsn.py",
+      "origin": "local_original",
+      "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
+      "local_sha256_after_deviation": "3401143ef60ecaf50847e660810849882a3684f741daf4d1a0c507f10dbb03b0"
+    },
+    {
+      "local": "converters/sms_cmd.py",
+      "origin": "local_original",
+      "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
+      "local_sha256_after_deviation": "00d6f4c800199d9e2104001c645af62b13b4ea5b3534f096b07a930045460081"
+    },
+    {
+      "local": "converters/sms_sound.py",
+      "origin": "local_original",
+      "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
+      "local_sha256_after_deviation": "1f7a5c78ed03172ea772065bf81513a6d901b8b65c264a091e8d7a8c690a6ba4"
+    },
+    {
+      "local": "generators/smsdev.py",
+      "origin": "local_original",
+      "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
+      "local_sha256_after_deviation": "8be9dfd346795fc24a55f63938685180b4560bd26264dcdaf89b412354112ddf"
     }
   ]
 }
