@@ -90,7 +90,8 @@
       "local": "generators/smsdev.py",
       "origin": "local_original",
       "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
-      "local_sha256_after_deviation": "e871caf8853df7cc682f3da627ee4d2a5fa1a99f8d5f31d968cf0d01dce78dd8"
+      "local_sha256_after_deviation": "8fd83a40ccd724c9850dd78335ea0b3fd456897ce02b8621622f0195bdd8773c",
+      "note_deviation": "S4.5b: _MAP (tile|flip) substituido por TILES/META/METAL no formato de runtime SMS"
     },
     {
       "local": "inventory.py",
@@ -189,6 +190,12 @@
       "local": "validate/__init__.py",
       "donor": null,
       "donor_sha256": null
+    },
+    {
+      "local": "generators/runtime_format.py",
+      "origin": "local_original",
+      "motivo": "S4.5b formato de runtime do SMS criado no fork (metasprite 3B MSSF2T-provado, pares TALL, espelho-H como padrao, P2 por shift de indice); nao doado",
+      "local_sha256_after_deviation": "2395e6ab71b3396eb11964b38bac22753b04d676b91dde9bde313a4736c3f18d"
     }
   ]
 }

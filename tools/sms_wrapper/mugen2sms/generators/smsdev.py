@@ -10,9 +10,15 @@ So viram artefato elementos `direct|approximate` do FidelityReport (S3);
 `manual|unsupported` viram linha no relatorio de exclusao — nada silencioso.
 
 Formato dos simbolos por pose (consumido pelo runtime do Plano 2):
-  <S>_A<anim>F<frame>_TILES : tiles 4bpp concatenados, 32 B cada
+  <S>_A<anim>F<frame>_TILES : pool de pares TALL 8x16 (64 B, topo+base), dedupado
+                              por conteudo; espelhos H entram DEPOIS dos normais
+                              (SMS nao tem flip de sprite — espelho e outro padrão)
+  <S>_A<anim>F<frame>_META   : triplas (dx, dy, tile) + terminador 0x80, facing R;
+  <S>_A<anim>F<frame>_METAL  : idem, facing L (tile = par espelhado, dx invertido).
+                               Formato provado em ROM por MSSF2T fight.c:1095-1129;
+                               tile de runtime = pool_idx*2 (indice par, SPRITEMODE_TALL)
   <S>_A<anim>F<frame>_PAL    : 16 palavras CRAM u8 (RGB r|g<<2|b<<4, SMSlib.h)
-  <S>_A<anim>F<frame>_MAP    : triples (tile|hf<<7|vf<<6, x, y) i8, ordem de desenho
+  <S>_A<anim>F<frame>_AXIS   : par int16 (x,y) do eixo MUGEN, compensado no runtime
   <S>_A<anim>F<frame>_CLSN   : quádruplas int16 (hit vem primeiro, depois hurt), terminador sentinela
 """
 from __future__ import annotations
@@ -29,6 +35,7 @@ from ..converters.sms_tiles import to_sms_pose
 from ..converters.sms_clsn import to_clsn_tables
 from ..converters.sms_cmd import to_patterns
 from ..converters import sms_scale as SC
+from .runtime_format import build_frames, pack_tiles_tall
 
 
 @dataclass
@@ -65,16 +72,6 @@ def render_header(artifacts: list[Artifact], guard: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _map_bytes(pose) -> bytes:
-    out = bytearray()
-    for p in pose.placements:
-        flags = (1 if p.hflip else 0) << 7 | (1 if p.vflip else 0) << 6
-        out.append(p.tile | flags)
-        out.append(p.x & 0xFF)
-        out.append(p.y & 0xFF)
-    return bytes(out)
-
-
 def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
     out_dir.mkdir(parents=True, exist_ok=True)
     s = slug(Path(ch.def_path).stem)
@@ -103,9 +100,11 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
             else:
                 pose = to_sms_pose(sp)
             stem = f"{s}_A{n}F{i}"
-            artifacts.append(Artifact(f"{stem}_TILES", b"".join(pose.tiles), "sff"))
+            blob, _mirrors = pack_tiles_tall(pose)
+            artifacts.append(Artifact(f"{stem}_TILES", blob, "sff"))
             artifacts.append(Artifact(f"{stem}_PAL", bytes(pose.palette), "sff+act"))
-            artifacts.append(Artifact(f"{stem}_MAP", _map_bytes(pose), "air"))
+            artifacts.append(Artifact(f"{stem}_META", build_frames(pose), "air"))
+            artifacts.append(Artifact(f"{stem}_METAL", build_frames(pose, facing=1), "air"))
             artifacts.append(Artifact(f"{stem}_AXIS", struct.pack("<2h", fr.x, fr.y), "air"))
             hit, hurt = clsn[n][i]
             if hit or hurt:
