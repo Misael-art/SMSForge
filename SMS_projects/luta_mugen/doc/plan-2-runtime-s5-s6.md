@@ -326,17 +326,28 @@ extern volatile unsigned char dbg_frame;  /* __at() só com volatile (L009) */
   `{U,D,B,F}=DIR_BITS, {A,S}=KEY_BITS do sms_cmd;`
   `input_pattern_hit(const unsigned char *steps) -> unsigned char;`
 
-- [ ] **Step 1: Provar o canal ANTES da ROM reagir:**
+- [x] **Step 1: Provar o canal ANTES da ROM reagir:**
   `python3 tools/sms_wrapper/emulator_input.py --self-check` (canal = uinput
   kdotool/ydotool; NUNCA XTEST em Wayland/KWin — L039), depois enviar uma tecla e
   ver `dbg_keys` no probe de memória (`measure_runtime_probe.py` lê RAM via DAP sem
   depender de pixels — precedentes L035/§37).
-- [ ] **Step 2:** Buffer de 16 amostras + match de padrão (janela de frames vinda do
+  MEDIDO: self-check PASS antes de tocar a ROM; mapa SMRT na ROM (magic/schema
+  0xC7E0..E4, snapshot 0xC7F2..0xC7FD); canario frame 508→63 por reset.
+- [x] **Step 2:** Buffer de 16 amostras + match de padrão (janela de frames vinda do
   StepCode `rel_time`); botões: 1=fraco, 2=forte (remape QCB+1 etc. do GDD);
   start = pause (NMI existente do crt0).
-- [ ] **Step 3:** Cena de teste: pad → Ken anda/salta/socor **ao vivo**; evidência
+  MEDIDO: `src/input.c` com matcher no formato do CMD blob; latch de padrão
+  0x03 (punch e hold-F casam). K_GUARD fica bit sintético — 2 botões não o
+  alcançam; remap "recuar = guard" declarado para a cena 02 (`inc/input.h`).
+- [x] **Step 3:** Cena de teste: pad → Ken anda/salta/socor **ao vivo**; evidência
   com `capture_video.py` (transição não vive em screenshot — §45). Commit:
   `feat(luta_mugen): input vivo provado no emulador via canal uinput`.
+  MEDIDO (ROM `fe66394c…dc9`): Right +70 px / Left −88 px com keys vistos sob
+  tecla, pulo 94 px + estado JUMP, soco B1 a gap −9 → boss 237→232 score 3,
+  crouch estado 4 — `t5_input_memory.json` 5/5; `t5_live.mp4` movimento 1.1%
+  PASS; `t5_probe.json` fps 59.19/58.79; boot determinístico PASS. A caçada do
+  vídeo expôs bug real de CRAM (entry do chão nunca inicializada — cor variava
+  entre runs; corrigida e travada em 0x15).
 
 ---
 

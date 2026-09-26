@@ -5,20 +5,22 @@
 > não substitui este arquivo.
 
 ## Última atualização
-2026-09-25 (noite) — Plano 2 Task 4 executada: interpretador FSM por tabelas
-(`src/fight.c`) com física Q8.8, colisão clsn hit/hurt em software, hitstop,
-knockback e pushback bloqueado; cena 01 rodando com sequência determinística
-de 13 inputs scriptados. ROM `145a0433…fb16` reverificada nos gates de boot,
-frame advance e boot determinístico. Tests Python: 79/79.
+2026-09-25 (madrugada) — Plano 2 Task 5 executada: input VIVO provado na RAM
+(`src/input.c` + `tools/prove_input.py`, canal uinput kdotool/ydotool), mapa de
+probes SMRT com 14 células, e um BUG REAL caçado pela evidência: o BG palette
+escrevia em CRAM `2` achando ser "palette 2" enquanto o chão lê entry `10` — a
+entry real nunca era inicializada e o chão saía cinza/oliva/rosa/ciano conforme
+o estado do emulador entre runs. ROM `fe66394c…dc9` em todos os gates.
+Tests Python: 79/79.
 
 ## Eixos de entrega (7) — gate final exige os 7 simultâneos
 | Eixo | Status | Prova |
 |------|--------|-------|
-| build | testado_em_emulador (cena 01 FSM) | `build.sh` → `out/rom/luta_mugen.sms` 16 KB, SHA `145a0433…fb16` (anterior cena 01 probe: `274d3109…d7b8`) |
-| validation_report | parcial | `t4_boot.json` capture PASS, `audit_deterministic_boot` PASS (2 runs idênticos, esta ROM), `t4_frame_advance_128.json` 59.6 fps constante |
-| boot no emulador | testado_em_emulador | `out/evidence/t4_boot.png` — dois lutadores no chão pós-knockback + HUD de dígitos; viewport variancia 2423.3 |
-| gameplay | parcial | FSM completo (idle/walk/jump/crouch/guard/punch1/punch2, hitstop, bloqueio) dirigido por `script[]` determinístico; input VIVO ainda zero (Task 5) |
-| 60/50 fps | testado_em_emulador | `out/evidence/t4_frame_advance_128.json` — contador `dbg_frame` da própria ROM, célula 29 (período 128), 23× sobreamostragem, 28 trocas, constante True |
+| build | testado_em_emulador (cena 01 FSM + input vivo) | `build.sh` → `out/rom/luta_mugen.sms` 16 KB, SHA `fe66394c…dc9` (T4 FSM: `145a0433…fb16`; cena 01 probe: `274d3109…d7b8`) |
+| validation_report | parcial | `t5_probe.json` (SMRT magic/schema, fps DAP 59.19/58.79), `t5_boot.json` capture PASS, `audit_deterministic_boot` PASS (2 runs idênticos, esta ROM), `t5_live.json` vídeo PASS movimento 1.1% |
+| boot no emulador | testado_em_emulador | `out/evidence/t5_boot.png` — dois lutadores no chão + HUD; chão cinza DETERMINÍSTICO (85,85,85 = 0x15) após correção da entry CRAM 10 |
+| gameplay | testado_em_emulador (parcial: 1 jogador) | `t5_input_memory.json` — 5 eixos por INPUT real na RAM: Right dx=+70 / Left dx=−88 (keys 0x08/0x04 vistos com tecla em baixo), pulo pico 94 px + estado JUMP, soco B1 0x10 a gap −9 → boss 237→232 (dano 5 do CNS) + score 3, agachar estado 4; latch de padrão 0x03 (QCF-simplificado e hold-F batem no matcher). Guard vivo ainda não mapeado (2 botões) — cena 02 |
+| 60/50 fps | testado_em_emulador | `t5_probe.json` — `probe_frame` lido via DAP na RAM (imune a foco/zumbi), 2 janelas de 8 s: 59.19 e 58.79 |
 | áudio | não iniciado | PCM classificado unsupported; reautoria PSG (6 SFX + 1 BGM) ainda não escrita |
 | memory bank atualizado | implementado | esta seção, nesta data |
 
@@ -88,6 +90,43 @@ frame advance e boot determinístico. Tests Python: 79/79.
   (L057): o gate mediu a janela ERRADA e deu FAIL falso; morto o zumbi, PASS
   com 2 execuções de estado idêntico.
 
+## O que FOI OBSERVADO (Plano 2 Task 5 — input vivo + mapa SMRT)
+- `src/input.c`: ring buffer de amostras facing-relative (16, máscara
+  power-of-2), matcher de passos no formato do CMD blob gerado
+  (`[dir|keys<<4, flags]`, hold/release), janela = idade máxima − mínima dos
+  passos casados. `K_GUARD` NÃO é alcançável no pad de 2 botões — bit
+  sintético de teste; o bloqueio vivo é o crouch (S_BLOCKABLE). Remap
+  "recuar = guard" do GDD fica para a cena 02 (documentado em `inc/input.h`).
+- Mapa SMRT da ROM (magic `SMRT`+schema 1 em 0xC7E0..E4; frame u16 0xC7F0;
+  snapshot 0xC7F2..0xC7FD: hp/score/boss/over/state/wave(atracao)/keys/pose/
+  px/py/p2x/pattern-latch) — `measure_runtime_probe.py` PASS e fps medido na
+  RAM via DAP, sem depender de pixels nem de foco de janela.
+- `tools/prove_input.py` (criterio próprio com `--self-check`, 11 fixtures):
+  canario = reset Ctrl+BackSpace zerando `probe_frame`; leitura de `keys`
+  DURANTE a tecla em baixo; tecla que não chegou ≠ whiff; veredito só na RAM.
+  Na ROM final: 5/5 eixos PASS (números na tabela de eixos).
+- **Bug caçado pela evidência — BG CRAM entry errada**: `SMS_setBGPaletteColor
+  (entry, cor)` recebe entry ABSOLUTA 0..15 = `palette*4 + (indice&3)`; o
+  código escrevia em `2` querendo dizer "palette 2". O chão (tile 126 → pal 2;
+  bytes 0x00,0xFF por linha no formato 4-bytes-por-linha-do-gerador →
+  p1|p3 = índice 10 → cor 2) lê a entry **10**, nunca inicializada — entre
+  runs o chão saiu cinza, oliva, ROSA (254,170,255) e CIANO (170,255,255),
+  cores FORA da paleta mestra que `screenshot_semantic_gate` reprovaria. Os
+  glifos (tile 128+g → pal g&3, índice 1) só tinham branco na palette 0;
+  agora entries 1/5/9/13 = 0x3F. Lição: cor que MUDA entre runs é entrada não
+  inicializada, não capricho do emulador.
+- Armadilha do `capture_video.py --press`: a rajada inteira roda no INÍCIO da
+  gravação e o gate compara primeiro×último frame (piso 1%). Um script que
+  volta ao ponto de partida (Right depois Left) reprova com 0.83% mesmo com a
+  cena toda em movimento. Script que termina LONGE (`Up=250,Right=1800`) passa
+  com 1.1%.
+- Foco Wayland é compartilhado: logo após `prove_input.py` fechar, o F7 do
+  `capture_video` não chegou à janela (FAIL honesto "gravação não começou");
+  um retry com o palco limpo passou. Zumbi morto antes de CADA gate (L057).
+- `mini_art.h` DEFINE os blobs (não extern) — só `fight.c` o inclui; demais
+  TUs declaram `extern const unsigned char MINI_CMD_*[5]` (senão
+  ASlink multiple-definition).
+
 ## Decisões registradas
 - Motor = ferramentas em `tools/sms_wrapper/mugen2sms/`; runtime interpreta
   tabelas compiladas; CNS-em-runtime recusado (2026-09-25).
@@ -101,13 +140,12 @@ frame advance e boot determinístico. Tests Python: 79/79.
 - Escala do lutador travada (ver acima) — decisão do usuário, não do agente.
 
 ## Blocker dominante atual
-O contrato de escala FOI aplicado e medido (S4.5a/S4.5b: gate worst-scene do
-Ken PASS, pico 8/linha, SAT 32 — `out/local_study/generated/s4_generation_report.json`,
-gitignored). O FSM da Task 4 roda, avança frame e colide em software com boot
-determinístico comprovado. Blocker dominante agora: **input vivo** — o eixo que
-reprovou MSSF2T. A ROM só reage a `script[]` interno; nada foi provado do
-teclado do host até a janela do emulador (Task 5, gate primeiro:
-`emulator_input.py --self-check` ANTES de a ROM reagir).
+Input vivo PROVADO na RAM (5/5 eixos, `t5_input_memory.json`) e vídeo de cena
+viva com deslocamento sustained PASS. Blocker dominante agora: **dívida de
+VRAM do Ken real** — 376.226 B gerados vs 16 KB de ROM: sem banking +
+streaming por pose (Task 6, `measure_worst_frame.py` no gate) a prova do
+contrato (Task 8, golden slice) não existe. A cena 02 (Task 7: identidade P2
+por shift de índice, HUD de vida, PSG, guard vivo) é o ramo paralelo seguro.
 
 ## Lições abertas
 - L-aberta-1: `validate_measurement_tools.py` descobre ferramentas por prefixo
@@ -121,8 +159,9 @@ teclado do host até a janela do emulador (Task 5, gate primeiro:
   + evidência capturada na cena 01.
 
 ## Handoff
-Executar `doc/plan-2-runtime-s5-s6.md` — Tasks 0–4 fechadas; próximo ramo é a
-**Task 5 (input vivo)**. Primeiro comando do próximo agente:
-`python3 tools/sms_wrapper/emulator_input.py --self-check` (canal uinput
-kdotool/ydotool; NUNCA XTEST em Wayland/KWin — L039) e baseline verde de
-`tools/sms_wrapper/mugen2sms/tests/` (79 testes).
+Executar `doc/plan-2-runtime-s5-s6.md` — Tasks 0–5 fechadas; próximo ramo é a
+**Task 6 (banking + streaming de VRAM por pose)**, gate `measure_worst_frame.py`
+e teto 16 KB → ROM bancada ~150 KB/lutador. Antes de qualquer gate de janela:
+matar zumbi (`pkill -f '[E]mulicious.jar'` em chamada separada — L057) e
+`emulator_input.py --self-check`. Baseline: 79 testes Python +
+`tools/prove_input.py --self-check` + `measure_runtime_probe.py` na ROM atual.
