@@ -25,19 +25,28 @@
 
 #include "SMSlib.h"
 
-/* Uma frame de animacao: duracao em frames de 60/50 Hz (255 = "segura"),
- * base de tiles do pose no pool de VRAM e ponteiros para os blobs gerados
- * do mesmo indice de pose (META/METAL/AXIS sempre existem; CLSN so quando
- * o frame declara caixas — NULL entao). */
-typedef struct { unsigned char dur, base;
-                 const unsigned char *meta, *metal, *clsn, *axis; } Frame;
+/* O METAL espelha a grade de colunas 8 px, incluindo o padding à direita.
+ * Ao refletir sobre o eixo, a origem usa essa largura arredondada para que
+ * poses com largura não múltipla de 8 mantenham o mesmo pivô. */
+#define FIGHTER_MIRRORED_ORIGIN_X(anchor_x, axis_x, width_px) \
+    ((signed int)(anchor_x) - ((signed int)(axis_x) + \
+     (signed int)((((unsigned int)(width_px) + 7u) & 0xFFF8u))))
+
+/* Uma frame: duração AIR em ticks (255 = segura), pose lógico, metadados AIR
+ * transformados para o grid SMS e dimensões já após a escala do contrato.
+ * Cada ACT pode deduplicar tiles em outra ordem; P2 possui seu próprio par
+ * META/METAL associado ao blob de padrões da paleta 2. */
+typedef struct { unsigned char dur, pose;
+                 const unsigned char *meta, *metal, *clsn, *axis;
+                 unsigned char width, height;
+                 const unsigned char *meta_p2, *metal_p2; } Frame;
 
 /* Caixa de colisao (clsn do AIR): cantos em px MUGEN (y para cima), achatar
  * para AABB de tela acontece no runtime (fight.c). */
 typedef struct { signed char x1, y1, x2, y2; } Box;
 
-typedef struct { unsigned char id;                  /* anim id do AIR */
-                 unsigned char n_frames, loop;      /* loop: repete do inicio */
+typedef struct { unsigned short id;                  /* anim id do AIR */
+                 unsigned char n_frames, loop_start;/* 255=one-shot; otherwise AIR loop index */
                  const Frame *frames; } Anim;
 
 /* Posicao em Q8.8: x = px de tela (0..255.99), y = ALTURA acima do chao

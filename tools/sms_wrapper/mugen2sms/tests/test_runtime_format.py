@@ -56,6 +56,11 @@ def test_facing_esquerda_troca_tile_pelo_espelho():
     assert rf.build_frames(_mini_pose(), tile_base=0x20, facing=1) == bytes([0, 0, 0x22, 0x80])
 
 
+def test_omite_par_tall_completamente_transparente():
+    assert rf.build_frames(_pose_2rows(), omit_blank_cells=True) == bytes([0x80])
+    assert rf.build_frames(_mini_pose(), omit_blank_cells=True) == bytes([0, 0, 0, 0x80])
+
+
 def test_facing_inverte_ordem_das_colunas():
     # MSSF2T: dx' = lo+hi-dx -> coluna tx vira (tw-1-tx)*8
     pose = Pose(width=16, height=16, tiles=[bytes(32), bytes(range(32))],

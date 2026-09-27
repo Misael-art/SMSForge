@@ -13,14 +13,18 @@
   (precedente MSSF2T `TILE_FB1L`); em 4bpp planar espelhar = inverter bits de
   cada byte. Facing esquerda usa o par espelhado + regra MSSF2T `dx' = lo+hi-dx`
   (coluna tx -> (tw-1-tx)*8). Custo de VRAM do espelho é medido, não escondido.
-- P2 = mesmos padrões deslocados de índice na MESMA sprite palette (única no SMS,
-  SMSlib.h:249-250); `shift_palette_indices` soma offset só a índices != 0
-  (0 é transparente). Restrição do GDD: |pal(P1) ∪ pal(P2)| <= 15.
+- P2 usa índices 9..15 na MESMA sprite palette física (única no SMS,
+  SMSlib.h:249-250); índice 0 continua transparente. Como P1/P2 passam pela
+  conversão/deduplicação separadamente, a ordem e a quantidade dos pares podem
+  divergir. O gerador deve emitir META/METAL próprios para o pool de cada ACT,
+  ou provar identidade do layout antes de compartilhar índices. Restrição do
+  GDD: |pal(P1) ∪ pal(P2)| <= 15.
 """
 from __future__ import annotations
 
 _REV = bytes(int(f"{b:08b}"[::-1], 2) for b in range(256))
 _BLANK = bytes(32)
+_BLANK_PAIR = _BLANK + _BLANK
 
 
 def _cell_bytes(pose, pl) -> bytes:
@@ -73,11 +77,17 @@ def pack_tiles_tall(pose) -> tuple[bytes, dict[int, int]]:
     return b"".join(pool), mirrors
 
 
-def build_frames(pose, tile_base: int = 0, facing: int = 0) -> bytes:
+def build_frames(pose, tile_base: int = 0, facing: int = 0,
+                 omit_blank_cells: bool = False) -> bytes:
     """Triplas (dx, dy, tile) + terminador 0x80; tile = tile_base + pool_idx*2."""
-    _, order, mirrors, tw, _rows = _layout(pose)
+    pool, order, mirrors, tw, _rows = _layout(pose)
     out = bytearray()
     for tx, row, idx in order:
+        # A fully transparent 8x16 cell contributes no visible pixels and
+        # needlessly consumes a physical SAT entry. The packed blank pattern
+        # remains available; only its metadata placement is omitted.
+        if omit_blank_cells and pool[idx] == _BLANK_PAIR:
+            continue
         i = mirrors[idx] if facing else idx
         dx = (tw - 1 - tx) * 8 if facing else tx * 8
         dy = row * 16

@@ -133,3 +133,66 @@ def test_synthetic_cut_passes_scanline_gate(tmp_path):
     report = sim.simulate(scene)
     assert report["violations"] == [], report
     assert report["peak_per_line"] <= 8
+
+
+def _load_mini(tmp_path):
+    from mugen2sms.analysis.fidelity import classify_character
+    from mugen2sms.analysis.sms_budget import SmsLimits
+    from mugen2sms.character import load
+    from mugen2sms.source import Source
+    from mugen2sms.tests.make_fixtures import build
+    ch = load(Source(build(tmp_path / "mini")))
+    return ch, classify_character(ch, SmsLimits())
+
+
+def test_generate_banked_tiles(tmp_path):
+    """banked=True: TILES viram (BANK,OFF,SIZE) + bin 16 KB; resto inline."""
+    import json
+    from mugen2sms.generators.smsdev import generate
+    ch, fid = _load_mini(tmp_path)
+    man = generate(ch, fid, tmp_path / "gen", banked=True)
+    hdr = (tmp_path / "gen" / "mini_art.h").read_text(encoding="ascii")
+    binp = (tmp_path / "gen" / "mini_bank2.bin").read_bytes()
+    assert len(binp) == 16384, "bin de banco e pagina de 16 KB exata"
+    tiles = [e for e in man.entries if e["symbol"].endswith("_TILES")]
+    others = [e for e in man.entries if not e["symbol"].endswith("_TILES")]
+    assert tiles and others
+    for e in tiles:
+        sym = e["symbol"]
+        assert e["bank"] == 2 and e["off"] % 32 == 0
+        assert f"#define {sym}_BANK 2" in hdr
+        assert f"#define {sym}_OFF {e['off']}" in hdr
+        assert f"#define {sym}_SIZE {e['size_bytes']}" in hdr
+        assert f"const unsigned char {sym}[" not in hdr
+        assert binp[e["off"]:e["off"] + e["size_bytes"]] == e["blob"]
+    for e in others:
+        assert "bank" not in e
+        assert f"const unsigned char {e['symbol']}[{e['size_bytes']}]" in hdr
+    m = json.loads((tmp_path / "gen" / "mini_manifest.json").read_text())
+    assert [x["symbol"] for x in m["entries"]] == [e["symbol"] for e in man.entries]
+    assert all("blob" not in x for x in m["entries"]), "manifest nao duplica bytes"
+
+
+def test_generate_banked_offsets_match_inline_blobs(tmp_path):
+    """O bin bancado e a concatenacao deterministica dos mesmos blobs do modo inline."""
+    from mugen2sms.generators.smsdev import generate
+    ch, fid = _load_mini(tmp_path)
+    lin = generate(ch, fid, tmp_path / "lin")
+    banked = generate(ch, fid, tmp_path / "bnk", banked=True)
+    inline = {e["symbol"]: e["blob"] for e in lin.entries
+              if e["symbol"].endswith("_TILES")}
+    binp = (tmp_path / "bnk" / "mini_bank2.bin").read_bytes()
+    for e in banked.entries:
+        if e["symbol"].endswith("_TILES"):
+            assert binp[e["off"]:e["off"] + e["size_bytes"]] == inline[e["symbol"]]
+
+
+def test_generate_banked_overflow_exits(tmp_path, monkeypatch):
+    """Estouro da pagina de 16 KB e FAIL ruidoso, nunca truncamento silencioso."""
+    import pytest
+    from mugen2sms.generators import smsdev
+    ch, fid = _load_mini(tmp_path)
+    monkeypatch.setattr(smsdev, "BANK_PAGE", 128)
+    with pytest.raises(SystemExit) as e:
+        smsdev.generate(ch, fid, tmp_path / "ovf", banked=True)
+    assert "bank" in str(e.value).lower() or "banco" in str(e.value).lower()

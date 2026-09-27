@@ -58,21 +58,32 @@ def slug(name: str) -> str:
     return (s or "char").upper()
 
 
-def render_header(artifacts: list[Artifact], guard: str) -> str:
+def render_header(artifacts: list[Artifact], guard: str,
+                  bank_map: dict | None = None) -> str:
     lines = [f"#ifndef {guard}_H", f"#define {guard}_H", "",
              "/* gerado por mugen2sms.generators.smsdev - nao editar na mao */", ""]
     for a in artifacts:
         lines.append(f"#define {a.symbol}_SIZE {len(a.data)}")
-        lines.append(f"const unsigned char {a.symbol}[{len(a.data)}] = {{")
-        for i in range(0, len(a.data), 16):
-            lines.append("    " + ", ".join(f"0x{b:02X}" for b in a.data[i:i + 16]) + ",")
-        lines.append("};")
+        if bank_map and a.symbol in bank_map:
+            b, off = bank_map[a.symbol]
+            lines.append(f"#define {a.symbol}_BANK {b}")
+            lines.append(f"#define {a.symbol}_OFF {off}")
+        else:
+            lines.append(f"const unsigned char {a.symbol}[{len(a.data)}] = {{")
+            for i in range(0, len(a.data), 16):
+                lines.append("    " + ", ".join(f"0x{b:02X}" for b in a.data[i:i + 16]) + ",")
+            lines.append("};")
         lines.append("")
     lines.append(f"#endif /* {guard}_H */")
     return "\n".join(lines) + "\n"
 
 
-def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
+BANK_PAGE = 16384   # slot 2 do Sega mapper (makesms -mbank ...:0:1:2)
+
+
+def generate(ch, fidelity, out_dir: Path, banked: bool = False,
+             pre_scaled: bool = False,
+             omit_blank_sprites: bool = False) -> GenerationManifest:
     out_dir.mkdir(parents=True, exist_ok=True)
     s = slug(Path(ch.def_path).stem)
     artifacts: list[Artifact] = []
@@ -94,7 +105,7 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
                 man.excluded.append({"id": f"anim:{n}.{i}", "classe": "unsupported",
                                      "motivo": "sprite-ausente"})
                 continue
-            if SC.needs_scale(sp.width, sp.height):
+            if not pre_scaled and SC.needs_scale(sp.width, sp.height):
                 # contrato de escala GDD: so o que nao cabe em 1:1 e reduzido 1:4
                 pose = to_sms_pose(SC.downscale_indexed(sp))
             else:
@@ -103,8 +114,10 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
             blob, _mirrors = pack_tiles_tall(pose)
             artifacts.append(Artifact(f"{stem}_TILES", blob, "sff"))
             artifacts.append(Artifact(f"{stem}_PAL", bytes(pose.palette), "sff+act"))
-            artifacts.append(Artifact(f"{stem}_META", build_frames(pose), "air"))
-            artifacts.append(Artifact(f"{stem}_METAL", build_frames(pose, facing=1), "air"))
+            artifacts.append(Artifact(f"{stem}_META", build_frames(
+                pose, omit_blank_cells=omit_blank_sprites), "air"))
+            artifacts.append(Artifact(f"{stem}_METAL", build_frames(
+                pose, facing=1, omit_blank_cells=omit_blank_sprites), "air"))
             artifacts.append(Artifact(f"{stem}_AXIS", struct.pack("<2h", fr.x, fr.y), "air"))
             hit, hurt = clsn[n][i]
             if hit or hurt:
@@ -127,18 +140,40 @@ def generate(ch, fidelity, out_dir: Path) -> GenerationManifest:
     for name, why in skipped.items():
         man.excluded.append({"id": f"cmd:{name}", "classe": "manual", "motivo": why})
 
-    hdr = render_header(artifacts, s.lower())
+    hdr_artifacts = artifacts
+    bank_map: dict[str, tuple[int, int]] = {}
+    if banked:
+        page = bytearray(BANK_PAGE)
+        off = 0
+        for a in artifacts:
+            if not a.symbol.endswith("_TILES"):
+                continue
+            if off + len(a.data) > BANK_PAGE:
+                raise SystemExit(
+                    f"[FAIL] banco de tiles estourou a pagina de {BANK_PAGE} B "
+                    f"em {a.symbol} — corte quadros (nao truncar)")
+            page[off:off + len(a.data)] = a.data
+            bank_map[a.symbol] = (2, off)
+            off += len(a.data)
+        (out_dir / f"{s.lower()}_bank2.bin").write_bytes(bytes(page))
+
+    hdr = render_header(hdr_artifacts, s.lower(), bank_map or None)
     (out_dir / f"{s.lower()}_art.h").write_text(hdr, encoding="ascii")
     hdr_bytes = hdr.encode("ascii")
     man.generated_sha256 = hashlib.sha256(hdr_bytes).hexdigest()
     for a in artifacts:
-        man.entries.append({"symbol": a.symbol, "size_bytes": len(a.data),
-                            "sha256": hashlib.sha256(a.data).hexdigest(),
-                            "source": a.source, "source_sha256": ch.source_sha256})
+        e = {"symbol": a.symbol, "size_bytes": len(a.data),
+             "sha256": hashlib.sha256(a.data).hexdigest(),
+             "source": a.source, "source_sha256": ch.source_sha256,
+             "blob": a.data}
+        if a.symbol in bank_map:
+            e["bank"], e["off"] = bank_map[a.symbol]
+        man.entries.append(e)
     man.stats = {"artifacts": len(artifacts), "bytes": sum(len(a.data) for a in artifacts),
                  "excluded": len(man.excluded)}
+    entries_json = [{k: v for k, v in e.items() if k != "blob"} for e in man.entries]
     (out_dir / f"{s.lower()}_manifest.json").write_text(
-        json.dumps({"entries": man.entries, "excluded": man.excluded, "stats": man.stats,
+        json.dumps({"entries": entries_json, "excluded": man.excluded, "stats": man.stats,
                     "generated_sha256": man.generated_sha256}, ensure_ascii=False, indent=2),
         encoding="utf-8")
     return man
@@ -185,6 +220,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="gera artefatos SMS a partir de um pacote MUGEN")
     ap.add_argument("pacote", type=Path)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--banked", action="store_true",
+                    help="empacota _TILES em {slug}_bank2.bin (slot 2, 16 KB) e troca arrays inline por _BANK/_OFF")
     args = ap.parse_args(argv)
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from ..analysis.fidelity import classify_character
@@ -194,7 +231,7 @@ def main(argv=None) -> int:
     import audit_sprite_line_sim as sim
     ch = ch_load(Source(args.pacote))
     fid = classify_character(ch, SmsLimits())
-    man = generate(ch, fid, args.out)
+    man = generate(ch, fid, args.out, banked=args.banked)
     scene = _worst_scene(ch, fid)
     (args.out / "worst_scene.json").write_text(json.dumps(scene, indent=2), encoding="utf-8")
     verdict = sim.simulate(scene)

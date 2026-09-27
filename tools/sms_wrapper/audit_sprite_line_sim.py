@@ -7,7 +7,7 @@ Le um manifest JSON de cena (schema sprite_scene_manifest_v1) e reprova:
 - sprite com Y armazenado == 0xD0 (colide com terminador da SAT)
 
 Fisica aplicada (fonte: docs smspower/devkitSMS; leis em .agent/rules/SMS_GLOBAL.md):
-- sprite_size global '8x8'|'16x16' (+ zoom opcional que DOBRA o footprint)
+- sprite_size global '8x8'|'8x16'|'16x16' (+ zoom opcional que DOBRA o footprint)
 - stored_y = y + 1 no SMS (VDP compara linha seguinte); aqui trabalhamos com y logico
   e checamos colisao com 208 no valor armazenado.
 
@@ -16,7 +16,7 @@ Exit: 0 | 1 reprova | 3 uso
 """
 import sys, json, argparse
 
-SPRITE_H = {"8x8": 8, "16x16": 16}
+SPRITE_H = {"8x8": 8, "8x16": 16, "16x16": 16}
 SAT_MAX = 64
 PER_LINE_MAX = 8
 TERMINATOR_Y = 0xD0
@@ -53,14 +53,24 @@ def main():
         ok = {"sprite_size": "16x16", "zoomed": False,
               "sprites": [{"y": 10 + i * 20, "x": 40, "tile": i} for i in range(8)],
               "screen_h": 192}
+        tall_pair = {"sprite_size": "8x16", "zoomed": False,
+                     "sprites": [{"y": y, "x": fighter_x + col * 8,
+                                  "tile": n}
+                                 for fighter_x in (48, 176)
+                                 for y in (96, 112, 128)
+                                 for col in range(4)
+                                 for n in (fighter_x + y + col,)],
+                     "screen_h": 192}
         bad = {"sprite_size": "8x8",
                "sprites": [{"y": 50, "x": 16 + i * 4, "tile": i} for i in range(9)],
                "screen_h": 192}
         sat = {"sprite_size": "8x8",
                "sprites": [{"y": i % 192, "x": 40, "tile": 0} for i in range(65)],
                "screen_h": 192}
-        r_ok, r_bad, r_sat = simulate(ok), simulate(bad), simulate(sat)
+        r_ok, r_tall, r_bad, r_sat = (simulate(ok), simulate(tall_pair),
+                                      simulate(bad), simulate(sat))
         assert not r_ok["violations"], r_ok
+        assert not r_tall["violations"] and r_tall["peak_per_line"] == 8, r_tall
         assert any("scanline" in v for v in r_bad["violations"]), r_bad
         assert any("SAT" in v for v in r_sat["violations"]), r_sat
         print("[SELF-CHECK OK] sprite_line_sim")

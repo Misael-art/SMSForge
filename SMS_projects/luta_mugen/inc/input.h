@@ -2,9 +2,8 @@
  *
  * Contrato (Plano 2, Task 5):
  *  - input_read(): bits de NÍVEL K_* (fight.h); fight_step calcula as
- *    arestas por keys_prev. K_GUARD nao e alcancavel pelo pad de 2 botoes:
- *    e bit sintetico do roteiro de teste (guarda viva = agachar/bloquear
- *    por estado S_BLOCKABLE; remap completo do eixo guarda e da cena 02).
+ *    arestas por keys_prev. O pad de 2 botoes guarda segurando BAIXO+TRAS;
+ *    K_GUARD segue como atalho sintetico do roteiro, nao e botao fisico.
  *  - input_tick(): registra a amostra do frame no buffer circular de 16,
  *    ja relativa ao LADO (F=para o oponente, B=para tras), na mesma
  *    codificacao do blob CMD gerado por converters/sms_cmd.py:

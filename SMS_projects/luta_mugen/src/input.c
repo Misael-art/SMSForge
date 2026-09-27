@@ -19,11 +19,13 @@
 
 static unsigned char buf[INPUT_BUF];   /* amostras normalizadas */
 static unsigned char buf_i;            /* PROXIMA escrita (ultima = buf_i-1) */
+static unsigned char nonzero_samples;   /* quantas amostras do anel têm input */
 
 void input_init(void) {
     unsigned char i;
     for (i = 0; i < INPUT_BUF; i++) buf[i] = 0;
     buf_i = 0;
+    nonzero_samples = 0;
 }
 
 /* Nivel cru do pad -> convencao K_* do engine. START = botao 1 (SMSlib
@@ -44,6 +46,7 @@ unsigned char input_read(void) {
 
 void input_tick(unsigned char keys, unsigned char facing) {
     unsigned char s = 0;
+    unsigned char old;
     if (keys & K_UP)   s |= S_UP;
     if (keys & K_DOWN) s |= S_DOWN;
     if (facing) {   /* virado para a esquerda: esquerda e FRENTE */
@@ -55,6 +58,9 @@ void input_tick(unsigned char keys, unsigned char facing) {
     }
     if (keys & K_LP) s |= S_A;
     if (keys & K_HP) s |= S_S;
+    old = buf[buf_i];
+    if (!old && s) nonzero_samples++;
+    else if (old && !s) nonzero_samples--;
     buf[buf_i] = s;
     buf_i = (unsigned char)((buf_i + 1) & (INPUT_BUF - 1));
 }
@@ -77,7 +83,9 @@ unsigned char input_pattern_hit(const unsigned char *pattern) {
     unsigned char age, newest = 0, oldest = 0, have_newest = 0;
     unsigned char cur;
 
-    if (!n) return 0;
+    /* Sem nenhuma amostra ativa, nenhum token de direcao/botao pode casar.
+     * Evita varrer 16 neutros duas vezes a cada frame de idle/attract. */
+    if (!n || !nonzero_samples) return 0;
     cur = buf[(unsigned char)((buf_i - 1) & (INPUT_BUF - 1))];
     si = (signed char)(n - 1);
     for (age = 0; age < INPUT_BUF && si >= 0; age++) {

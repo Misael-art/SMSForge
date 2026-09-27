@@ -14,7 +14,7 @@ import argparse, glob, json, os, re, shutil, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LID = re.compile(r"\bL(\d{3})\b")
-TOOL_PY = re.compile(r"([A-Za-z0-9_]+\.py)")
+TOOL_PY = re.compile(r"(?<![A-Za-z0-9_.-])(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_]+\.py")
 NEED_TOOL = (
     "fechada_com_ferramenta",
     "fechada_com_ferramenta_e_correcao",
@@ -229,6 +229,23 @@ def _self_check():
             "X armazenado sem offset.\n")
         p = audit(d, wrapper=w)
         assert not p, f"repo coerente nao deveria reprovar: {p}"
+
+        nested = os.path.join(w, "mugen2sms", "analysis")
+        os.makedirs(nested)
+        nested_tool = os.path.join(nested, "scale_pilot.py")
+        open(nested_tool, "w").write("# --self-check\n")
+        json.dump({"lessons": [{
+            "id": "L001",
+            "status": "fechada_com_ferramenta",
+            "tool_that_measures": "mugen2sms/analysis/scale_pilot.py",
+            "rule_section": "SMS_GLOBAL §1",
+        }]}, open(os.path.join(d, "doc", "curation", "a.json"), "w"))
+        p = audit(d, wrapper=w)
+        assert not p, f"ferramenta nested existente deveria ser aceita: {p}"
+        os.remove(nested_tool)
+        p = audit(d, wrapper=w)
+        assert any("mugen2sms/analysis/scale_pilot.py" in x for x in p), \
+            f"ferramenta nested ausente deveria reprovar: {p}"
 
         json.dump({"entries": [{"summary": "L009 so no ledger"}]},
                   open(os.path.join(d, "doc", "agent_learning",

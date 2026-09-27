@@ -1,9 +1,8 @@
-/* fight.h — motor de luta interpretado por tabelas (Plano 2, Task 4).
+/* fight.h — motor de luta interpretado por dados AIR/SFF/ACT compilados.
  *
- * O estado do jogo vive em `Fighter` (luta.h); as tabelas de animacao,
- * fisica e colisao sao dados destilados do fixture sintetico (mini.air /
- * mini.cns) + blobs gerados pelo mugen2sms (inc/gen/mini_art.h). Nenhum
- * CNS-em-runtime: o interpretador e fixo, os dados sao gerados.
+ * O estado do jogo vive em `Fighter` (luta.h); animacoes, tiles, paletas,
+ * e caixas de colisao sao gerados offline de um corte declarado de arquivos
+ * MUGEN. O interpretador Z80 segue fixo e nao carrega CNS em runtime.
  */
 #ifndef FIGHT_H
 #define FIGHT_H
@@ -16,16 +15,31 @@
 #define K_DOWN   0x02
 #define K_LEFT   0x04
 #define K_RIGHT  0x08
-#define K_LP     0x10            /* soco fraco  -> state 200 */
-#define K_HP     0x20            /* soco forte  -> state 201 */
+#define K_LP     0x10            /* botão 1 -> ação de soco selecionada */
+#define K_HP     0x20            /* botão 2 -> ação de chute selecionada */
 #define K_GUARD  0x40            /* guarda      -> state 120 */
+#define K_SPECIAL 0x80           /* comando de movimento remapeado pelo buffer */
+
+#define FIGHT_EVENT_NONE  0u
+#define FIGHT_EVENT_PUNCH 1u
+#define FIGHT_EVENT_KICK  2u
+#define FIGHT_EVENT_SPECIAL 3u
+
+/* Estado numerico exposto so para prova de RAM; os IDs de estados existentes
+ * nao mudam quando o estado KO e acrescentado. */
+#define FIGHT_STATE_KO 9u
 
 extern Fighter fighters[2];
 volatile extern unsigned char dbg_frame;   /* contador do loop p/ HUD */
 
-void fight_init(void);                     /* carrega pool de poses + paleta */
+void fight_init(void);                     /* inicializa o stream de poses (T6) */
 void fight_reset(Fighter *p, unsigned char slot);
-void fight_step(Fighter *p, unsigned int keys, unsigned int opp_keys);
+void fight_set_ko(Fighter *p);
+unsigned char fight_step(Fighter *p, unsigned int keys,
+                         unsigned int opp_keys);
 void fight_draw(void);
+void fight_upload_palette(void);            /* chamada no VBlank */
+void fight_sat_copied(void);                /* após copiar meta para SAT */
+unsigned short fight_max_life(unsigned char slot);
 
 #endif /* FIGHT_H */

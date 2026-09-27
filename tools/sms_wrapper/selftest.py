@@ -103,7 +103,8 @@ def main():
               "png_to_sms_tiles.py",
               "prepare_sms_pixel_art.py",
               "audit_audio_provenance.py",
-              "measure_worst_frame.py"):
+              "measure_worst_frame.py",
+              "audit_header_claims.py", "audit_mugen_engine_contract.py"):
         results.append(run([os.path.join(HERE, g), "--self-check"], 0,
                            f"selfcheck:{g}"))
     print("== Fase 2: fixtures geradas ==")
@@ -130,6 +131,21 @@ def main():
     print("== Fase 3: bateria valida/reprova ==")
     for args, exp, label in cases:
         results.append(run(args, exp, label))
+
+    # Contrato MUGEN: planejamento válido e hardware adulterado precisam divergir.
+    import json
+    contract_path = os.path.join(tmp, "engine_contract.json")
+    template = json.load(open(os.path.join(HERE, "mugen_engine_contract_v1.json")))
+    with open(contract_path, "w") as fh:
+        json.dump(template, fh)
+    args = [os.path.join(HERE, "audit_mugen_engine_contract.py"),
+            "--project", tmp, "--contract", contract_path]
+    results.append(run(args, 0, "MUGEN contrato válido planning"))
+    results.append(run(args + ["--delivery"], 1, "MUGEN probe não vira delivery"))
+    template["target"]["sprites_per_line"] = 20
+    with open(contract_path, "w") as fh:
+        json.dump(template, fh)
+    results.append(run(args, 1, "MUGEN número MD rejeitado no SMS"))
 
     print("== Fase 4: bootstrap materializa a hierarquia de verdade ==")
     # O contrato do new_project.sh: projeto novo nasce com os niveis 1-7 do

@@ -236,6 +236,11 @@ def main():
         base = os.path.splitext(os.path.basename(src_abs))[0]
         obj_rel = os.path.join("out", "obj", base + ".rel")
         cmd = [tc["sdcc"], "-c", "-mz80", "-o", obj_rel]
+        # Projetos com ROM linear no teto podem declarar a troca de objetivo
+        # do compilador no manifesto. O custo de fps continua sendo medido no
+        # emulador; esta flag nunca substitui o gate de worst-frame.
+        if manifest.get("toolchain", {}).get("optimization") == "code_size":
+            cmd.append("--opt-code-size")
         if os.path.exists(tc.get("peep", "")):
             cmd += ["--peep-file", tc["peep"]]
         for inc in tc.get("inc", []):
@@ -253,8 +258,10 @@ def main():
     record["steps"]["compile"] = f"{len(objs)} objeto(s)"
 
     ihx = os.path.join("out", "obj", name + ".ihx")
-    link_cmd = ([tc["sdcc"], "-o", ihx, "-mz80", "--no-std-crt0", "--data-loc", "0xC000",
-                 tc["crt0_sms.rel"]] +
+    link_extra = list(manifest.get("toolchain", {}).get("link_extra") or [])
+    link_cmd = ([tc["sdcc"], "-o", ihx, "-mz80", "--no-std-crt0", "--data-loc", "0xC000"]
+                + link_extra +
+                [tc["crt0_sms.rel"]] +
                 objs +
                 [tc["SMSlib.lib"], tc["PSGlib.lib"]])
     r = subprocess.run(link_cmd, cwd=project, capture_output=True, text=True)
@@ -266,10 +273,16 @@ def main():
     rom_dir = os.path.join(project, "out", "rom")
     os.makedirs(rom_dir, exist_ok=True)
     rom = os.path.join(rom_dir, name + ".sms")
-    r = subprocess.run([tc["makesms"], ihx, os.path.relpath(rom, project)],
-                       cwd=project, capture_output=True, text=True)
+    ms_extra = list(manifest.get("toolchain", {}).get("makesms_extra") or [])
+    makesms_cmd = ([tc["makesms"]] + ms_extra +
+                   [ihx, os.path.relpath(rom, project)])
+    r = subprocess.run(makesms_cmd, cwd=project, capture_output=True, text=True)
+    makesms_output = r.stdout + r.stderr
+    logs.append("$ " + " ".join(makesms_cmd) + f"\n{makesms_output}")
+    open(os.path.join(project, "out", "logs_build.txt"), "w").write("\n".join(logs))
     if r.returncode != 0 or not os.path.exists(rom):
-        return fail(f"makesms falhou: {r.stderr[:200]}", 1)
+        detail = makesms_output.strip() or "sem diagnóstico"
+        return fail(f"makesms falhou: {detail[:200]} (log: out/logs_build.txt)", 1)
     size = os.path.getsize(rom)
     record["steps"]["rom"] = f"{rom} ({size} bytes)"
 
