@@ -4,6 +4,33 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Retomada do motor — dimensionamento da residência conjunta — 2026-09-29
+
+Pedido humano: retomar `luta_mugen` a partir do streaming em assembly
+(`flicker_asmstream`), preservando 72–88 px/proporções/pivôs/AIR e a opção 3;
+dimensionar residência antes de integrar input e idle/guarda/soco nos dois.
+
+Medido offline no corte 72–88 (`versus_scene_runtime_full_generated.h` +
+bancos; `generated/residencia_idle_guarda_soco.json`), ações idle/guarda/soco
+(Ken soco = 260, Ryu soco = 200 neste corte):
+- pares únicos por pose: Ken idle 29–31, guarda 32, soco 28–38; Ryu idle 20,
+  guarda 25, soco 23–27;
+- **ping-pong com metades fixas (2× maior pose por lutador): 130 de 128 pares
+  — não cabe**; poses de entrada de guarda/soco residentes: 245 de 128 —
+  impossível;
+- **pool compartilhado (pose atual + próxima, pior caso das transições
+  permitidas, incluindo cancelamentos para as entradas): Ken 73 + Ryu 52 =
+  125 de 128 pares** — cabe com 3 de folga;
+- SAT: pior par de poses 83 peças sem poda; **com poda de peças 100%
+  transparentes 63 de 64** (Ken soco 37 + Ryu soco 26).
+
+Consequências de projeto: alocador dinâmico de pares por slot livre (não
+metades fixas); poda obrigatória em todo o corte; agendador de flicker por
+scanline em runtime (as tabelas pré-geradas só cobriam o par idle fixo);
+qualquer ação/FX nova exige refazer esta conta. O header 72–88 exporta os
+mesmos símbolos do corte 1:4 (anims, CNS, `PoseRef`), então a FSM de
+`fight.c` pode ser reaproveitada. Nada integrado ainda.
+
 ## Streaming em assembly: cadência AIR exata no idle — 2026-09-29
 
 Commit do lote anterior: `b94320a`. Depois dele, clones locais:
