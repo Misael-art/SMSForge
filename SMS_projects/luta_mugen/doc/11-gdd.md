@@ -107,11 +107,16 @@ aguarda substituição por um modelo alinhado ao Ken Masters ADV/CPS2.
   CLSN preservados; largura/altura derivadas da arte e coreografia medida.
 - SAT emitida <=64 e cada linha <=8. Testar sprites esparsos, deduplicação,
   streaming e o degrau seguinte antes de reduzir qualidade.
-- Flicker inteligente é somente uma rota experimental de diagnóstico. A entrega
-  exige zero omissão visível do lutador/FX, <=8 sprites por scanline e <=64 na
-  SAT. Omissão multiplexada reprova a cena; tentar compactação/reautoria ou uma
-  composição alternativa medida, sem reduzir silenciosamente a altura 72–88 px.
-  Os limites do VDP permanecem.
+- **Decisão humana 2026-09-29 (opção 3): flicker mínimo e sem glitch é o padrão
+  do motor a 72–88 px.** Zero flicker foi bloqueado por hardware com medição:
+  limite inferior sprite-only 9–10 sprites/linha no par idle (VDP mostra 8) e
+  lutador em BG com posição de 1 px limitado a ~12 px/s (memory bank). O VDP
+  continua recebendo <=8 por linha e <=64 na SAT: o agendador multiplexa só as
+  linhas onde o par disputa a cota. Aceite de imagem: `audit_render_glitch.py
+  --mode flicker` PASS (nenhum pixel fora da pose legal; toda peça coberta em
+  cada janela de 8 quadros; sem resíduo, sprite perdido ou flash de boot após o
+  primeiro conteúdo). Zero flicker continua sendo meta onde a geometria permitir
+  (ex.: lutadores em linhas distintas), nunca à custa da altura 72–88 px.
 - Perfil 1:4/48 px do conversor atual é `legacy_probe_quarter`: preservado
   para reproduzir T10, explicitamente bloqueado para delivery.
 - Capacidade alvo de ROM 1 MiB, banking Sega de 16 KiB e provas de fronteira.

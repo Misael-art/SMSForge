@@ -29,8 +29,16 @@
       "local": "analysis/scale_pilot.py",
       "origin": "local_original",
       "motivo": "Medidor local do corte 72–88 px, sprites/scanline, SAT, RAM/VRAM e cadência versus AIR; não existia no doador MD.",
-      "local_sha256_after_deviation": "058e3f0502a25e005d96187e54be1e97879d6dbe7abc60f948089411c08141b3",
-      "note_deviation": "Medidor local 72–88 px: --self-check, grid 8px, máscara/pivô via --video, pools idle/deltas, remapeamento por facing/paleta, buffers current+next, dedup cross-ator exato e probe de reconstrução de metadata P1→P2 por bytes/máscara (L085/L086/L088). selected-facing transition prefetch: exact new 8x16 pairs divided by AIR ticks, current+next residency, explicit throughput-not-measured scope and alias resolution (L085/L086/L088). Adds deterministic cyclic idle_cache_plan with physical slots, remapped metadata, source offsets, axis/AIR preservation, and self-check (2026-09-26)."
+      "local_sha256_after_deviation": "4730c5159b89826e599adda97108d074b119c5e3e100ae15ef02234d5ce533b4",
+      "note_deviation": "Medidor local 72–88 px: --self-check, grid 8px, máscara/pivô via --video, pools idle/deltas, remapeamento por facing/paleta, buffers current+next, dedup cross-ator exato e probe de reconstrução de metadata P1→P2 por bytes/máscara (L085/L086/L088). selected-facing transition prefetch: exact new 8x16 pairs divided by AIR ticks, current+next residency, explicit throughput-not-measured scope and alias resolution (L085/L086/L088). Adds deterministic cyclic idle_cache_plan with physical slots, remapped metadata, source offsets, axis/AIR preservation, and self-check (2026-09-26).",
+      "deviation_log": [
+        {
+          "date": "2026-09-29",
+          "from_sha256": "058e3f0502a25e005d96187e54be1e97879d6dbe7abc60f948089411c08141b3",
+          "to_sha256": "4730c5159b89826e599adda97108d074b119c5e3e100ae15ef02234d5ce533b4",
+          "reason": "L090: plano de slots idle periodico (ponto fixo guloso ou ping-pong) + _assert_idle_plan_periodic; self-check com fixture do defeito"
+        }
+      ]
     },
     {
       "local": "analysis/sms_budget.py",

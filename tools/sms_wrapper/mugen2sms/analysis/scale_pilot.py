@@ -342,6 +342,34 @@ def _remap_compact_metadata(metadata: bytes | list[int],
     return bytes(remapped)
 
 
+def _assert_idle_plan_periodic(initial_pose: dict, transitions: list[dict],
+                               frame_count: int) -> None:
+    """Simulate two loops as the ROM runs them (frame 0 keeps the initial
+    metadata): each frame must show the same (bank, off) pairs every loop and
+    no upload may target a slot the current frame displays (L090)."""
+    slots = {load["target_pair_slot"]: (load["source_bank"], load["source_off"])
+             for load in initial_pose["pattern_loads"]}
+    meta = {0: initial_pose["metadata"]}
+    for row in transitions:
+        if row["to_frame"]:
+            meta[row["to_frame"]] = row["next_metadata"]
+    rows = {row["from_frame"]: row for row in transitions}
+    shown: dict[int, tuple] = {}
+    frame = 0
+    for _ in range(2 * frame_count):
+        displayed = [meta[frame][i + 2] // 2 for i in range(0, len(meta[frame]) - 1, 3)]
+        view = tuple(slots.get(slot) for slot in displayed)
+        if None in view or shown.setdefault(frame, view) != view:
+            raise AssertionError(f"idle plan not periodic: frame {frame} changes between loops")
+        for load in rows[frame]["uploads"]:
+            if load["target_pair_slot"] in displayed:
+                raise AssertionError(
+                    f"idle plan uploads into displayed slot {load['target_pair_slot']} "
+                    f"during frame {frame}")
+            slots[load["target_pair_slot"]] = (load["source_bank"], load["source_off"])
+        frame = rows[frame]["to_frame"]
+
+
 def _idle_cache_plan(poses: dict[tuple[int, int, str], dict], role: dict,
                      facing: str, slot_base: int, slot_count: int) -> dict:
     """Plan exact source-to-VRAM loads for a looping idle pose sequence."""
@@ -385,9 +413,70 @@ def _idle_cache_plan(poses: dict[tuple[int, int, str], dict], role: dict,
             state["selected_patterns"],
             state["selected_pattern_source_pair_indices"])]
 
+    def run_pass(start_slots: dict[bytes, int]) -> tuple[list[dict], dict[bytes, int]]:
+        current_slots = dict(start_slots)
+        transitions = []
+        for frame_index, current in enumerate(states):
+            next_index = (frame_index + 1 if frame_index + 1 < frame_count
+                          else loop_start)
+            following = states[next_index]
+            following_slots = {pattern: current_slots[pattern]
+                               for pattern in following["selected_patterns"]
+                               if pattern in current_slots}
+            occupied = set(current_slots.values())
+            free_slots = [slot for slot in slots if slot not in occupied]
+            new_patterns = [pattern for pattern in following["selected_patterns"]
+                            if pattern not in following_slots]
+            if len(new_patterns) > len(free_slots):
+                raise ValueError("idle current+next poses exceed reserved cache slots")
+            for pattern, slot in zip(new_patterns, free_slots):
+                following_slots[pattern] = slot
+            transitions.append((frame_index, next_index, current, following,
+                                dict(current_slots), following_slots))
+            current_slots = following_slots
+        return transitions, current_slots
+
+    # L090: a single greedy pass is not cyclic -- the wrap back to frame 0
+    # can place its pairs in other slots than the initial layout, while the
+    # ROM keeps one metadata per frame, and the next 0->1 then overwrites
+    # slots the looped frame 0 displays. Iterate the start layout to a fixed
+    # point (wrap layout == start layout); otherwise fall back to even/odd
+    # ping-pong banks, which is periodic by construction.
     first = states[0]
-    current_slots = {pattern: slots[index]
-                     for index, pattern in enumerate(first["selected_patterns"])}
+    start_slots = {pattern: slots[index]
+                   for index, pattern in enumerate(first["selected_patterns"])}
+    allocation = None
+    loop_patterns = states[loop_start]["selected_patterns"]
+    for _ in range(16):
+        passes, wrap_slots = run_pass(start_slots)
+        # Layout the ROM shows for loop_start on the first pass (frame 0 is
+        # the start layout itself; later frames come from the pass).
+        first_view = start_slots if loop_start == 0 else passes[loop_start - 1][5]
+        if all(wrap_slots[p] == first_view[p] for p in loop_patterns):
+            allocation = "greedy_fixed_point"
+            break
+        if loop_start:
+            break
+        start_slots = {p: wrap_slots[p] for p in first["selected_patterns"]}
+    if allocation is None:
+        half = slot_count // 2
+        if (frame_count - loop_start) % 2 or any(len(set(st["selected_patterns"])) > half for st in states):
+            raise ValueError("idle cache plan has no periodic slot layout "
+                             "(greedy did not converge; ping-pong needs an even "
+                             "cycle and two banks within the reservation)")
+        bank_slots = [slots[:half], slots[half:2 * half]]
+        layouts = [{pattern: bank_slots[index % 2][k] for k, pattern in
+                    enumerate(dict.fromkeys(st["selected_patterns"]))}
+                   for index, st in enumerate(states)]
+        start_slots = layouts[0]
+        passes = []
+        for frame_index, current in enumerate(states):
+            next_index = frame_index + 1 if frame_index + 1 < frame_count else loop_start
+            passes.append((frame_index, next_index, current, states[next_index],
+                           layouts[frame_index], layouts[next_index]))
+        allocation = "pingpong_even_odd"
+
+    current_slots = start_slots
     initial_pose = {
         "action": action, "frame": 0, "facing": facing,
         "air_ticks": int(first["air_ticks"]),
@@ -400,29 +489,17 @@ def _idle_cache_plan(poses: dict[tuple[int, int, str], dict], role: dict,
         "pattern_loads": source_loads(first, current_slots),
     }
     transitions = []
-    for frame_index, current in enumerate(states):
-        next_index = (frame_index + 1 if frame_index + 1 < frame_count
-                      else loop_start)
-        following = states[next_index]
-        following_slots = {pattern: current_slots[pattern]
-                           for pattern in following["selected_patterns"]
-                           if pattern in current_slots}
-        occupied = set(current_slots.values())
-        free_slots = [slot for slot in slots if slot not in occupied]
-        new_patterns = [pattern for pattern in following["selected_patterns"]
-                        if pattern not in following_slots]
-        if len(new_patterns) > len(free_slots):
-            raise ValueError("idle current+next poses exceed reserved cache slots")
-        for pattern, slot in zip(new_patterns, free_slots):
-            following_slots[pattern] = slot
-
+    for frame_index, next_index, current, following, current_slots, following_slots in passes:
         uploads = source_loads(following, following_slots)
-        uploads = [load for load, pattern in zip(
-            uploads, following["selected_patterns"]) if pattern not in current_slots]
+        # A pair is reused only when it already sits in the same slot.
+        uploads = [load for load, pattern in zip(uploads, following["selected_patterns"])
+                   if current_slots.get(pattern) != following_slots[pattern]]
+        uploads = list({load["target_pair_slot"]: load for load in uploads}.values())
         transition_metrics = _transition_cache_metrics(
             set(current["selected_patterns"]), set(following["selected_patterns"]),
             int(current["air_ticks"]))
-        if len(uploads) * 64 != transition_metrics["next_pose_upload_bytes"]:
+        if allocation == "greedy_fixed_point" and \
+                len(uploads) * 64 != transition_metrics["next_pose_upload_bytes"]:
             raise AssertionError("idle slot plan upload bytes diverge from exact pair delta")
         remapped = _remap_compact_metadata(
             following["compact_metadata"],
@@ -435,14 +512,18 @@ def _idle_cache_plan(poses: dict[tuple[int, int, str], dict], role: dict,
             "next_axis_signed_xy": list(following["axis_signed_xy"]),
             "next_metadata": list(remapped),
             "next_pattern_slots": slot_rows(following, following_slots),
-            "reused_pair_count": transition_metrics["reused_pairs"],
+            "reused_pair_count": (transition_metrics["reused_pairs"]
+                                  if allocation == "greedy_fixed_point"
+                                  else len(following_slots) - len(uploads)),
             "new_pair_count": len(uploads),
             "upload_bytes": len(uploads) * 64,
             "minimum_uniform_upload_bytes_per_vblank":
-                transition_metrics["minimum_uniform_upload_bytes_per_vblank"],
+                (transition_metrics["minimum_uniform_upload_bytes_per_vblank"]
+                 if allocation == "greedy_fixed_point"
+                 else -(-len(uploads) * 64 // max(1, int(current["air_ticks"])))),
             "uploads": uploads,
         })
-        current_slots = following_slots
+    _assert_idle_plan_periodic(initial_pose, transitions, frame_count)
 
     peak_current_next = max(
         len(set(current["selected_patterns"]) |
@@ -462,7 +543,9 @@ def _idle_cache_plan(poses: dict[tuple[int, int, str], dict], role: dict,
         "authored_axis_and_air_values_preserved": True,
         "authored_dx_dy_and_terminators_preserved": True,
         "exact_source_pair_bytes_preserved": True,
-        "scope": "deterministic cyclic idle cache allocation; each next pose reuses byte-identical current pairs and stages only missing 8x16 pairs into free reserved slots; no VBlank throughput or emulator timing claim",
+        "slot_allocation": allocation,
+        "periodic_two_cycles_verified": True,
+        "scope": "deterministic cyclic idle cache allocation (verified over two cycles: every frame shows the same pairs on each loop and no upload targets a displayed slot); greedy reuse at a fixed point, else even/odd ping-pong banks; no VBlank throughput or emulator timing claim",
     }
 
 
@@ -1388,6 +1471,39 @@ def _self_check() -> None:
     assert idle_plan["initial_pose"]["axis_bytes"] == [4, 0, 252, 255]
     assert idle_plan["initial_pose"]["axis_signed_xy"] == [4, -4]
 
+    # L090: a single greedy pass can be non-periodic. Hand-built plan of that
+    # shape (loop moves frame 0's 2nd pair to slot 5, reuses slot 1) must fail.
+    bad_initial = {"metadata": [0, 0, 0, 8, 0, 2, 0x80], "pattern_loads": [
+        {"source_bank": 2, "source_off": 0, "target_pair_slot": 0},
+        {"source_bank": 2, "source_off": 64, "target_pair_slot": 1}]}
+    bad_rows = [
+        {"from_frame": 0, "to_frame": 1, "next_metadata": [0, 0, 4, 8, 0, 6, 0x80],
+         "uploads": [{"source_bank": 2, "source_off": 128, "target_pair_slot": 2},
+                     {"source_bank": 2, "source_off": 192, "target_pair_slot": 3}]},
+        {"from_frame": 1, "to_frame": 0, "next_metadata": [0, 0, 0, 8, 0, 10, 0x80],
+         "uploads": [{"source_bank": 2, "source_off": 64, "target_pair_slot": 5},
+                     {"source_bank": 2, "source_off": 256, "target_pair_slot": 1}]}]
+    try:
+        _assert_idle_plan_periodic(bad_initial, bad_rows, 2)
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("non-periodic idle plan must be rejected")
+    pats = [bytes([value]) * 64 for value in range(20, 28)]
+    def cycle(n: int, slot_count: int) -> dict:
+        fixture = {(0, i, "right"): cache_pose(i, [pats[2 * i], pats[2 * i + 1]],
+                                               [2 * i, 2 * i + 1]) for i in range(n)}
+        return _idle_cache_plan(fixture, {"role": "idle", "action": 0, "frame_count": n,
+                                          "loop_start": 0}, "right", 0, slot_count)
+    even = cycle(4, 6)
+    assert even["periodic_two_cycles_verified"] and even["slot_allocation"] == "greedy_fixed_point"
+    try:
+        cycle(3, 6)  # greedy oscillates and an odd cycle cannot ping-pong
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("odd non-convergent idle cycle must be rejected")
+
     mini_meta = bytes((0, 0, 4, 8, 0, 0, 16, 0, 6, 0x80))
     mini_metal = bytes((0, 0, 2, 8, 0, 6, 0x80))
     mini_header = "\n".join((
@@ -1500,7 +1616,7 @@ def _self_check() -> None:
     mismatch = _stream_mismatches("fixture", manifest)
     assert mismatch == [{"fighter": "fixture", "action": 0, "frame": 0,
                          "air_ticks": 1, "stream_ticks": 2}]
-    print("[SELF-CHECK OK] padded mirror pivot, palette metadata binding, temporal opacity raster, exact/opacity pair comparison, cross-actor pool reuse, tile remap, scale parser, signed metasprite, line budget, AIR/stream mismatch")
+    print("[SELF-CHECK OK] periodic idle slot plan (L090), padded mirror pivot, palette metadata binding, temporal opacity raster, exact/opacity pair comparison, cross-actor pool reuse, tile remap, scale parser, signed metasprite, line budget, AIR/stream mismatch")
 
 
 def main(argv=None) -> int:

@@ -1013,3 +1013,32 @@ snapshot parcial permanece `sem_lastro`; somente `done=1` fecha veredito. O
 self-check cobre limites da espera e janela incompleta. Medir o tempo real da
 ROM antes de aumentar a espera; não extrapolar aprovação de budget de um probe
 parcial.
+
+## 75. Plano de slots de animação em loop precisa ser periódico (L090)
+
+Uma passada gulosa de alocação (reusar pares iguais, novos nos slots livres)
+não fecha o ciclo: na volta última→0 os pares da pose 0 podem ir para outros
+slots, a ROM continua com uma META por pose e o upload 0→1 seguinte grava em
+slots exibidos. O glitch só aparece a partir da 2ª volta, sempre nas mesmas
+peças — screenshot do 1º ciclo não pega.
+
+Regra: todo plano de cache de animação cíclica é verificado simulando dois
+ciclos como a ROM executa (pose 0 com a META inicial): cada pose mostra os
+mesmos pares em toda volta e nenhum upload toca slot exibido.
+`scale_pilot.py` itera o layout até ponto fixo e cai em ping-pong par/ímpar;
+sem layout periódico, erro explícito. O self-check reproduz o defeito.
+
+## 76. Imagem renderizada se prova contra imagens legais, quadro a quadro (L091)
+
+Simulador de scanline, contagem de SAT e vídeo "com conteúdo" não provam a
+imagem. `audit_render_glitch.py` compara cada quadro do framebuffer com as
+imagens legais que o projeto rasteriza dos mesmos padrões e posições da ROM.
+Modo `strict` (zero flicker): quadro = imagem legal. Modo `flicker`: nenhum
+pixel aceso fora da imagem casada (resíduo, sprite perdido, par trocado) e,
+em cada janela de N quadros da mesma imagem, a união cobre tudo (nada omitido
+para sempre). No modo flicker o casamento minimiza primeiro o "sobrando":
+casar por faltando+sobrando escolhe a pose menor e fabrica falso positivo.
+O julgamento começa no primeiro conteúdo sustentado; o que acende antes é
+registrado (`pre_content_lit_pixels`), nunca apagado. Tolerância de borda de
+1 px (h264): glitch mais estreito não é detectado. Ligar o display só depois
+da 1ª SAT e dentro do VBlank.

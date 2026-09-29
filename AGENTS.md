@@ -171,7 +171,8 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Worst-frame | `measure_worst_frame.py` | orçamento de VBlank declarado e não medido; derrame sem número (L061, §49) |
 | Header↔doutrina | `audit_header_claims.py` | doutrina afirmando lei do SG-1000 como lei do SMS (PNT de 1 byte, "sem flip", 256 tiles) ou §6 sem os valores dos defines do header (L069, §54) |
 | Contrato de engine MUGEN | `audit_mugen_engine_contract.py` | perfil de probe promovido, capacidade sem prova/ROM ou técnica sem decisão e fallback (§68/L083) |
-| Piloto de escala MUGEN | `mugen2sms/analysis/scale_pilot.py` | idle fora de 72–88 px, pivô espelhado fora da grade/metasprite divergente da máscara, índice/pool/meta de paleta P2 incompatível, current+next acima de VRAM ou stream maior que duração AIR; requer `--self-check` e vídeo fresco antes de promover escala |
+| Piloto de escala MUGEN | `mugen2sms/analysis/scale_pilot.py` | idle fora de 72–88 px, pivô espelhado fora da grade/metasprite divergente da máscara, índice/pool/meta de paleta P2 incompatível, current+next acima de VRAM ou stream maior que duração AIR; plano de slots idle não periódico entre voltas (L090); requer `--self-check` e vídeo fresco antes de promover escala |
+| Glitch de render | `audit_render_glitch.py` | quadro do framebuffer fora das imagens legais: sprite perdido, tile residual, par trocado, omissão permanente no modo flicker, captura stale (L091, §76) |
 
 ## MODO DE EXECUÇÃO: DESENVOLVIMENTO CONTÍNUO COM PROMOÇÃO ASSÍNCRONA
 

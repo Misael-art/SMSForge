@@ -4,6 +4,38 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Padrão do motor: opção 3 + curadoria L090/L091 — 2026-09-29
+
+Decisão humana: opção 3 (flicker mínimo e sem glitch) é o padrão; GDD
+atualizado. Curadoria autorizada e aplicada:
+- **L090/§75** `scale_pilot.py`: plano de slots idle agora periódico (ponto fixo
+  guloso ou ping-pong) com `_assert_idle_plan_periodic` (dois ciclos). Relatório
+  real regenerado (`generated/.../scale_pilot_l090_audit.json`):
+  `greedy_fixed_point` nos dois lutadores, mesmos bytes de upload. Pino do
+  manifesto de doação atualizado com `deviation_log`.
+- **L091/§76** `tools/sms_wrapper/audit_render_glitch.py` (strict/flicker,
+  casamento por "sobrando" primeiro no modo flicker, início no conteúdo
+  sustentado com `pre_content_lit_pixels` registrado). Lição
+  `doc/curation/2026-09-29_l090_l091_idle_slot_period_render_glitch.json`;
+  AGENTS.md atualizado. validate_measurement_tools 47/47, doc-sync e
+  learning-capture PASS. mugen2sms: 94 passam, **6 falhas pré-existentes de
+  paridade de doação** (runtime_format/scene_cut alterados fora desta sessão;
+  character, ir/controllers, ir/expr, ir/opcodes: doador SGDKForge mudou após a
+  cópia) — não re-pinadas sem conferência.
+
+ROM base da opção 3: `out/local_study/scale_pilot_rom_flicker_min/`, SHA-256
+`deadcfab71b7bdf8783ebdbf3d9474353f1a5fa0f5e04435a573b5079e5e6a72`; bundle
+`out/evidence/final_bundle.json` selou 6 artefatos. Probe 59,52/59,59 FPS
+constantes; worst-frame 3.000 `vovf_delta=0`; Ken 5,38 frames/pose (AIR 4),
+Ryu 7,26 (AIR 7–8); `audit_render_glitch --mode flicker` PASS em 3 capturas
+desde o boot (0/767, 0/756, 0/761). Corrigidos na ROM: 1ª SAT antes do
+displayOn e display ligado em VBlank (antes: sprite perdido no canto nos
+primeiros quadros, pego pelo gate). Aberto: flash de 7–9 px em y 135–136
+antes do `main` (antes de qualquer código da ROM desenhar), registrado em cada
+JSON; causa (crt0/power-on/emulador) não isolada. Escrita de VRAM em display
+ativo continua como exceção com prova (slots não exibidos + gate), não regra.
+Idle só, palco preto, NTSC; sem input/combate/HUD/áudio. Nada promovido.
+
 ## Critério visual atualizado — zero flicker na entrega — 2026-09-29
 
 O pedido humano mais recente passa a exigir idle opaco 72–88 px,
@@ -21,6 +53,80 @@ zero para dois lutadores nessa composição. Ver
 `doc/18-gap-diagnostico-plano-prompt-2026-09-29.md` para evidência, plano e
 prompt de continuação. Arte final permanece bloqueada até a solução caber sem
 omissão visível.
+
+## BG fighter andando a 1 px — bloqueio de throughput — 2026-09-29
+
+Clone `out/local_study/scale_pilot_rom_bg_walk/`, ROM SHA-256 prefixo
+`d9f0cf6272776e00` (704 KB); bundle `out/evidence/walk_bundle.json` selou 5
+artefatos. `tools/gen_bg_walk.py` (--self-check; round trip pixel a pixel):
+4 poses × 8 fases pré-deslocadas, região 6×11, até 45 tiles (1.440 B) por
+atualização, bancos 38–41, name table com borda em branco que limpa a coluna
+abandonada. Ryu anda 0↔16 px, 1 px por atualização, o mais rápido possível.
+
+Medido: 59,74/59,72 FPS constantes; worst-frame 3.000 `vovf_delta=0`; gate
+zero-flicker em modo dividido (Ken x<136, Ryu com deslocamento 0..16, identifica
+deslocamento ±1 px) PASS 537/537, 0/0; deslocamentos 0–15 observados.
+Custo: Ryu 1 atualização a cada 4,96 frames ≈ **12 px/s**; Ken caiu para
+**5,98 frames/pose** (AIR 4) por dividir o streaming.
+
+Veredito: lutador inteiro em BG com 1 px é limpo mas **BLOCKED para locomoção**
+(caminhada de luta nesta escala ~60–120 px/s, 5–10× acima). Híbrido parcial
+(só peças que estouram 8/linha): pior par exige 10 de 20 peças do Ryu no BG,
+~640 B/px → ~26 px/s ESTIMADO, não medido; ainda 2–4× abaixo.
+Com o limite inferior (sprite-only impossível) isto configura conflito de
+hardware entre {72–88 px, dois lutadores lado a lado, zero flicker, locomoção
+livre}. Pela regra do doc 18: parar antes de reduzir personagem ou aceitar
+omissão; decisão de escopo é humana. Nada promovido; T10 intocada.
+
+## Lote zero-flicker (doc 18) — idle do par 72–88 px — 2026-09-29
+
+Clone `out/local_study/scale_pilot_rom_zero_flicker/`, ROM SHA-256 prefixo
+`7d73a666ab1ddfa2`; bundle `out/evidence/pp_bundle.json` selou 5 artefatos
+posteriores à ROM (probe, worst-frame, vídeo, JSON do vídeo, gate).
+
+1. **Sprite-only refutado por limite inferior** (`tools/line_lower_bound.py`,
+   --self-check PASS; `generated/zero_flicker_line_lower_bound.json`): cobertura
+   mínima de pixels opacos por intervalos de 8 px. Ken 5–6/linha, Ryu 4; os 24
+   pares idle dão pico 9–10 em 19–33 linhas. Nenhum re-layout/dedup/cull desce
+   abaixo disso; sprites 8×16 reais só pioram.
+2. **Defeito de plano de slots encontrado e corrigido** (`tools/pingpong_plan.py`,
+   --self-check com fixture do defeito): o relatório de origem (scale_pilot) não
+   é cíclico — a volta última→0 grava pares da pose 0 em slots diferentes
+   (Ken 58/59, Ryu 102/103, entradas dos pés, dy=64) enquanto a ROM usa a META
+   inicial, e o 0→1 seguinte sobrescreve esses slots. Glitch determinístico a
+   partir da 2ª volta. **Explica o fragmento no pé do Ryu** (fast_render) e o
+   "3→0 slots 102/103 vs 82/83" do isolamento P2 anterior. Correção: ping-pong
+   (poses pares banco A, ímpares banco B), periodicidade verificada em 2 ciclos.
+   O defeito vem do planejador em `tools/sms_wrapper/mugen2sms` (não alterado;
+   candidato de curadoria).
+3. **Híbrido BG/sprite**: Ken em sprites (metasprite inteira, ≤30 SAT, pico
+   6/linha, sem scheduler); Ryu no BG (`tools/gen_bg_fighter.py`, --self-check,
+   asserção pixel a pixel da composição), região 5×11 tiles, 41–44 tiles/pose,
+   `TILE_USE_SPRITE_PALETTE`, dois conjuntos de tiles alternados, entradas de
+   name table geradas prontas e copiadas no VBlank (montá-las em RAM custava
+   ~48 linhas e derrubava o loop a 54 FPS).
+4. **Gate** `tools/zero_flicker_gate.py` (--self-check: exato, omissão 8×16,
+   resíduo 8×8, par alternativo, captura stale): cada quadro precisa ser
+   explicado por um par (Ken i ∪ Ryu j) rasterizado dos padrões reais.
+   Negativo real: vídeo do fast_render reprova 536/536 (até 4.038 px faltando).
+   Híbrido antes do ping-pong: 87/537 reprovados (pés do Ken após a volta).
+
+Medido na ROM final: probe 59,75/59,79 FPS constantes, boot/avanço PASS;
+worst-frame 3.000 frames `vovf_delta=0`, `vline_min=202`; vídeo `pp.mp4.mp4`
+538 frames, 204 quadros com mudança = trocas de pose previstas (sem mudança
+por flicker); **gate zero-flicker PASS 536/536, 0 px faltando, 0 sobrando**.
+Cadência: Ken 4,15 frames/pose (AIR 4), Ryu 7,26 (AIR 7–8), médias.
+
+Limites deste resultado (não promover):
+- escrita de VRAM em display ativo continua (pares do Ken e tiles do Ryu em
+  slots/tiles não referenciados; ping-pong verifica que nenhum upload toca slot
+  exibido). É exceção candidata com prova, não regra aprovada;
+- gate tolera 1 px de borda (compressão h264): glitch de 1 px não é detectado;
+- só idle, palco preto, NTSC, posições fixas, cadência média (não por transição);
+- lutador em BG só se move em passos de 8 px sem pré-deslocamento (8 fases ×
+  tiles de ROM) ou deslocamento em runtime — custo não medido; sobre cenário
+  real exige composição com os tiles do palco — não medido; Ryu continua
+  amostra bootleg NES.
 
 ## Runtime base B — cadência AIR recuperada — 2026-09-29
 
