@@ -4,6 +4,35 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Streaming em assembly: cadência AIR exata no idle — 2026-09-29
+
+Commit do lote anterior: `b94320a`. Depois dele, clones locais:
+
+1. `scale_pilot_rom_flicker_fastsafe` (ROM `d464780d…`): cópia display-safe
+   própria a 30 ciclos/byte (OUTI+NOP+JP NZ, endereço com DI/EI). Medida por
+   VCounter no DAP (`diag_copytime`): **9–10 linhas por par de 64 B** contra ~22
+   da `SMS_VRAMmemcpy`. Gate de glitch PASS em 3 vídeos (nenhum byte perdido).
+   Cadência do Ken NÃO melhorou (5,67 frames/pose).
+2. Diagnóstico (`diag_copytime`, contadores lidos por delta no DAP; histograma
+   inicial descartado por RAM não zerada): poses do Ken duravam 5–7 frames;
+   ~2 pares rápidos + ~5,7 seguros por frame; **5–8 linhas de C entre duas
+   cópias** (indexação de struct, shifts de 16 bits, contadores uint16).
+3. `scale_pilot_rom_flicker_asmstream` (ROM SHA-256
+   `0d6b959ab6480322e25636c9c95f5f1cdaa6aa7f9f90de042b66037fa4f05701`): laço
+   de streaming inteiro em assembly (interface por globais, modo por par pelo
+   VCounter). Bundle `out/evidence/as_bundle.json` selou 6 artefatos. Probe
+   59,75/59,75 FPS constantes; worst-frame 3.000 `vovf_delta=0`; streaming
+   termina na linha 35 (antes, no limite ~116); **Ken 4,00 frames/pose (AIR 4),
+   Ryu 7,26 (AIR 7–8)**; `audit_render_glitch --mode flicker` PASS 0/735,
+   0/759, 0/741.
+
+Modelo por ação com banda conservadora de 832 B/frame para o Ken (NÃO medido
+em FSM): andar ×1,05, chute ×1,12, especial ×1,08, soco ×1,57 (poses de 1–2
+ticks com 35–38 pares), agachar/guarda 3 frames onde o AIR pede 1; latência de
+entrada ~3 frames em toda ação porque a 1ª pose sobe inteira. Próximo gate:
+runtime com FSM e ping-pong dinâmico por lutador, medindo cadência por ação,
+latência de entrada e gate de glitch em vídeo de cada ação. Nada promovido.
+
 ## Padrão do motor: opção 3 + curadoria L090/L091 — 2026-09-29
 
 Decisão humana: opção 3 (flicker mínimo e sem glitch) é o padrão; GDD
