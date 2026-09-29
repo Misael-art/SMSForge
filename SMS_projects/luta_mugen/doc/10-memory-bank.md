@@ -4,6 +4,49 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Integração do motor 72–88 (em curso) — 2026-09-29
+
+Clone `out/local_study/luta_integrada/` (FSM de `fight.c` + input por porta
+A/B restrito a soco/guarda, pool compartilhado, SAT própria). Build pelo
+script `tools/build_integrada.sh`, que regenera tabela/banco 37 e checa:
+`check_ram_layout.py` (DATA não pode alcançar a RAM fixa de probe 0xC7A0) e
+banco 37 da ROM == blob gerado. Ferramentas novas no clone, todas com
+--self-check: `gen_pose_table.py` (metas podadas + tabela de linhas por
+pose/lado no banco 37; P2 usa o blob `_P2_TILES`), `trim_scene_header.py`,
+`check_ram_layout.py`.
+
+Medido (ROM do clone, idle, sem input):
+- Pool: pico 100 de 128, 0 falhas de alocação, 0 uploads descartados.
+- Duração das poses com prefetch da pose seguinte: Ken 76 e Ryu 42 poses com
+  desvio 0 em **iterações do loop** (sem prefetch eram +2 em quase todas).
+- **Loop a 29,8–29,9 FPS** (2 quadros por iteração). Logo o AIR roda na
+  metade da velocidade real: cadência 60 Hz NÃO atingida; latência de input
+  ainda não medida por isso.
+- Orçamento (linhas, mediana): SAT ~12; streaming até ~144 linhas após o
+  início do VBlank (prefetch contínuo); rastreamento 5; `fight_step` 24+20;
+  laço dos lutadores 19 estável / ~100 em troca de pose (alocação 60);
+  agendamento 0 / 53 em troca; emissão 63.
+
+Defeitos achados e corrigidos no caminho (todos por medição):
+- DATA do SDCC sobrepunha a RAM fixa de probe (0xC8D0 > 0xC7A0): FPS e
+  telemetria viravam lixo sem erro → checagem executável.
+- `banks_integrada.bin` obsoleto (banco 37 de layout anterior): o pool lia
+  metasprites erradas, estourava a lista de uploads e corrompia RAM →
+  script de build + comparação ROM↔blob.
+- Encadeamento herdado do T10 (pedir a pose só quando a anterior termina):
+  +2 quadros por pose → prefetch da pose seguinte no pool.
+- Custos de C do SDCC (~150–600 ciclos por iteração): liberação no VBlank,
+  varredura do mapa, emissão, agendamento, alocação → movidos para
+  assembly / pilha de slots livres / cache por mudança. `--opt-code-speed
+  --max-allocs-per-node 50000` não ganhou nada (23,2 FPS igual).
+- `SMS_addMetaSprite` relia a metasprite: substituída por SAT própria em RAM
+  com o registrador 5 do VDP programado explicitamente (SAT em 0x3F00).
+
+Pendente para 60 Hz: ~20 linhas no quadro estável e ~120 nos quadros de
+troca de pose (emissão em registradores, alocação por lista de pares
+pré-gerada, `fight_step`). Depois: input real, latência entrada→pose→hitbox,
+gate L091 em vídeo com input. Nada promovido.
+
 ## Retomada do motor — dimensionamento da residência conjunta — 2026-09-29
 
 Pedido humano: retomar `luta_mugen` a partir do streaming em assembly
