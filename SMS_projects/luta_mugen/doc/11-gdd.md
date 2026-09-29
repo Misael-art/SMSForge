@@ -56,7 +56,7 @@ SMS_projects/luta_mugen/       ← CONSUMIDOR: runtime Z80 que INTERPRETA tabela
   visível, nunca silêncio.
 - Classes de fidelidade obrigatórias em TODO recurso:
   `direct | approximate | manual | unsupported` (gate novo:
-  `audit_mugen_fidelity.py`).
+  `mugen2sms/analysis/fidelity.py` (relatório; não existe auditor standalone com aquele nome)).
 - Núcleo do runtime não conhece nomes: estados, frames (duração, metasprite,
   offset), clsn1/clsn2 → hurtbox/hitbox, janelas startup_active_recovery,
   comandos (buffer QCF+etc → specials), paletas e SFX vêm de tabelas
@@ -71,37 +71,55 @@ SMS_projects/luta_mugen/       ← CONSUMIDOR: runtime Z80 que INTERPRETA tabela
 pelo usuário para **uso local** na decisão MD 2026-09-22; redistribuição segue
 bloqueada.
 
+**Direção visual (decisão de 2026-09-26):** Ken Masters ADV, baseado em sprites
+ripados da CPS2 arcade, é o modelo de referência de proporção e acabamento.
+O Ryu atual (`ryu_kang.zip`) vem de sprites de um bootleg de NES e permanece
+somente como piloto técnico para estudo de paleta P1/P2, vínculo de metadata e
+cache de animação. Ele não é referência estética nem arte final. Antes de
+produzir o roster completo, substituir Ryu por outro modelo coerente com Ken
+Masters ADV/CPS2. O estudo técnico com Ryu continua válido e não bloqueia o
+avanço da engine.
+
 | # | Cena | Escopo em 1 linha | Status |
 |---|------|-------------------|--------|
 | 01 | `probe_import` | Ken renderizado de dados convertidos, pose-por-pose em tela estática — prova tileset/paleta/metasprite | documentado |
-| 02 | `ken_vs_dummy` | Ken (1P humano) vs dummy: andar, agachar, pular, soco, chute, guard, dano, hitstop — prova FSM interpretador + hitboxes | documentado |
-| 03 | `golden_slice` | 2 lutadores por dados (Ken + 2º do acervo, escolha na S6), rounds melhor-de-3, timer, HUD em tiles, 1 especial cada (QCF+B1) — prova do contrato | documentado |
+| 02 | `ken_vs_dummy` | Ken (1P humano) vs dummy técnico Ryu: andar, agachar, pular, soco, chute, guard, dano, hitstop — prova FSM interpretador + hitboxes | testado_em_emulador parcial (T10; input range-synced e DAP 2×120 s PASS; KO/reset e partida longa pendem) |
+| 03 | `golden_slice` | 2 lutadores por dados (Ken + 2º modelo visualmente coerente; seleção final após estudos técnicos), rounds melhor-de-3, timer, HUD em tiles, 1 especial cada (QCF+B1) — prova do contrato | buildado parcial (T10: dados Ken/Ryu simultâneos para prova técnica; rounds, especial de Ryu e troca só por `.def` ainda sem prova) |
 
 **Prova do contrato (gate automatizado, não narrativa):** trocar o `.def` do
 2º lutador no build muda personagem, paleta, frame data e especial sem editar
 nenhum `.c` do núcleo.
 
-## Escala do lutador — TRAVADA (2026-09-25, decisão humana sobre medição)
+## Padrão de entrega vigente — decisão humana 2026-09-26
 
-Medição que força a decisão (`s4_generation_report.json`, Ken do corte S3):
-pior pose × 2 lutadores = **pico 32 sprites/scanline (teto 8), SAT 256 (teto 64)**.
-Ken em escala nativa MUGEN não cabe no VDP; 270/463 sprites (58%) têm >8 colunas.
+A nova referência Sangokushi III supersede o teto universal 1:4/48 px da decisão
+anterior. Norma: `../../../doc/05_technical/mugen_engine_standard.md`;
+contrato executável: `engine_quality_contract.json`; revisão: `16-engine-review-2026-09-26.md`.
+Piloto de escala e limites observados: `17-scale-pilot-2026-09-26.md`; o piloto
+é `measured`, não libera arte completa nem aceita a cadência de combate.
+O corte Ryu nesse relatório é um bootleg NES usado para estudo técnico de
+paleta/runtime; não aprova sua coerência visual. A produção completa de arte
+aguarda substituição por um modelo alinhado ao Ken Masters ADV/CPS2.
 
-Contrato (vale para TODO personagem consumido pelo motor):
-
-| Item | Valor travado |
-|------|---------------|
-| Modo de sprite | `SPRITEMODE_TALL` 8×16 (SMSlib.h:57) |
-| Largura do lutador em qualquer scanline | **≤4 sprites/linha ≈ 32 px** |
-| Altura do lutador | **≤3 sprites TALL ≈ 48 px** (2 linhas lógicas de pose) |
-| Orçamento da cena versus | 2 lutadores = pico 8/linha **exato**; faíscas/sombra só existem porque a regra limita o lutador, nunca o contrário |
-| Conversor | downscale **1:4 fixo** aplicado ao gerar arte; pose que ainda estoura entra como `manual` (reautoria), **nunca** entra no build |
-| Proibido | flicker/rotação de prioridade para mascarar overflow (falsa audácia — SMS_GLOBAL) |
-| Troca de piloto | escala é do MOTOR, não do personagem: trocar Ken por outro personagem não reabre a escala |
-
-Consequência registrada: o recorte visual é grande (Ken nativo até 128 px → 32 px).
-É o preço medido do versus 2 jogadores no SMS; estética análoga aos versus
-lançados para o hardware (régua em Benchmarks).
+- Corpo idle opaco: 45–55% da área útil declarada. Perfil inicial 160 px úteis
+  em canvas 256×192 → 72–88 px; exceções por pose e contexto registradas.
+- Metasprite TALL 8×16, transformação uniforme por personagem/cena, pivots e
+  CLSN preservados; largura/altura derivadas da arte e coreografia medida.
+- SAT emitida <=64 e cada linha <=8. Testar sprites esparsos, deduplicação,
+  streaming e o degrau seguinte antes de reduzir qualidade.
+- Flicker inteligente é somente uma rota experimental de diagnóstico. A entrega
+  exige zero omissão visível do lutador/FX, <=8 sprites por scanline e <=64 na
+  SAT. Omissão multiplexada reprova a cena; tentar compactação/reautoria ou uma
+  composição alternativa medida, sem reduzir silenciosamente a altura 72–88 px.
+  Os limites do VDP permanecem.
+- Perfil 1:4/48 px do conversor atual é `legacy_probe_quarter`: preservado
+  para reproduzir T10, explicitamente bloqueado para delivery.
+- Capacidade alvo de ROM 1 MiB, banking Sega de 16 KiB e provas de fronteira.
+  Não há obrigação de inflar cada jogo até 1 MiB; há obrigação de provar a capacidade.
+- PSG com prioridades e restauração é base. H-scroll, raster, PCM e FM são
+  expansões condicionadas ao ganho/custo e contexto, com fallback obrigatório.
+- AAA exige resultado audiovisual/jogável aprovado; implementar técnicas não
+  autoriza o claim. T10 permanece prova técnica, não atende ao piso novo.
 
 ## Pipeline verificável (E do MD → S do SMS)
 
@@ -124,12 +142,13 @@ lançados para o hardware (régua em Benchmarks).
 - **Paleta**: 2 subpaletas × 15 cores úteis + índice 0 transparente;
   quantização 6-bit offline com piso de contraste medido.
 - **ROM**: iniciar 32 KB; banking Sega mapper (padrão MSSF2T spec-banking:
-  dados em `BANK1+`, `SMS_mapROMBank` só no VBlank) declarado no TDD desde o
+  dados em bancos declarados, `SMS_mapROMBank` com ownership do slot; upload em VBlank) declarado no TDD desde o
   início, não descoberto tarde.
 - **RAM 8 KB**: pools estáticos nomeados no TDD (sprite table, estado de luta,
   input buffer, stack). Zero malloc, zero float.
-- **Áudio**: `.snd` MUGEN → PSG (SFX via PSGlib, canal conforme manifesto);
-  WAV em runtime NÃO existe; 1 stream de música no MVP.
+- **Áudio**: `.snd` inventariado; reautoria PSG declarada (não conversão fiel
+  automática de WAV), prioridade/canais conforme manifesto; PCM/FM candidatos
+  segundo contrato, sem integração ao runtime nesta revisão.
 - **Worst-frame**: orçamento de VBlank medido com `measure_worst_frame.py` na
   cena 03 antes de qualquer claim. (Lição aberta do MSSF2T: lá derramou; aqui o
   número é contrato desde o design.)
@@ -140,10 +159,11 @@ lançados para o hardware (régua em Benchmarks).
 - VM de CNS em runtime (caminho recusado formalmente em 2026-09-25).
 - Mega Drive: o alvo é SMS; o forge MD é referência de técnica apenas.
 - Team mode, multi-stage, roster além dos 2 do golden slice, select screen,
-  continue/credit, SRAM, FM/YM2413, 6 botões, throws, dizzy, Super Combos.
+  continue/credit, SRAM, 6 botões, throws, dizzy, Super Combos.
+  FM/YM2413 e PCM pertencem agora ao portfólio experimental, fora do baseline PSG.
 - IA avançada (dummy/espelho bastam no MVP).
 - Trilha completa; mais de um palco.
-- Licença: arte real convertida nunca entra no Git nem em release — fica em
+- Licença: arte real convertida nunca entra no Git nem em distribuição pública — fica em
   `out/local_study/` (gitignored); fixtures de teste sintéticos são os únicos
   dados MUGEN-like no repo.
 - Números de Mega Drive afirmados como lei do SMS (gate `audit_hardware_constants`).

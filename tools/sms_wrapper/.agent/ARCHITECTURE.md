@@ -33,3 +33,6 @@
   Paleta de outro console é régua (L055).
 
 Números de Mega Drive não entram. Método sim (§32).
+
+Engines MUGEN→SMS: `workflows/mugen-engine-quality.md`, pipeline
+`pipelines/mugen_fighting_v1.json` e SMS_GLOBAL §68.

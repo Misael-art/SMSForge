@@ -1,3 +1,76 @@
 {
-  "assets": []
+  "assets": [
+    {
+      "file": "out/local_study/generated/scene_cut/ken_scene_runtime.h",
+      "origin": "../../../Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip",
+      "author": "KenMastersADV local source archive",
+      "tool": "mugen2sms.scene_cut",
+      "role": "character_cut",
+      "source_kind": "MUGEN .def/.sff/.air/.act/.cns/.cmd",
+      "license_status": "candidate",
+      "sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "generated_sha256": "23f3bf58987cf34a0ef679487a06de8e1d6974c0eb982d0fcc1b4194d1c82fc4",
+      "source_sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "fidelity_classes": {
+        "approximate": 44
+      }
+    },
+    {
+      "file": "out/local_study/generated/scene_cut/ken_scene_bank2.bin",
+      "origin": "../../../Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip",
+      "author": "KenMastersADV local source archive",
+      "tool": "mugen2sms.scene_cut",
+      "role": "character_cut",
+      "source_kind": "MUGEN .def/.sff/.air/.act/.cns/.cmd",
+      "license_status": "candidate",
+      "sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "generated_sha256": "4bd2250c64efb706a9cfd1adf168f7326f45b281b9a0a57f12c759a3b001c6fc",
+      "source_sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "fidelity_classes": {
+        "approximate": 44
+      }
+    },
+    {
+      "file": "out/local_study/generated/scene_cut/ken_scene_bank3.bin",
+      "origin": "../../../Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip",
+      "author": "KenMastersADV local source archive",
+      "tool": "mugen2sms.scene_cut",
+      "role": "character_cut",
+      "source_kind": "MUGEN .def/.sff/.air/.act/.cns/.cmd",
+      "license_status": "candidate",
+      "sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "generated_sha256": "3063f42418808b72b9698d8475d6561114649733478112796de433dccfa14f40",
+      "source_sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "fidelity_classes": {
+        "approximate": 44
+      }
+    },
+    {
+      "file": "out/local_study/generated/scene_cut/ken_scene_bank4.bin",
+      "origin": "../../../Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip",
+      "author": "KenMastersADV local source archive",
+      "tool": "mugen2sms.scene_cut",
+      "role": "character_cut",
+      "source_kind": "MUGEN .def/.sff/.air/.act/.cns/.cmd",
+      "license_status": "candidate",
+      "sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "generated_sha256": "c584b3712afa8b76e7466a4524b51ede0ba203ac06903893921258f109642573",
+      "source_sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "fidelity_classes": {
+        "approximate": 44
+      }
+    },
+    {
+      "file": "out/local_study/validation/ken_p1_idle_tile.png",
+      "origin": "../../../Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip",
+      "author": "KenMastersADV local source archive",
+      "tool": "mugen2sms.scene_cut",
+      "role": "character_tile_preview",
+      "source_kind": "MUGEN .def/.sff/.air/.act",
+      "license_status": "candidate",
+      "sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
+      "generated_sha256": "8400e0c0ea6ec78026a2e7966076996fd75085b1dd21c191e4b5666bc497a80a",
+      "source_sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3"
+    }
+  ]
 }

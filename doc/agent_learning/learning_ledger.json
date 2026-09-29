@@ -273,7 +273,7 @@
   {
    "ts": "2026-09-08",
    "kind": "curation",
-   "summary": "L060-L064: ciclo MSSF2T v085 — soco conectou por input com estado do oponente na prova (L060); worst-frame medido na ROM e derramou 247 frames com fps 60 (L061); banner K.O. capturado por roteiro de pressao continua (L062); dialogo modal do Emulicious bloqueava carregamento da ROM e NPE-ava o evaluate DAP (L063); cadeia captura+selo em comando unico e binding de ROM atualizado no ciclo (L064).",
+   "summary": "L060-L064: ciclo MSSF2T v085 — soco conectou por input com estado do oponente na prova (L060); worst-frame contou 247 leituras >=0xC0, mas a interpretacao como derramamento foi invalidada por L082 (L061); banner K.O. capturado por roteiro de pressao continua (L062); dialogo modal do Emulicious bloqueava carregamento da ROM e NPE-ava o evaluate DAP (L063); cadeia captura+selo em comando unico e binding de ROM atualizado no ciclo (L064).",
    "sources": [
     "SMS_projects/MSSF2T/out/evidence/input_memory.json",
     "SMS_projects/MSSF2T/out/evidence/worst_frame.json",
@@ -293,6 +293,93 @@
     "SMS_projects/hamoopig/src/fighter.c"
    ],
    "dedup_key": "l065_l068_qcf_harness_2026_09_19"
-  }
+  },
+  {
+   "ts": "2026-09-26",
+   "kind": "curation",
+   "summary": "L082: VCounter 0xC0 marca o início do VBlank. O critério antigo vline>=0xC0 contava janela segura; derrame só ocorre após a volta do contador, quando vline<0xC0. measure_worst_frame foi corrigido, passou 23/23 self-checks e revalidou luta_mugen: 2968/3000 frames cruzaram para display ativo (vline_min=62). Perfil ROM localizou 63 scanlines em busca de comandos e 52 em desenho. Resultados anteriores de pior-frame ficam inválidos até re-medição correta.",
+   "sources": [
+    "doc/curation/2026-09-26_l082_vcounter_vblank_deadline.json",
+    "tools/sms_wrapper/measure_worst_frame.py",
+    "tools/sms_wrapper/.agent/rules/SMS_GLOBAL.md"
+   ],
+   "dedup_key": "l082_vcounter_deadline_and_overflow_2026_09_26"
+  },
+  {
+   "ts": "2026-09-26",
+   "kind": "curation",
+   "summary": "L083: piso MUGEN→SMS por contrato de cena e provas; preset 1:4 histórico não autoriza delivery; CLI com imports MD ausentes corrigida. Nenhuma promoção de ROM/AAA.",
+   "sources": [
+    "doc/curation/2026-09-26_l083_mugen_engine_contract.json"
+   ],
+   "dedup_key": "l083_mugen_engine_contract_2026_09_26"
+  },
+  {
+   "ts": "2026-09-26",
+   "kind": "curation",
+   "summary": "L084: makesms aceita oito mapas bancários; além disso addMerge falha e o parser continua, deixando ROM parcial com build success. Consolida páginas contíguas e o auditor mede o limite.",
+   "sources": [
+    "doc/curation/2026-09-26_l084_makesms_merge_limit.json",
+    "sdk/devkitSMS-upstream/makesms/src/makesms.c",
+    "tools/sms_wrapper/mugen2sms/generators/versus_scene_cut.py",
+    "tools/sms_wrapper/audit_mugen_engine_contract.py"
+   ],
+   "dedup_key": "l084_makesms_merge_limit_2026_09_26"
+  },
+  {
+   "ts": "2026-09-26",
+   "kind": "curation",
+   "summary": "L085: o validador de ferramentas de medição descobria apenas a raiz e ignorava um auditor no subdiretório de análise MUGEN. A busca agora cobre subdiretórios e o autocheck inclui fixture nested.",
+   "sources": [
+    "doc/curation/2026-09-26_l085_nested_measurement_discovery.json",
+    "tools/sms_wrapper/validate_measurement_tools.py",
+    "tools/sms_wrapper/mugen2sms/analysis/scale_pilot.py"
+   ],
+   "dedup_key": "l085_nested_measurement_discovery_2026_09_26"
+  },
+  {
+   "ts": "2026-09-26",
+   "kind": "curation",
+   "summary": "L086: o pivô de facing esquerdo precisa da largura da grade arredondada a 8 px; a coluna de padding transparente também deve ser distinguida da origem raster na comparação de máscara.",
+   "sources": [
+    "doc/curation/2026-09-26_l086_metasprite_mirror_pivot.json",
+    "tools/sms_wrapper/mugen2sms/analysis/scale_pilot.py",
+    "SMS_projects/luta_mugen/inc/luta.h",
+    "SMS_projects/luta_mugen/src/fight.c"
+   ],
+   "dedup_key": "l086_metasprite_mirror_pivot_2026_09_26"
+  },
+    {
+      "ts": "2026-09-26",
+      "kind": "curation",
+      "summary": "L087: audit_learning_capture truncava a ferramenta nested ao basename; agora valida o caminho relativo completo e testa ausência/presença no autocheck.",
+      "sources": [
+        "doc/curation/2026-09-26_l087_nested_learning_tool.json",
+        "tools/sms_wrapper/audit_learning_capture.py"
+      ],
+      "dedup_key": "l087_nested_learning_tool_2026_09_26"
+    },
+    {
+      "ts": "2026-09-26",
+      "kind": "curation",
+      "summary": "L088: metasprite IDs precisam casar com o pool de tiles da mesma paleta/facing; o piloto mediu estouro P2, buffers acima de VRAM e AIR menor que o upload. Gerador/runtime agora exportam e selecionam META/METAL P2 separados; regen e prova seguem pendentes.",
+      "sources": [
+        "doc/curation/2026-09-26_l088_palette_metasprite_binding.json",
+        "tools/sms_wrapper/mugen2sms/analysis/scale_pilot.py",
+        "tools/sms_wrapper/.agent/rules/SMS_GLOBAL.md"
+      ],
+      "dedup_key": "l088_palette_metasprite_binding_2026_09_26"
+    },
+    {
+      "ts": "2026-09-26",
+      "kind": "curation",
+      "summary": "L089: o pior-frame do clone a 2,35 FPS chegou só a 218/3000 frames em 90 s e ficou sem_lastro; espera DAP configurável 90–1800 s mantém janela selada. ROM do piloto esperou 150 s e mediu 3000/3000 frames com derramamento, vline_min=54.",
+      "sources": [
+        "doc/curation/2026-09-26_l089_worst_frame_wait_slow_rom.json",
+        "tools/sms_wrapper/measure_worst_frame.py",
+        "SMS_projects/luta_mugen/out/local_study/scale_pilot_rom_idle_cache/out/evidence/idle_cache_worst_frame_profiled.json"
+      ],
+      "dedup_key": "l089_worst_frame_wait_slow_rom_2026_09_26"
+    }
  ]
 }

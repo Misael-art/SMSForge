@@ -1,14 +1,24 @@
 # 15-tdd — luta_mugen
 
+> **Revisão vigente 2026-09-26:** `engine_quality_contract.json` e
+> `16-engine-review-2026-09-26.md` supersedem a escala 1:4/48 px como limite do
+> motor. Números e tarefas T10 abaixo são histórico do perfil
+> `legacy_probe_quarter`, sem aceite no novo piso. O piloto 72–88 px está
+> medido para idle estático; ver `17-scale-pilot-2026-09-26.md`. Custos
+> simultâneos, cadência AIR de combate, RAM/VRAM e capacidade expansível ainda
+> bloqueiam a promoção para arte completa. Técnicas opcionais exigem A/B.
+
+
 > Arquitetura técnica. Autoridade #7.
 > A API definitiva é o header (`sdk/devkitSMS/SMSlib/SMSlib.h`, autoridade #8) —
 > este documento NUNCA inventa assinatura. Em dúvida: leia o header.
 >
 > Rascunho S3 (2026-09-25): toda grandeza de hardware abaixo tem fonte citada;
 > todo número de personagem vem de `out/local_study/s3_fidelity_ken.json`
-> (medido por `mugen2sms/analysis/`, reproduzível). Cadeia de status:
-> `documentado ≠ implementado ≠ buildado ≠ testado_em_emulador ≠ validado_budget`
-> — nada daqui passou de **implementado com testes Python**; ROM ainda não existe.
+> (medido por `mugen2sms/analysis/`, reproduzível). Em 2026-09-26, o runtime
+> da arena de fixture já tem ROM bancária medida em emulador (Task 6); isso
+> não promove o corte do Ken nem a entrega do produto. Cadeia de status:
+> `documentado ≠ implementado ≠ buildado ≠ testado_em_emulador ≠ validado_budget`.
 
 ## Restrições assumidas (herdadas, sempre ativas)
 ```
@@ -87,7 +97,7 @@ Distribuição de largura de sprite (colunas de 8 px): mediana 69×83 px;
 |-------------|---------|
 | sons PCM (33, todos unsupported) | **Nada porta direto.** Reautoria PSG: 6 SFX (soco, chute, especial, hit, KO, round) + 1 BGM, declarados em manifest de áudio. Ken audível = zero PCM. |
 | comandos com b/c/x/y/z (77) | **Remapeio manual**: tabela de comandos do runtime só aceita {direções, A, start}; combo especial passa para QCB+A etc. na faixa `manual`, reautorado 1 lutador. |
-| `scanline>8` (243 poses) | **Escala travada 2026-09-25 (GDD §Escala do lutador)**: TALL 8×16, lutador ≤4 sprites/linha × ≤3 de altura (~32×48 px), downscale 1:4 fixo no conversor; quem ainda estourar vira `manual` (reautoria) e não entra no build. Flicker para mascarar overflow é proibido. |
+| `scanline>8` (243 poses) | **Decisão histórica 2026-09-25, supersedida no padrão 2026-09-26**: 1:4/32×48 sobrevive apenas em `legacy_probe_quarter` para reproduzir T10. Rota vigente: idle opaco 72–88 px na área útil inicial de 160 px, razão uniforme por personagem/cena, pivôs/CLSN preservados e custo por pose medido. O pedido de 2026-09-29 fixa zero flicker visível como aceite de entrega: multiplexação é diagnóstico, não fallback. Poses/budgets fora do contrato bloqueiam promoção. Ver GDD vigente, `mugen_engine_standard.md` e `18-gap-diagnostico-plano-prompt-2026-09-29.md`. |
 | `sat>64` (232 frames de efeito) | **Fora do MVP** — intros/victory screens fullscreen não cabem na SAT; ficam no IR como documentação do acervo. |
 | `sprite-ausente` (11 frames) | **Fora** — dependem de sprites de sistema (fightfx) que não estão no pacote do personagem. |
 | paleta >15 úteis (16 sprites) | Quantização no conversor + revisão visual; `manual` até passar em `audit_validate_resources`. |
@@ -104,7 +114,7 @@ Distribuição de largura de sprite (colunas de 8 px): mediana 69×83 px;
 |------|-----|----------------|-------|
 | lutador+helper (Q8.8 pos/vel, estado, anim, timer, vida, flags) | 4 slots | 32 B | 128 B |
 | stack da VM de condições (IR `vm.py`) | 2 × 32 | 1 B/entry | 64 B |
-| staging de tiles p/ upload no VBlank | — | 512 B | 512 B |
+| staging de tiles p/ upload no VBlank | — | 0 B | 0 B (source lido direto do bank via `SMS_VRAMmemcpy_brief`; endereço de destino em bytes, revisão T6) |
 | buffers do SMSlib (SAT, name table espelho) | — | (SMSlib aloc; ~2 KB) | — |
 
 **Regra:** nenhum pool entra no build sem linha medida no worst-frame
@@ -118,16 +128,73 @@ origem 99 personagem + 27 common_forge)_
 - Alvo inicial: **48 KB linear sem mapper** (B01) → **reprovado por medição S3**
   (só a arte do corte de 1 lutador ≈ 150 KB).
 - Adotado: **mapper Sega** (páginas 16 KB, regs 0xFFFE/0xFFFF), código ≤32 KB,
-  dados a partir do bank 1, streaming apenas no callback de VBlank.
-- Status atual: **decidido (bancado), não implementado**.
+  dados no slot 2, streaming apenas no bloco VBlank depois de
+  `SMS_waitForVBlank()`; o código salva, mapeia e restaura o bank ao redor do
+  `SMS_VRAMmemcpy_brief`. O destino do memcpy é endereço em bytes: `base_tile * 32
+  + offset_bytes` (SMSlib.h:394; `SMS_loadTiles` aplica esse fator na macro em
+  SMSlib.h:130).
+- Status atual: **implementado e validado no fixture sintético**. Build
+  `b5d5db7b…`, 65.536 B; `measure_worst_frame.py` selou 3.000 frames com
+  `vovf_delta=0`, `vline_min=0xC8`. O pipeline do Ken real ainda não está
+  entregue.
 
 ## Áudio
 - Driver: PSGlib (`sdk/devkitSMS/PSGlib/PSGlib.h` é a autoridade).
-- Arbitração de canais SFX vs música (só 4 canais) — declarar explicitamente:
-  _(canal que cede: SFX em A+B, música cede A/B no hit; fechar no Plano 2)_
+- Canais declarados: BGM em 0+1 e SFX em 2+3 via
+  `PSGSFXPlay(sfx, SFX_CHANNELS2AND3)`; `audit_psg_channel_binding.py` deve
+  confirmar que chamadas e manifesto continuam alinhados.
 - YM2413/FM é **opcional**: o jogo tem que funcionar sem ele.
 - Medido: 33/33 sons PCM → **zero bytes portados**; só reautoria PSG entra.
 
 ## Orçamento de frame
-_(quem escreve na VRAM, quanto, e dentro de qual janela — fechar em S5/S6 com
-`measure_worst_frame.py`; entrada: pose ativa ≤2 KB de tiles, BG 768 tiles)_
+O loop atual foi medido em emulador: no fixture de luta, `stream_step`, carga
+condicional de paleta, atualização do HUD e cópia da SAT ocorrem após
+`SMS_waitForVBlank()`; input, física e preparação de metasprites ficam em CPU
+depois do bloco VDP. `measure_worst_frame.py` na SHA
+`b5d5db7b6295e8c6947b0125f0d4ef468fc179fb4e4d72215b5b5573227fafc5` mediu
+3.000 frames, nenhum VDP write atravessando para display ativo e
+`vline_min=0xC8`. O snapshot de checkpoints por etapa não existe nesse PASS,
+pois o perfil captura apenas quadros com derrame. Esta era a ROM de fixture;
+a medição do corte Ken real está registrada na atualização T10 abaixo.
+
+## Atualização de runtime — T10 Ken vs Ryu dummy (2026-09-26)
+
+Build observada no Emulicious: ROM 131.072 B, SHA
+`af9eb127895ed07de6884592bbac420e31c660b39d371d4c9f5faaacd629dc97`.
+T10 integra o corte Ken (44 poses, banks 2–4) e o corte Ryu (32 poses, banks
+5–6) na mesma ROM. `fight_step` seleciona o perfil por slot e consulta tabelas
+de animação/CLSN/física distintas. P2 continua dummy determinístico; o parser
+de comandos físicos só controla P1. As tabelas de estado em `fight.c` ainda
+referenciam os símbolos Ken/Ryu, então trocar um `.def` sem alterar o C do
+núcleo não está provado nesta composição.
+
+- `measure_worst_frame.py`: PASS na ROM T10 em 3.000 frames, `vovf_delta=0`,
+  `vline_min=200`. O perfil por checkpoints retorna inválido porque não há
+  quadro derramado para perfilar; nenhum tempo por etapa foi medido.
+- `measure_frame_advance.py`: 58,6 FPS, 27 transições em 59,81 s,
+  `constante=true`. Título do Emulicious: média 59,8 FPS (6/6 válidas).
+- `measure_runtime_probe.py --seconds 120 --janelas 2`: PASS na ROM T10,
+  58,10/59,78 FPS, spread 1,68; boot e avanço também PASS
+  (`t10_current_runtime_probe_120.json`). A tentativa de 2×240 s quebrou o DAP
+  antes da segunda janela; os 54,22 FPS daquela janela ficam como diagnóstico.
+  Não se transfere o resultado T9 (58,87/59,86 FPS, SHA `2210b016…ebf21f`).
+- `t10_input_memory_range_sync_pass.json`: direção, pulo até 76 px, dano,
+  crouch, guard e QCF+B1 PASS no mapa SMRT com input físico. O helper revalida
+  P1/P2 após IDLE e amostra o alcance com o jogo pausado antes do B1: gap 16,
+  vida 152→102 e score 2→3. O whiff anterior fica como diagnóstico em
+  `t10_input_memory_idle_wait_retry_whiff.json`.
+  `t10_current_audio.wav`: sinal isolado por 15,6 s, ativo em 100%, auditado;
+  sem avaliação subjetiva da composição.
+- A tela T10 é somente `probe`; a captura semântica aprova paleta e pixels,
+  mas não demonstra uma silhueta final de luta. Não declarar `delivery`.
+- `seal_fresh_evidence_bundle.py`: PASS; o bundle T10 sela 38 artefatos,
+  incluindo o reteste range-synced e seu self-check. `reconcile_claims.py`
+  confirma os sete eixos binários; `audit_claims.py` não encontrou claim acima
+  do teto.
+  KO/reset, gameplay prolongado e contrato visual continuam fora do PASS.
+
+Build Ryu separada: `t9_ryu_def_switch.json`, 65.536 B, 32 poses, dois banks.
+Os SHA de `src/main.c`, `src/fight.c` e `inc/fight.h` são idênticos aos da
+build Ken. Isso prova substituição de dados no build, não mistura de dois
+personagens em runtime; para a cena golden, metadados e pose banks devem ser
+selecionáveis por fighter sem aumentar o pico acima de 8 sprites/scanline.

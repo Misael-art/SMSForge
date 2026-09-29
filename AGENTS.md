@@ -145,6 +145,7 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Fixture canônica | `canonical_fixture_gate.py` | fixture sem escopo ou com claim amplo |
 | Áudio (captura) | `capture_audio.py` | grava o áudio **isolado** do emulador (sink dedicado); repete se vier silêncio adiantado |
 | Áudio (mix) | `audit_audio.py` | captura de áudio silenciosa/sem sinal |
+| Qualidade musical PSG | `audit_psg_quality.py` | "música" que é metralhadora de 16 Hz: uníssono total, volume estático, ruído periódico como percussão, loop < 2,5 s (L078, L079) |
 | FPS (emulador) | `measure_fps.py` | <5 amostras ou fps fora de 50–60 — mede a velocidade de **emulação** relatada no título |
 | FPS (loop da ROM) | `measure_frame_advance.py` | contador de frames da própria ROM parado ou em ritmo irregular; o título diria 60fps numa ROM travada (L013) |
 | Runtime da ROM (memória) | `measure_runtime_probe.py` | probe sem magic/schema, frame parado, fps fora de 50–60 ou janelas divergentes — lê o estado na RAM via DAP, sem pixels nem foco de janela (L035, §37) |
@@ -168,6 +169,23 @@ roteiro → storyboard (planta baixa em pixel) → coreografia → MEDIÇÃO →
 | Canal de input | `emulator_input.py` | XTEST/xdotool em Wayland/KWin (L039); canal = kdotool+ydotool (uinput) |
 | Tradução pixel | `prepare_sms_pixel_art.py` | foto/conceito fora da paleta mestra; preset NES/SNES/PICO-8 (L055, §8) |
 | Worst-frame | `measure_worst_frame.py` | orçamento de VBlank declarado e não medido; derrame sem número (L061, §49) |
+| Header↔doutrina | `audit_header_claims.py` | doutrina afirmando lei do SG-1000 como lei do SMS (PNT de 1 byte, "sem flip", 256 tiles) ou §6 sem os valores dos defines do header (L069, §54) |
+| Contrato de engine MUGEN | `audit_mugen_engine_contract.py` | perfil de probe promovido, capacidade sem prova/ROM ou técnica sem decisão e fallback (§68/L083) |
+| Piloto de escala MUGEN | `mugen2sms/analysis/scale_pilot.py` | idle fora de 72–88 px, pivô espelhado fora da grade/metasprite divergente da máscara, índice/pool/meta de paleta P2 incompatível, current+next acima de VRAM ou stream maior que duração AIR; requer `--self-check` e vídeo fresco antes de promover escala |
+
+## MODO DE EXECUÇÃO: DESENVOLVIMENTO CONTÍNUO COM PROMOÇÃO ASSÍNCRONA
+
+Runbook: `tools/sms_wrapper/.agent/workflows/async-promotion-loop.md`.
+
+Trabalhe em **lotes verticais**: durante o lote, só testes focados da área
+alterada; gates integrais uma única vez no fechamento. **Um push por lote
+completo**; registre branch/SHA/run uma vez e **nunca faça polling do CI nem
+narre gates longos em loop** — rode-os em background e use o tempo de espera
+para o próximo trabalho independente seguro. Relato intermediário:
+`Resultado / Bloqueio / Próxima ação`. Assincronia muda **quando** você
+olha, nunca **se** mede — a regra final de ferro permanece.
+
+---
 
 ## VOCABULÁRIO DE STATUS
 

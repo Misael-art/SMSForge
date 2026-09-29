@@ -77,7 +77,7 @@ tiro/invuln/flash, inimigos com dificuldade progressiva, HUD, game over.
 | VRAM | 16KB, **sem DMA** | transferências SÓ no VBlank, orçamento medido |
 | Sprites | **8/scanline**, 64 na SAT | simulador por scanline |
 | Paleta | 64 códigos fixos (6-bit) | contrato de cor, sem "gradiente" |
-| Tiles BG | name table de **1 byte/tile** | sem flip/paleta por tile |
+| Tiles BG | name table de **entradas 16-bit** (flip X/Y, paleta, prioridade) | 448 tiles BG (0–447); probe `pnt_16bit` |
 | ROM | 48KB linear; mapper 16KB | header SEGA + makesms |
 | Áudio | PSG SN76489 (4 canais); YM2413 opcional | PSGlib; jogo roda sem FM |
 

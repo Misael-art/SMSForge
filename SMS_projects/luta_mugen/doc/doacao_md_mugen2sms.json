@@ -11,8 +11,8 @@
       "local": "__main__.py",
       "donor_abspath_at_copy_time": "/mnt/sdcard/Projects/Sgdk Forge/tools/mugen2sgdk_forge/mugen2sgdk_forge/__main__.py",
       "donor_sha256": "75989aba6759872e7f579556e51f9eacdef76e63ff6aa7acf71f6d94c13351f5",
-      "local_sha256_after_deviation": "a0e0374508468b77392e31cb7cd7a021719d4c72b3f5bec2aaa859d1d1e3f7be",
-      "note_deviation": "doador MD bumpou TOOL_VERSION para 0.3.1 (commit CramConsumer, 2026-09) APOS a copia; fork SMS mantem 0.3.0 e versiona o tool na sua propria linhagem (S0: fork evolui proprio)"
+      "local_sha256_after_deviation": "185d159cb9969380b27eb6a2c523a2bb63ad56fb6e0807f7dc2ed874a5377569",
+      "note_deviation": "Revisão L083: substitui CLI MD quebrada por dispatch lazy das rotas SMS existentes e quality-check."
     },
     {
       "local": "analysis/__init__.py",
@@ -24,6 +24,13 @@
       "origin": "local_original",
       "motivo": "camada analysis SMS criada no fork (orcamento VDP + fidelidade por recurso); nao doada",
       "local_sha256_after_deviation": "43f87e3720b5975ec5d1802fb76f9e2c3494f71b9cf6cf36346f8b098ac499d7"
+    },
+    {
+      "local": "analysis/scale_pilot.py",
+      "origin": "local_original",
+      "motivo": "Medidor local do corte 72–88 px, sprites/scanline, SAT, RAM/VRAM e cadência versus AIR; não existia no doador MD.",
+      "local_sha256_after_deviation": "058e3f0502a25e005d96187e54be1e97879d6dbe7abc60f948089411c08141b3",
+      "note_deviation": "Medidor local 72–88 px: --self-check, grid 8px, máscara/pivô via --video, pools idle/deltas, remapeamento por facing/paleta, buffers current+next, dedup cross-ator exato e probe de reconstrução de metadata P1→P2 por bytes/máscara (L085/L086/L088). selected-facing transition prefetch: exact new 8x16 pairs divided by AIR ticks, current+next residency, explicit throughput-not-measured scope and alias resolution (L085/L086/L088). Adds deterministic cyclic idle_cache_plan with physical slots, remapped metadata, source offsets, axis/AIR preservation, and self-check (2026-09-26)."
     },
     {
       "local": "analysis/sms_budget.py",
@@ -57,7 +64,8 @@
       "local": "converters/sms_scale.py",
       "origin": "local_original",
       "note": "S4.5a contrato de escala do GDD 2026-09-25 (downscale 1:4, <=4 col x <=3 TALL)",
-      "local_sha256_after_deviation": "95b0325cdb135dfda6673577c638f6dc1a568984d3773bae5c27b7d67c7d4454"
+      "local_sha256_after_deviation": "ebeeb2fb469e3d3d199f5f1bb222ac812f206888f6579847f8724a861e5ffa99",
+      "note_deviation": "Perfil legado 1:4 documentado como legacy_probe_quarter; adiciona transformação racional uniforme preservando pixels indexados, pivôs/eixos, AIR, flips e CLSN."
     },
     {
       "local": "converters/sms_sound.py",
@@ -87,11 +95,39 @@
       "discarded_donor_docstring": true
     },
     {
+      "local": "generators/emit_synth.py",
+      "origin": "local_original",
+      "motivo": "CLI que emite o fixture sintetico (mini) como header C committavel p/ cenas do runtime — arte real nunca entra no git; nao doado",
+      "local_sha256_after_deviation": "aa1d22f7af41563b434ec04b0cd886545d2b10c5b7bdf74f9fba579e981c1917",
+      "note_deviation": "T6: CLI --banked/--bin — emite header com _BANK/_OFF/_SIZE e escreve mini_bank2.bin (pagina 16 KB slot 2); sem --banked o formato antigo inline continua identico (usado pelos testes de byte)"
+    },
+    {
+      "local": "generators/runtime_format.py",
+      "origin": "local_original",
+      "motivo": "S4.5b formato de runtime do SMS criado no fork (metasprite 3B MSSF2T-provado, pares TALL, espelho-H como padrao, P2 por shift de indice); nao doado",
+      "local_sha256_after_deviation": "12cf43c33f46e3217c11133c0942b37cbf91ce173d53efd0032750bca3841297",
+      "note_deviation": "Documenta que deduplicacao P1/P2 pode divergir e exige metadata correspondente ao pool, L088."
+    },
+    {
+      "local": "generators/scene_cut.py",
+      "origin": "local_original",
+      "motivo": "Corte local de assets por lutador, ACT e orçamento SMS; derivado MUGEN permanece fora do Git",
+      "local_sha256_after_deviation": "e21a65af3e3168d97b526a402ffe49930ca5c723b4c0ea43d5badef7b27df6d3",
+      "note_deviation": "Corte SMS agora emite META/METAL P2 independentes e rejeita variantes sem metadata/geometry coerentes (L088)."
+    },
+    {
       "local": "generators/smsdev.py",
       "origin": "local_original",
       "motivo": "camada conversao SMS criada no fork (doador MD tinha so __init__ vazio); nao doada",
-      "local_sha256_after_deviation": "ccb56ad9b00a70b31b72d6d720228884b2647c4f5cf3be073cc23ae2546bee65",
-      "note_deviation": "S4.5b: _MAP (tile|flip) substituido por TILES/META/METAL no formato de runtime SMS; T4: CLSN passa a duas secoes (hit|hurt) com sentinela -32767 cada — runtime precisa distinguir caixa de golpe de hurtbox"
+      "local_sha256_after_deviation": "b4952326047584bcb6c3dc034bc49f03889c2459e6a098db88dcaadfaabf2522",
+      "note_deviation": "Conversor SMS local; lote 2026-09-26 aceita assets pre_scaled e opção de omitir células metasprite vazias sem reescalar poses individualmente."
+    },
+    {
+      "local": "generators/versus_scene_cut.py",
+      "origin": "local_original",
+      "motivo": "Junção de dois cortes MUGEN em tables de runtime e mapper banks distintos para a cena versus",
+      "local_sha256_after_deviation": "ff0edf78a56472f10e693c64da96c57676826e885d1b700ad78549a9183aead0",
+      "note_deviation": "Junção de dois cortes; L083 habilitou dispatch SMS e L084 agrega bancos contíguos em arquivos mapper para respeitar MAX_MERGES=8 do makesms. exact byte-equality META/METAL aliases retaining every symbol and _SIZE; dedup summary recorded in generated manifest (L088)."
     },
     {
       "local": "inventory.py",
@@ -190,18 +226,6 @@
       "local": "validate/__init__.py",
       "donor": null,
       "donor_sha256": null
-    },
-    {
-      "local": "generators/runtime_format.py",
-      "origin": "local_original",
-      "motivo": "S4.5b formato de runtime do SMS criado no fork (metasprite 3B MSSF2T-provado, pares TALL, espelho-H como padrao, P2 por shift de indice); nao doado",
-      "local_sha256_after_deviation": "13aefdc342af151b8ef0498d34995f43249d682c5f8684dfee33bf119d3391f7"
-    },
-    {
-      "local": "generators/emit_synth.py",
-      "origin": "local_original",
-      "motivo": "CLI que emite o fixture sintetico (mini) como header C committavel p/ cenas do runtime — arte real nunca entra no git; nao doado",
-      "local_sha256_after_deviation": "d501f1dfdf0f1850d0b929dab6f5df942bf152b3519b4441b8f7109a74d931c3"
     }
   ]
 }

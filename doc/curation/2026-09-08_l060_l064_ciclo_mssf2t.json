@@ -15,7 +15,7 @@
     {
       "id": "L061",
       "status": "fechada_com_ferramenta",
-      "lesson": "Orcamento de cena 'declarado' vira dívida invisivel ate existir instrumento na ROM: o worst-frame de VBlank declarado em spec-cenas desde o inicio nunca tinha sido medido; o probe aditivo (probe_vline 0xC7EA = VCounter no fim do trabalho do frame, probe_vovf 0xC7EB = contador saturante de frames com vline >= 0xC0) mediu: 247 de ~2700 frames DERRAMAM no VBlank (vline_max 251/262) no modo atracao, com fps segurando 60. Derrame nao derruba fps — espreme o streaming de VRAM. Degrau seguinte com numero: reduzir stream de troca de pose ou DMA.",
+      "lesson": "Orcamento de cena 'declarado' vira dívida invisivel ate existir instrumento na ROM: o worst-frame de VBlank declarado em spec-cenas desde o inicio nunca tinha sido medido; o probe aditivo contou 247 de ~2700 frames com vline >= 0xC0 (vline_max 251/262) sob o criterio antigo. A interpretacao de que esses frames DERRAMAVAM foi invalidada por L082: 0xC0 marca o inicio do VBlank, portanto esse resultado nao prova derramamento nem folga. Derrame nao derruba fps — espreme o streaming de VRAM. Recolher o pior-frame com vline < 0xC0.",
       "rule_section": "SMS_GLOBAL §49",
       "tool_that_measures": "measure_worst_frame.py",
       "evidence": "SMS_projects/MSSF2T/out/evidence/worst_frame.json (verdicto=derramou, vovf_delta=247, vline_max=251, estados ROUND/FIGHT/KO/RESULT)."

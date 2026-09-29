@@ -4,25 +4,410 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
-## Última atualização
-2026-09-25 (madrugada) — Plano 2 Task 5 executada: input VIVO provado na RAM
-(`src/input.c` + `tools/prove_input.py`, canal uinput kdotool/ydotool), mapa de
-probes SMRT com 14 células, e um BUG REAL caçado pela evidência: o BG palette
-escrevia em CRAM `2` achando ser "palette 2" enquanto o chão lê entry `10` — a
-entry real nunca era inicializada e o chão saía cinza/oliva/rosa/ciano conforme
-o estado do emulador entre runs. ROM `fe66394c…dc9` em todos os gates.
-Tests Python: 79/79.
+## Critério visual atualizado — zero flicker na entrega — 2026-09-29
+
+O pedido humano mais recente passa a exigir idle opaco 72–88 px,
+proporções/pivôs/CLSN/AIR preservados, zero flicker visível/glitch e velocidade
+de jogo estável. Isso supersede a decisão anterior de aceitar flicker controlado
+como base de entrega. O clone `scale_pilot_rom_fast_render` segue como referência
+de desempenho (~59,6 fps), mas é diagnóstico: tem flicker visível, Ken abaixo da
+cadência AIR e um fragmento isolado no pé do Ryu sem causa fechada.
+
+O corte local de 44 poses Ken/32 Ryu mede idle 81/80 px; bounds máximos
+escalados são Ken 107×41 (KO) e 51×108 (special), Ryu 71×40 (KO) e 30×83
+(special). No simulador, cada personagem isolado fica em até 7 sprites/linha,
+mas o par idle chega a 11/linha (55 SAT): hoje não existe aceite de flicker
+zero para dois lutadores nessa composição. Ver
+`doc/18-gap-diagnostico-plano-prompt-2026-09-29.md` para evidência, plano e
+prompt de continuação. Arte final permanece bloqueada até a solução caber sem
+omissão visível.
+
+## Runtime base B — cadência AIR recuperada — 2026-09-29
+
+Registro da decisão anterior ao critério visual atualizado acima: B (escala
+72–88 px, flicker controlado) segue como base de desempenho diagnóstico, não
+como alvo visual de delivery. Clone
+`out/local_study/scale_pilot_rom_fast_render/`, ROM SHA-256 prefixo
+`34025741996b6b42` (build determinístico, rebuild reproduz o SHA). Bundle
+`out/evidence/final_bundle.json` selou 4 artefatos posteriores à ROM.
+
+Medido: probe 59,57/59,81 FPS constantes, boot/avanço PASS; worst-frame PASS
+3000 frames, `vovf_delta=0`, `vline_min=204`; vídeo `l70.mp4.mp4` 538 frames,
+8/8 informativos, taxa de loop pelo vídeo 59,2/s. Cadência medida por
+contadores de troca de pose no probe (0xC7F2/0xC7F4): **Ken 5,37 frames/pose
+(AIR 4), Ryu 7,25 (AIR 7–8)**.
+
+Correção do registro anterior: o custo de B foi CALCULADO errado. Medido no
+B original (`cull_cap21`): Ken 14,9 frames/pose e Ryu ~877 (3 trocas em 2.631
+frames): Ken fazia upload primeiro e a guarda barrava quase todo par do Ryu.
+
+Mudanças (cada uma medida):
+1. Alternância par a par entre lutadores + guarda como único orçamento:
+   Ken 19,4 / Ryu 12,8.
+2. `UNSAFE_SMS_copySpritestoSAT` agora legítima (roda primeiro, no VBlank):
+   Ken 15,2 / Ryu 9,7.
+3. Streaming também em display ativo com `SMS_VRAMmemcpy` (slots de destino
+   não exibidos até o prazo AIR), rápido só em 0xC0–0xE7, parada em
+   `PILOT_STREAM_LIMIT`. Derrubou o loop para 30/s: o render custava ~122–160
+   linhas (~650–900 ciclos/sprite: código SDCC via IX + `SMS_addSprite_f`).
+4. Render via `SMS_addMetaSprite` (API pública): sublistas por lutador ×
+   par de poses × variante geradas por `tools/gen_render_bank.py`
+   (--self-check PASS) num banco próprio (37, ~11,2 KB, deduplicado); o boot
+   valida cada sublista contra os caches de runtime e falha fechado. Render
+   caiu para 38 linhas.
+5. Limite 0x70 = teto medido; 0x80 reprova (46,8 FPS, ganho de Ken só
+   5,4→5,1).
+
+A worst-frame agora amostra logo após a SAT (único trabalho preso ao VBlank);
+o streaming em display ativo é intencional e a prova de que o loop não perde
+frame é o FPS constante + a taxa de loop pelo vídeo.
+
+Diagnósticos inválidos descartados nesta sessão: "fast-only 30 FPS" e
+"348 FPS" mediram ROM de build que FALHOU (erro interno SDCC
+`SDCCgenconstprop` com ramo constante-morto); o `BUILD OK` ausente passou
+despercebido. Candidato a lição de curadoria: gate que recusa medir se o
+build da mesma invocação falhou.
+
+Observação aberta: no vídeo, um fragmento isolado nos pés do Ryu num quadro.
+Não se sabe se é tile legítimo em turno de flicker ou erro. Sem IoU, input,
+combate, HUD ou áudio neste clone. Ken ainda ~26% abaixo do AIR; o flicker
+continua visível nas linhas compartilhadas. Não promovido a entrega.
+
+## Comparação A/B do padrão de escala 72–88 px — 2026-09-28
+
+Decisão histórica de 2026-09-28, superada em 2026-09-29 para a entrega: manter
+o piso 72–88 px com flicker controlado. Os dados abaixo são diagnóstico; B é
+referência de desempenho, não aceite visual. O par idle fonte tinha 55 entradas
+SAT e pico de 11 sprites/linha (10 após poda). Dois clones de `schedule_indices`
+medidos:
+
+- **A `scale_pilot_rom_cull`** (ROM `3dd24686…`): poda de peças 8×16 100%
+  transparentes via `tools/cull_empty_pairs.py` (--self-check PASS). Ken 35→30
+  peças/pose; cobertura média do escalonador 73,4%→80,4%. Upload inalterado
+  (o par vazio já era um slot deduplicado). 34,91/34,91 FPS, não constante;
+  worst-frame `derramou` 3000/3000, `vline_min=54`, streaming 102 linhas.
+  Vídeo `cull.mp4.mp4`: Ryu com tiles de lixo (padrão de VRAM corrompida).
+- **B `scale_pilot_rom_cull_cap21`** (ROM `7fc76fc1…`): A + SAT antes do
+  streaming + teto 2 pares Ken/1 par Ryu por VBlank com pose retida até o
+  sucessor estar residente + listas de desenho geradas com ids diretos dos
+  caches por lutador (sem merge em runtime) + guarda VCounter 0xC0–0xE7 antes
+  de cada par. **59,72/59,76 FPS constantes, boot/avanço PASS; worst-frame PASS
+  3000 frames, `vovf_delta=0`, `vline_min=243`.** Vídeo `guard_e8.mp4.mp4`:
+  pixels limpos; lacunas restantes são colunas multiplexadas pelo flicker.
+  Degraus medidos no caminho: 2+2 → 51,3 FPS/429 derrames; 2+1 → 53,5/282;
+  +ids diretos → 59,8/282 (spill_max 4 linhas); guarda 0xF0 → 7; 0xE8 → 0.
+  O derrame acompanhava a taxa de troca de pose (merge em runtime).
+- Custo de B (calculado, não medido em vídeo): Ken ≥15 frames/pose (AIR 4),
+  Ryu ≥20 (AIR 7–8) — a animação idle fica 2,5–3,75× mais lenta que o AIR.
+  Sem áudio, input, combate ou auditoria IoU nestes clones.
+
+Recomendação: B como base de runtime; próximo gate é recuperar cadência AIR
+(menos pares únicos por pose/reuso entre poses) sem perder o VBlank.
+
+## Hipótese de escrita VRAM rápida em display ativo — 2026-09-28
+
+Clone `out/local_study/scale_pilot_rom_safe_order/` (base: schedule_indices):
+SAT copiada primeiro no VBlank; streaming com `UNSAFE_SMS_VRAMmemcpy64` só com
+VCounter em 0xC0–0xF9, senão `SMS_VRAMmemcpy` (segura em display ativo).
+Hipótese: OUTI a 16 ciclos no display ativo perderia bytes e causaria as
+silhuetas fragmentadas (Ryu frames 1–3). Probe NTSC 31,17/31,28 FPS (pior que
+34,71), boot/avanço PASS, `fps_constante=false`. Vídeo `safe_order_v2.mp4.mp4`
+(573 frames/9,56 s, 8/8 informativos; 1ª tentativa falhou no ffmpeg sem log)
+continua com lacunas de colunas/blocos iguais às do baseline, na inspeção visual.
+Hipótese NÃO confirmada, e sem auditoria IoU nem worst-frame nesta ROM. A causa
+provável das lacunas é a omissão do escalonador de flicker (pico 11/linha > 8), não
+corrupção de upload. Registro à parte: o clone `batched` (sem registro anterior)
+mediu 25,33/25,23 FPS e worst-frame `derramou` com `vovf_delta=3000`, `vline_min=80`
+e streaming de 137 linhas; rejeitado.
+Próximo ramo: reduzir sprites por linha na fonte (≤8, sem flicker) ou cortar o
+volume de upload do Ken (1.920 B/pose a cada 4 ticks ≈ 480 B/frame).
+
+## Atualização de throughput do piloto — 2026-09-26
+
+O melhor clone diagnóstico deste lote é `out/local_study/scale_pilot_rom_schedule_indices/`:
+lista de índices SAT pré-gerada por par de poses e variante, em vez de varrer
+máscaras de flicker no loop. ROM SHA-256
+`f332765572475314720632e1259bff7a515145ac664ba8826979d9c7e29909`; probe
+NTSC 34,71/34,87 FPS, boot e avanço PASS, `fps_constante=false`. Vídeo fresco
+`out/local_study/scale_pilot_rom_schedule_indices/out/evidence/schedule_indices.mp4`
+(538 frames/8,98 s; 32/32 informativos; movimento 6,2%; sem áudio) mostra AIR,
+mas ainda perde partes das silhuetas. Continua sendo estudo local ignorado pelo
+Git, sem input, combate, HUD, FX ou áudio.
+`out/local_study/scale_pilot_rom_schedule_indices/out/evidence/schedule_indices_fresh_bundle.json`
+selou cinco artefatos posteriores à ROM com o mesmo SHA.
+
+As variantes de delta planar (19,30/19,25 FPS), delta híbrido
+(24,34/24,49 FPS) e reuso de slots residentes (25,20/25,45 FPS) não melhoram
+o baseline de ~25,2 FPS. A melhor hipótese até aqui é reduzir composição de
+SAT em runtime, não fazer patch por linha. A medição estendida do clone de
+índices selou 3.000/3.000 frames: `vovf_delta=3000`, `vline_min=54`, retorno
+máximo ao display na linha 140 após a espera, streaming 102 linhas e SAT 16.
+Isso iguala o perfil VBlank do baseline: a lista de índices melhora o loop
+para 34,71/34,87 FPS, mas não resolve o derrame nem atinge 50/60 FPS. O
+snapshot parcial anterior (168/3.000 em 180 s) foi `sem_lastro` e foi
+substituído pela janela selada.
+O piloto 72–88 px não foi promovido e T10 permanece intocado.
+
+Direção artística confirmada: Ken Masters ADV derivado de sprites CPS2 é o
+modelo de proporção/acabamento. Ryu de sprites de bootleg NES permanece apenas
+como amostra técnica de paletas P1/P2/runtime. A medição com Ryu mantém valor
+de engenharia, mas não valida coerência do elenco; substituir por modelo
+compatível com Ken/CPS2 antes da arte completa. Preservar escala opaca 72–88
+px, proporções, pivôs, offsets AIR e CLSN nas próximas conversões.
+
+Próximo gate: reduzir o custo de streaming/SAT dentro do VBlank, diminuir a
+perda de silhueta e atingir 50/60 FPS antes de aceitar o corte. A lista
+pré-gerada ainda não é suficiente: ela não mudou o perfil de deadline do VDP.
+
+Experimento offline de fase da grade 8×16 (relatório
+`out/local_study/generated/anchor_grid_metrics.json`): acrescentar padding
+transparente à esquerda/acima para alinhar cada pose ao pivô preserva a posição
+raster por compensação do eixo, mas não reduz patterns. Com fase zero, os pares
+únicos idle (contando os dois facings emitidos pelo empacotador) subiram de
+235→295 em Ken e 116→149 em Ryu. A fase dominante nos offsets AIR ([6,15] Ken,
+[6,5] Ryu) ainda subiu para 289 e 129. O total das poses selecionadas também
+cresceu: 1.998→2.262 pares Ken e 914→1.024 Ryu na fase dominante. Hipótese
+rejeitada; `scene_cut.py` e o runtime não foram alterados. É análise offline,
+sem captura no emulador, e não substitui a medição de upload/VBlank.
+
+## Atualização do runtime do piloto — 2026-09-26
+
+Este registro supersede as passagens abaixo que diziam que o plano idle ainda
+não executava AIR em runtime. A ROM clone-only agora reproduz o ciclo AIR
+completo de idle do Ken P1 e do Ryu P2, com cache de pose em RAM, remapeamento
+de META, uploads exatos de padrões 8×16 distribuídos pelos ticks AIR e cópia
+segura da SAT da SMSlib. A captura fresca `out/local_study/scale_pilot_rom_idle_cache/out/evidence/idle_cache_profiled_safe.mp4`
+tem SHA-256 `decf8aa29ad0c1f670cb44fa97725d890922cdaea908e6053e6c07ff05c8e04c`,
+479 frames/7,994 s em 256×192, 32/32 quadros informativos e movimento de 6,93%.
+Ela comprova AIR visível neste clone, não qualidade final ou combate. Os
+quadros também mostram partes das silhuetas omitidas pelo scheduler; o par idle
+fonte chega a 55 entradas SAT e pico 11 por linha antes da multiplexação, então
+flicker e legibilidade ainda reprovam a inspeção visual.
+
+ROM observada: `out/local_study/scale_pilot_rom_idle_cache/out/rom/scale_pilot_80px.sms`,
+655.360 B, SHA-256
+`ef45985eae2a1735e1e5b4707de011fae5ace8f36f064072e441322eb5540581`. O probe
+do loop avançou em 25,23 e 25,17 FPS NTSC (`fps_constante=false`); portanto o
+runtime falha o piso de 50/60 FPS. O pior quadro selou 3.000/3.000 iterações e
+registrou `vovf_delta=3000`, `vline_min=54`, `derramou`. O perfil mediu 102
+linhas até terminar streaming, mais 16 linhas na cópia SAT e maior retorno ao
+display na linha 140 após a espera; paleta/HUD não foram executados. Este é um
+diagnóstico válido de sobrecarga, não um budget aprovado.
+
+O bundle `out/local_study/scale_pilot_rom_idle_cache/out/evidence/idle_cache_final_bundle.json`
+selou seis artefatos posteriores à ROM com o mesmo SHA, incluindo screenshot,
+vídeo, runtime probe e worst-frame.
+
+A variante que chamou `UNSAFE_SMS_copySpritestoSAT()` foi rejeitada: sua
+captura falhou por imagem quase parada (0,59% de mudança). O clone voltou a
+`SMS_copySpritestoSAT()` e a captura fresca acima passou. O achado anterior de
+2,35 FPS/218 frames em 90 s ficou `sem_lastro`; o medidor de pior quadro agora
+aceita `--wait-seconds 90..1800`, mantém janela selada de 3.000 frames e
+registrou esta ROM com espera de 150 s. L089/§74 documenta a lição.
+
+Direção visual mantida: Ken Masters ADV/CPS2 é o modelo de referência. Ryu de
+bootleg NES segue apenas como piloto de paleta/runtime e deve ser substituído
+por modelo coerente com Ken/CPS2 antes da arte completa; nada deste resultado
+requer descartar o estudo técnico de paletas. O próximo gate é reduzir tráfego
+de padrões e custo de SAT sem alterar altura opaca de 72–88 px, pivôs ou AIR,
+depois repetir FPS, pior quadro e vídeo. Clone sem input, combate, HUD, FX,
+áudio, PAL ou integração ao renderer canônico; T10 continua em
+`legacy_probe_quarter`. `fighter_scale=measured`, não `accepted`.
+
+## Estado atual — piloto de escala 72–88 px (2026-09-26)
+
+Ken e Ryu foram escalados uniformemente por personagem a partir dos fontes
+MUGEN originais, preservando proporções e transformação de eixos/offsets/CLSN.
+Direção visual: Ken Masters ADV baseado em sprites CPS2 é o modelo de
+referência. O Ryu usado aqui vem de sprites de um bootleg NES; seu papel é
+somente estudo técnico de paletas P1/P2 e runtime. O Ryu não define estilo nem
+entra como arte final; antes do roster completo, substituir por modelo coerente
+com Ken/CPS2. Essa dívida visual não invalida o progresso de paleta/cache.
+Ken: idle opaco 93→81 px, razão 80/93; Ryu: 62→80 px, razão 40/31. Os frames
+renderizados de idle 0 medem 51×77 e 31×77 px, sem igualar artificialmente as
+larguras. O corte registra 44/32 poses; manifests conferem contagem, ordem,
+duração AIR, flips, eixos e quantidades de caixas CLSN. Isso prova preservação
+nos dados emitidos, não reprodução temporal de todas as poses pelo runtime.
+
+Fontes read-only, fora do Git, confirmadas por SHA-256:
+
+- Ken (modelo CPS2 de referência): `/mnt/sdcard/Projects/Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip`, `822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3`.
+- Ryu (sprites de bootleg NES; somente amostra técnica de paleta/runtime): `/mnt/sdcard/Projects/Mugenesis/Base de Estudo/chars/street-fighter/ryu_kang.zip`, `d3430ad559e2be75a3a99986920533018a522bed1363f2d51f3175ca59f0e55f`.
+
+`scene_cut.py` agora emite META/METAL próprios para cada pool de paleta; o
+medidor verifica metadados P1/P2 e `fight_draw` escolhe o par correspondente.
+A ROM clone-only `out/local_study/scale_pilot_rom_p2/out/rom/scale_pilot_80px.sms`
+tem 655.360 B, SHA `076f54dad965e8f9fd4e9a8332604df4e176934e4d5d3f43a7eb2a4f23c567a0`.
+O vídeo fresco de Emulicious está em
+`out/local_study/scale_pilot_rom_p2/out/evidence/scale_pilot_80px_p2.mp4`, SHA
+`af5031bbbf4b98c0dd9272d6344907c7d4b9a0b731b4d051a069b576f969ba59`, 419
+frames/6,99 s em 256×192, sem áudio. A auditoria compara a máscara do frame 0:
+Ken 2.346/2.346 e Ryu P2 1.710/1.710 pixels (IoU 1,0). O frame Ryu usa
+META/METAL P2. Isso prova somente frame-0, facing esquerdo e binding desse
+frame; não prova AIR dinâmico ou flicker perceptual.
+
+O primeiro link integral mediu 34.724 B no banco fixo e falhou. O gerador agora
+alia somente arrays META/METAL byte a byte idênticos: 196 aliases retiraram
+18.055 B sem alterar índices nem conteúdo de pose. O header com as 44/32 poses
+linka com `_CODE` de 16.669 B e 15.550 B livres no banco 1. A ROM diagnóstica
+integral tem 655.360 B, SHA
+`7a7a2e3f6cb46250222f66ccbde630cf7114126a03270583d2de18511becd23e`; TMR SEGA
+passou e os bancos de patterns 2–36 foram comparados byte a byte. O ROM e o
+header bruto anterior à deduplicação permanecem em `out/local_study/`.
+
+Captura Emulicious da ROM integral: 179 frames, 2,987 s, 256×192, sem áudio.
+O `scale_pilot.py --video` passou a máscara/pivô do frame 0 (IoU 1,0); o
+auditor continua `blocked` pelos budgets de SAT/scanline, VRAM/RAM e cadência.
+Esse harness inclui as tabelas integrais mas desenha somente os idles frame 0;
+não reproduz AIR. A metadata deste corte reside no segmento fixo já linkado;
+crescimento de elenco ainda exige layout bancado e prova de ponteiros.
+
+O build canônico atual de `luta_mugen` também passou no wrapper
+(`build_inner.py`, 5 objetos, ROM de 131.072 B, SHA
+`84da5a208e93cc7308dbe3604ba7e284cc793d2f7724b8e8b9ed71a0b00b08f7`). O
+`build_record.json` marca build, relatório, boot e memory-bank atualizados; os
+eixos gameplay, FPS e áudio continuam falsos. Esse binário usa o perfil legado
+`legacy_probe_quarter` e os dados de `generated/versus_cut`; não é o runtime do
+piloto 72–88 px. Não conectar o header novo diretamente ao renderer atual:
+`fight.c` reserva 40 B de META por lutador, enquanto o corte novo chega a 148 B,
+e `stream.c` limita cada ator a 64 B/VBlank, abaixo dos deltas medidos.
+
+A auditoria global segue `blocked`: par idle = 55 SAT / pico 11 por linha;
+pior par = 91 SAT / 23 por linha; buffers duplos completos 19.712 B frente a
+8.192 B; metasprite máximo 148 B frente a 40 B atuais; 75 frames excedem o
+AIR no cálculo de stream de 64 B/VBlank. Pool literal dos idle precisa 20.896 B
+únicos. Current+next compacto de idle usa 6.464/8.192 B, mas ações selecionadas
+pedem 8.256 B com facing fixo sem dedup; um único par idêntico transparente
+reduziria esse número a 8.192 B sem folga, ainda sem implementação. Nenhum
+reúso é creditado ao runtime. O contrato `fighter_scale=measured`, não
+`accepted`; arte completa não liberada.
+
+O analisador agora calcula novos pares exatos por transição AIR, além da
+hipótese de 64 B/VBlank: Ken idle 0→1 requer 1.920 B em 4 ticks (480 B/VBlank);
+Ryu P2 idle 0→1 requer 1.280 B em 7 ticks (183 B/VBlank). As duas poses
+current+next ocupam 6.464 B e cabem por contagem nos 8.192 B, mas a implementação
+atual de 64 B/ator/VBlank não alcança esses deltas. Isso é demanda calculada da
+arte; se ambos prefetcharem juntos desde o início, a demanda média é 663 B por
+VBlank. Throughput real continua a exigir probe de pior quadro na ROM.
+
+O próximo passo analítico foi concretizado em `scale_pilot_dedup_emulator_audit.json`:
+`selected_facing_pool.idle_cache_plan` atribui slots 0–63 ao Ken P1 e 64–127 ao
+Ryu P2 e fornece META já remapeado, eixos assinados, AIR ticks e cargas exatas
+por banco/offset para todos os frames idle. O máximo current+next é 3.904 B do
+Ken e 2.560 B do Ryu (6.464 B juntos); a primeira transição exige 480 e 183
+B/VBlank, respectivamente. O helper de plano preserva bytes de padrão, dx/dy,
+terminador e eixo no self-check. É somente um plano de alocação da fonte; o
+runtime ainda não o executa, a taxa de VDP não foi medida e o vídeo continua
+mostrando apenas frame 0. `fighter_scale=measured`; arte completa não liberada.
+
+Os fontes atuais removem o antigo bloqueio de recuperar META/METAL P2. O probe
+P1→P2 continua mostrando que a metadata antiga não pode ser reconstruída por
+parecença: 88/2.660 pares de Ken e 50/1.404 de Ryu são idênticos por bytes, sem
+cobertura de pose completa. Isso justifica gerar índices a partir da pose/pool
+P2 original, como foi feito, em vez de herdar P1.
+
+Doador SGDKForge foi revisto somente em leitura; métodos incorporados e
+limites MD→SMS estão em `16-engine-review-2026-09-26.md` e
+`donor_review_2026-09-26.json`. O próximo gate antes de arte completa é
+reproduzir AIR em ROM com pivôs e duração por frame, medindo upload/prefetch;
+depois fechar scheduler scanline/SAT, VRAM, RAM e pior quadro conjunto. Se a
+escala de elenco estourar o segmento fixo, metadata e tabelas devem ser
+bancadas com referências válidas após cada troca. Relatório
+`17-scale-pilot-2026-09-26.md`. Nenhuma prova deste clone atualiza os sete
+eixos da ROM canônica T10.
+
+## Revisão autoritativa — 2026-09-26, novo piso do motor
+
+Pedido humano supersede 1:4/48 px como padrão de entrega. Norma canônica em
+`../../../doc/05_technical/mugen_engine_standard.md`; matriz executável local
+`engine_quality_contract.json`; diagnóstico/rota em `16-engine-review-2026-09-26.md`.
+Perfil proposto: área útil 160 px, corpo idle 72–88 px. T10 continua
+`legacy_probe_quarter`, com o mesmo SHA, sem nova ROM nesta revisão.
+
+Doadores revisitados em `/mnt/sdcard/SGDKForge`: ferramenta mugen2sgdk_forge e
+Mugenesis_Demo; leitura e hashes em `donor_review_2026-09-26.json`. Assimilados
+métodos de fonte→IR→contrato, sweep de câmera, piloto FX e ownership/restauração;
+VM/DMA/planes MD não foram portados. O doador também mantém gates de entrega abertos.
+
+CLI principal SMS tinha imports MD ausentes (ImportError reproduzido no --help);
+reparada. Novo auditor de contrato possui planning e delivery separados. O estado
+T10 passou planning e reprovou delivery com 13 bloqueios: perfil legado e 12
+capacidades sem aceite comprovado no novo contrato. Isso não invalida as provas
+parciais históricas; elas não cobrem o novo perfil de entrega.
+
+Fechamento observado desta revisão: 92 testes do conversor e 64/64 verificações
+do wrapper passaram; os autochecks das 45 ferramentas de medição passaram.
+Doc-sync e learning-capture passaram. Relatórios em
+`../out/quality_review_2026-09-26/`. SHA da ROM reconferido:
+`af9eb127895ed07de6884592bbac420e31c660b39d371d4c9f5faaacd629dc97`.
+Esses checks validam ferramentas/contrato; não são nova evidência de emulador.
+
+Após o bundle histórico T10, a ferramenta experimental de KO/reset falhou três
+vezes por leitura word/byte, pausas DAP e aproximação sem alcance. Diagnósticos
+`t10_round_lifecycle_subbyte_frame_fail.json`, `..._slow_poll_fail.json` e
+`..._range_oscillation_fail.json` estão fora do bundle de 38 artefatos. KO/reset
+continua NÃO PROVADO; não se atribui defeito de gameplay a essas tentativas.
+
+Revisão de contrato/tools concluída. Após o piloto medido acima, o harness de
+KO/reset ainda não foi corrigido/repetido; a nova ROM é apenas um clone
+diagnóstico, não T10. As afirmações históricas abaixo são T10, não conformidade
+ao novo piso. Nenhuma técnica foi promovida a maestria ou AAA.
+
+## Estado histórico da ROM T10
+2026-09-26 — T10 integrou Ken e Ryu na mesma ROM bancária de 131.072 B,
+SHA `af9eb127895ed07de6884592bbac420e31c660b39d371d4c9f5faaacd629dc97`.
+O runtime atribui cada slot ao seu próprio corte, animações, física, paleta e
+bancos. P2 continua sendo dummy determinístico; a troca de personagem sem
+alteração no C do núcleo ainda não foi provada para esta composição.
 
 ## Eixos de entrega (7) — gate final exige os 7 simultâneos
 | Eixo | Status | Prova |
 |------|--------|-------|
-| build | testado_em_emulador (cena 01 FSM + input vivo) | `build.sh` → `out/rom/luta_mugen.sms` 16 KB, SHA `fe66394c…dc9` (T4 FSM: `145a0433…fb16`; cena 01 probe: `274d3109…d7b8`) |
-| validation_report | parcial | `t5_probe.json` (SMRT magic/schema, fps DAP 59.19/58.79), `t5_boot.json` capture PASS, `audit_deterministic_boot` PASS (2 runs idênticos, esta ROM), `t5_live.json` vídeo PASS movimento 1.1% |
-| boot no emulador | testado_em_emulador | `out/evidence/t5_boot.png` — dois lutadores no chão + HUD; chão cinza DETERMINÍSTICO (85,85,85 = 0x15) após correção da entry CRAM 10 |
-| gameplay | testado_em_emulador (parcial: 1 jogador) | `t5_input_memory.json` — 5 eixos por INPUT real na RAM: Right dx=+70 / Left dx=−88 (keys 0x08/0x04 vistos com tecla em baixo), pulo pico 94 px + estado JUMP, soco B1 0x10 a gap −9 → boss 237→232 (dano 5 do CNS) + score 3, agachar estado 4; latch de padrão 0x03 (QCF-simplificado e hold-F batem no matcher). Guard vivo ainda não mapeado (2 botões) — cena 02 |
-| 60/50 fps | testado_em_emulador | `t5_probe.json` — `probe_frame` lido via DAP na RAM (imune a foco/zumbi), 2 janelas de 8 s: 59.19 e 58.79 |
-| áudio | não iniciado | PCM classificado unsupported; reautoria PSG (6 SFX + 1 BGM) ainda não escrita |
-| memory bank atualizado | implementado | esta seção, nesta data |
+| build | testado_em_emulador | `build.sh` → ROM bancária de 131.072 B, SHA `af9eb127…dc97` |
+| validation_report | testado_em_emulador parcial | bundle com 38 artefatos selado; assets/vínculo, estáticos, doc-sync, learning, reconcile e claims PASS; o gate visual segue em `probe` |
+| boot no emulador | testado_em_emulador | `t10_ken_ryu_pair.png` + semântica PASS; `t10_deterministic_boot.log` confirma 2/2; época `probe` |
+| gameplay | testado_em_emulador parcial | `t10_input_memory_range_sync_pass.json` prova input/dano PASS; whiff anterior preservado como diagnóstico; KO/reset e partida longa pendem |
+| Cadência PAL/NTSC | testado_em_emulador | loop 58,6 fps constante; título 59–60; DAP 2×120 s PASS (58,10/59,78, spread 1,68); a tentativa DAP 2×240 s caiu antes da 2ª janela |
+| áudio | testado_em_emulador (sinal) | `t10_current_audio.wav`: 15,6 s, ativo 100%, peak 5853; `audit_audio.py` PASS |
+| memory bank atualizado | implementado | esta atualização registra a ROM e os resultados T10 |
+
+## Fatia atual — T10 Ken vs Ryu dummy (2026-09-26)
+
+- Ken usa 44 poses e Ryu 32; os cinco bancos 2–6 são gerados em
+  `out/local_study/generated/versus_cut/` e o manifesto `.mddev` aponta para
+  eles. O conteúdo MUGEN permanece fora do Git.
+- `t10_ken_ryu_line_sim.json` analisa as 44×32 combinações de pose, as duas
+  orientações de facing e as diferenças de altura alcançáveis no pulo. Pico
+  conjunto: 8 sprites/scanline; simulador PASS, sem violação.
+- `t10_input_memory_range_sync_pass.json` PASS na ROM atual: P1/P2 foram
+  reamostrados após IDLE; posição na borda do B1 `P1=199, P2=215, gap=16`,
+  B1 chegou, a vida de Ryu caiu 50 (152→102) e score foi 2→3. A tentativa de
+  whiff anterior permanece em `t10_input_memory_idle_wait_retry_whiff.json`;
+  a correção e o delta estão em `t10_causal_input_whiff.json`. O helper também
+  passou `--self-check`. A falha de foco sem janela mapeada fica em
+  `t10_input_memory_idle_wait_retry_fail.json`; a primeira falha histórica em
+  `t10_input_memory_initial_fail.json`.
+- `t10_current_worst_frame.json`: 3.000 frames, `vovf_delta=0`,
+  `vline_min=200`, PASS; perfil por etapa inválido sem derrame.
+- `t10_current_frame_advance.json`: 27 transições em 59,81 s, mediana
+  58,6 fps, `constante=true`. `t10_current_fps.json`: 6/6 entre 59 e 60
+  quadros/s,
+  média 59,8. `t10_current_runtime_probe_120.json` PASS em duas janelas de
+  120 s: 58,10/59,78 fps, spread 1,68; boot e avanço PASS. A tentativa de
+  2×240 s caiu após a primeira janela (BrokenPipe, 54,22 fps) e não produziu
+  JSON; `t10_causal_runtime_probe.json` registra a rota recuperada com 2×120 s.
+- `t10_rom_asset_binding.json` PASS: cinco bancos, fontes, header gerado e
+  captura vinculados ao SHA desta ROM. `t10_ken_ryu_pair_semantic.json` PASS.
+- `t10_fresh_bundle.json` sela 38 artefatos da mesma ROM, incluindo o reteste
+  range-synced e seu self-check; `t10_reconcile_claims.json`
+  confirma lastro para os sete eixos binários do build record. Isso não promove
+  a época visual nem substitui as provas de KO/reset e gameplay prolongado.
+- `t10_visual_delivery.json` reprova `wrong_visual_epoch`: não existe contrato
+  de entrega visual. A captura mostra lutadores pequenos sobre uma arena vazia;
+  permanece `probe`, sem claim de entrega.
+- O preset histórico T10 continua em 1:4; não é mais piso do GDD. O roteiro e storyboard do
+  único palco ainda estão vazios; aguardo a direção da arena solicitada ao
+  usuário e sigo nos gates técnicos independentes.
 
 > Vocabulário: `documentado ≠ implementado ≠ buildado ≠ testado_em_emulador`.
 > O motor (ferramentas) está em `implementado com testes Python` — 79/79 verdes
@@ -47,9 +432,9 @@ Tests Python: 79/79.
   travada TALL 8×16, lutador ≤4 sprites/linha × ≤3 colunas (≈32×48 px em
   tela), downscale 1:4 fixo no conversor, pose que estourar vira `manual`,
   flicker proibido. Está no GDD §"Escala do lutador" e no TDD §"Corte
-  jogável". O conversor AINDA NÃO aplica o contrato — é a primeira tarefa
-  do Plano 2, com gate (o mesmo `audit_sprite_line_sim` que deu FAIL deve
-  dar PASS com a escala aplicada).
+  jogável". O conversor passou a aplicar esse contrato nas Tasks 1–2 do Plano
+  2; a medição do corte Ken S4.5b registrou worst-scene PASS, pico 8/scanline e
+  SAT 32. O texto de reprovação acima descreve o estado histórico pré-correção.
 
 ## O que FOI OBSERVADO (Plano 2 até Task 3)
 - Leis de hardware MEDIDAS na cena 01 (não assumidas): par TALL
@@ -93,7 +478,7 @@ Tests Python: 79/79.
 ## O que FOI OBSERVADO (Plano 2 Task 5 — input vivo + mapa SMRT)
 - `src/input.c`: ring buffer de amostras facing-relative (16, máscara
   power-of-2), matcher de passos no formato do CMD blob gerado
-  (`[dir|keys<<4, flags]`, hold/release), janela = idade máxima − mínima dos
+  (`[dir|keys<<4, flags]`, segurar/soltar), janela = idade máxima − mínima dos
   passos casados. `K_GUARD` NÃO é alcançável no pad de 2 botões — bit
   sintético de teste; o bloqueio vivo é o crouch (S_BLOCKABLE). Remap
   "recuar = guard" do GDD fica para a cena 02 (documentado em `inc/input.h`).
@@ -137,15 +522,17 @@ Tests Python: 79/79.
 - Licença: arte real do Ken nunca entra no Git; derivativos só em
   `out/local_study/` (gitignored); fixtures sintéticos são os únicos dados
   MUGEN-like no repo.
-- Escala do lutador travada (ver acima) — decisão do usuário, não do agente.
+- A decisão de escala de 2026-09-25 foi supersedida pelo briefing de 2026-09-26; ver revisão autoritativa acima.
 
 ## Blocker dominante atual
-Input vivo PROVADO na RAM (5/5 eixos, `t5_input_memory.json`) e vídeo de cena
-viva com deslocamento sustained PASS. Blocker dominante agora: **dívida de
-VRAM do Ken real** — 376.226 B gerados vs 16 KB de ROM: sem banking +
-streaming por pose (Task 6, `measure_worst_frame.py` no gate) a prova do
-contrato (Task 8, golden slice) não existe. A cena 02 (Task 7: identidade P2
-por shift de índice, HUD de vida, PSG, guard vivo) é o ramo paralelo seguro.
+T10 põe Ken e Ryu simultaneamente na ROM; bundle fresco e reconciliação dos
+eixos passaram. A prova de input/dano range-synced PASS; o whiff anterior
+revelou a necessidade de reamostrar o alvo depois do IDLE, agora coberta pelo
+helper local. KO/reset e partida longa não foram provados. A época visual é `probe`:
+o contrato e storyboard do palco estão vazios. A direção visual está confirmada:
+Ken Masters ADV/CPS2 define o alvo artístico; Ryu bootleg NES é amostra técnica
+e precisa ser substituído antes da arte completa. Também falta provar que o
+`.def` muda o personagem sem alterar C do núcleo nesta composição.
 
 ## Lições abertas
 - L-aberta-1: `validate_measurement_tools.py` descobre ferramentas por prefixo
@@ -159,9 +546,91 @@ por shift de índice, HUD de vida, PSG, guard vivo) é o ramo paralelo seguro.
   + evidência capturada na cena 01.
 
 ## Handoff
-Executar `doc/plan-2-runtime-s5-s6.md` — Tasks 0–5 fechadas; próximo ramo é a
-**Task 6 (banking + streaming de VRAM por pose)**, gate `measure_worst_frame.py`
-e teto 16 KB → ROM bancada ~150 KB/lutador. Antes de qualquer gate de janela:
+T10 da ROM SHA `af9eb127…dc97` está selada em
+`out/evidence/t10_fresh_bundle.json`, já com a prova de dano range-synced.
+Próximo ramo: observar KO/reset e partida longa; então fechar a Task 8 — especial
+de Ryu e prova do contrato `.def`. A época visual segue `probe` até existir
+direção aprovada, storyboard, assets e vínculo com a ROM.
+Antes de qualquer gate de janela:
 matar zumbi (`pkill -f '[E]mulicious.jar'` em chamada separada — L057) e
-`emulator_input.py --self-check`. Baseline: 79 testes Python +
-`tools/prove_input.py --self-check` + `measure_runtime_probe.py` na ROM atual.
+`emulator_input.py --self-check`. Últimos checks focados: probe 24/24,
+debug markers PASS, input self-check PASS; testes Python do conversor registrados
+em 2026-09-25 (79/79), sem rerun nesta alteração de runtime.
+
+## Última correção e evidência do piloto — 2026-09-26
+
+Em `runtime_format.py`, a omissão opcional de células vazias comparava o bloco
+8×16 (64 bytes) com o sentinela de bloco 8×8 (32 bytes), portanto não removia
+nenhum par alto totalmente transparente. O sentinela agora representa os dois
+blocos empilhados. O teste focado cobre remoção de células vazias e preservação
+de conteúdo não vazio: `pytest tools/sms_wrapper/mugen2sms/tests/test_runtime_format.py
+-q` passou 7/7.
+
+No clone local ignorado `out/local_study/scale_pilot_rom_blank_fix/`, a
+regeneração retirou 826 placements SAT transparentes nos 76 quadros e duas
+orientações por quadro. Os 76 blobs de patterns, 76 eixos e 75 listas CLSN
+permaneceram byte a byte iguais; as 152 listas META/METAL equivalem às antigas
+após filtrar somente entradas cujo par 8×16 é zero. O SHA da imagem do mapper
+continua `1bc791d24ce400f090446690d6e923c613d58fbda31f4e0beab03ee49c73a809`.
+Pelo auditor, o par idle cai de 55 para 50 entradas SAT e de 11 para 10 sprites
+na linha de pico; o pior par cai de 91 para 64 entradas SAT, mas ainda atinge
+23 sprites por linha. O caso current+next de todas as ações/facings cai de
+8.320 para 8.192 B: ocupa os 8 KiB inteiros, sem margem ou prova de runtime.
+Os buffers duplos calculados continuam em 19.712 B e a maior META segue em
+115 B contra os 40 B que o runtime reserva.
+
+O clone foi buildado e executado no Emulicious. ROM SHA-256
+`5dd11c383205960d42ae257e7c1f6859eb55461b9ccfeed746bbb961d1e3c6f9`; vídeo
+fresco `blank_fix.mp4.mp4` registra 496 frames/8,28 s em 256×192. A captura
+continua visualmente fragmentada. O probe leu 34,97/35,02 FPS NTSC (não
+constante). O auditor foi corrigido para comparar a união temporal capturada
+com as máscaras rasterizadas da união dos seis quadros idle esperados, em vez
+de comparar todo o clipe AIR a uma única imagem frame-0. Novo envelope IoU:
+Ken 0,944830, Ryu 0,768231; ambos ainda reprovam o limite 0,995. Os valores
+anteriores 0,856517/0,760714 usavam o critério incompatível e ficam supersedidos.
+`scale_pilot.py --self-check` cobre agora a rasterização de opacidade 4bpp e
+passou; o relatório fresco está em `out/local_study/scale_pilot_rom_blank_fix/out/evidence/blank_fix_scale_pilot_video.json`.
+Esse envelope pressupõe o fundo preto do clone; não serve para auditar
+oclusão de lutador por cenário.
+Áudio ausente, gameplay, hit/flicker aceitável e
+budget de VBlank não foram provados. A tabela offline do idle seleciona 38–40
+de 48–50 placements por variante; cada placement aparece em 5–8/8 variantes
+(80,44% de ocupação média). A 34,97 FPS o ciclo de oito variantes fica em
+4,37 Hz; isso não é aceite de flicker. A janela do worst-frame de 3.000 quadros
+selou `derramou`: `vovf_delta=3000`, `vline_min=54`, `runner_wait_s=600`.
+No snapshot terminal da janela, o perfil marcou 119 linhas para streaming e 16
+para a cópia SAT. O código sobrescreve esses checkpoints a cada frame, então
+são valores do último frame, não máximos por estágio. A variante de índices
+anterior marcou 102+16 no seu snapshot terminal; os estados finais também
+diferem. Não comparar esses breakdowns como regressão/ganho nem atribuir sua
+diferença à omissão dos placements. O veredito de derrame, os 3.000 overflows,
+`vline_min=54` e o retorno máximo à linha 140 (`spill_max=72`) são medidos na
+janela completa e sustentam a reprovação. Evidência:
+`out/local_study/scale_pilot_rom_blank_fix/out/evidence/blank_fix_worst_frame_long.json`, mesmo SHA da ROM.
+
+Estado permanece `fighter_scale=measured`, não `accepted`; nenhum asset de arte
+completa está liberado. Direção visual permanece Ken Masters ADV/CPS2; Ryu do
+bootleg NES continua útil ao estudo de paleta/runtime e continua marcado para
+substituição antes do roster e da produção artística completos.
+
+### Isolamento P2 idle por frame — 2026-09-26
+
+Novas capturas freeze-frame dos clones locais isolam os quatro frames idle do
+Ryu P2. O frame 0 mantém máscara temporal exata (IoU 1,0; 59,9% dos quadros
+quase completos). Frames 1/2/3 caem para IoU 0,556636/0,649762/0,541993 e
+cobertura de 57,3%/72,6%/57,0%; nenhum quadro deles atinge 95% de cobertura e
+precisão. Os pixels-fonte usados não mapeiam para cores pretas na paleta do
+piloto. A tabela offline do escalonador cobre todos os placements nas 24
+combinações Ken/Ryu ao longo de oito variantes. Simulação dos slots confirma
+20/20 pares nas transições 0→1, 1→2 e 2→3, mas detecta a volta 3→0 enviando os
+pares dos entries 18/19 aos slots 102/103, enquanto META0 os referencia em
+82/83. A discrepância capturada nos frames congelados 1–3 continua sem causa
+isolada; a simulação estática não prova a execução nem o prazo de VBlank.
+Registro versionado com hashes em `doc/scale_pilot_freeze_p2_2026-09-26.json`;
+ROMs e vídeos brutos permanecem nos clones locais sob `out/local_study/`.
+
+Este é um diagnóstico do Ryu de bootleg NES, mantido exclusivamente como
+amostra técnica de paleta/cache. Não bloqueia a continuidade do motor. Ken
+Masters ADV ripado da CPS2 continua sendo a direção artística; a substituição
+do Ryu permanece obrigatória antes da produção de arte completa. O estado de
+escala continua `measured`, não aceito; não há promoção a arte final ou AAA.

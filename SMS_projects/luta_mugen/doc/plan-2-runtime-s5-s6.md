@@ -1,14 +1,30 @@
-# Plano 2 — Runtime S5–S6 + contrato de escala no conversor (luta_mugen)
+# Plano histórico — Runtime S5–S6 / perfil legacy_probe_quarter (luta_mugen)
+
+> **Revisão vigente 2026-09-26:** `engine_quality_contract.json` e
+> `16-engine-review-2026-09-26.md` supersedem a escala 1:4/48 px como limite do
+> motor. Números e tarefas T10 abaixo são histórico do perfil
+> `legacy_probe_quarter`, sem aceite no novo piso. Próxima cena precisa medir
+> corpo idle 45–55% da área útil (perfil inicial: 72–88 px), custos simultâneos
+> e capacidade expansível. Técnicas opcionais exigem A/B; não estão implementadas
+> por constarem no contrato.
+>
+> **Uso:** este arquivo registra a execução original de T10. Não executar os
+> checkboxes de escala como padrão de produção atual. S4.5a/b e os limites
+> 1:4/32×48 são o perfil `legacy_probe_quarter`; a rota vigente está em
+> `tools/sms_wrapper/.agent/workflows/mugen-engine-quality.md` e
+> `doc/05_technical/mugen_engine_standard.md`.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 > Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fechar o furo medido do S4 (gate `audit_sprite_line_sim` = FAIL, pico 32/linha,
-SAT 256) aplicando o contrato de escala travado no GDD, e então construir o runtime Z80
-que interpreta as tabelas geradas até a golden slice (cena 03) com evidência no emulador.
+**Goal histórico:** Fechar o furo medido do S4 do perfil T10 (gate
+`audit_sprite_line_sim` = FAIL, pico 32/linha, SAT 256) com a escala 1:4 então
+escolhida e construir o runtime Z80. O resultado permanece útil como baseline
+comparativa; o padrão de escala foi atualizado em 2026-09-26.
 
-**Architecture:** O motor (Python, `tools/sms_wrapper/mugen2sms/`) ganha uma etapa S4.5:
+**Arquitetura histórica:** O motor (Python, `tools/sms_wrapper/mugen2sms/`) ganhou uma etapa S4.5:
 downscale 1:4 fixo + emissão de arte no formato de runtime provado pelo MSSF2T (metasprite
 de 3 bytes `{dx, dy, tile}` + `METASPRITE_END`; espelhamento horneteado como tile extra,
 porque **o SAT do SMS não tem flip de sprite** — precedente: MSSF2T `src/fight.c:1108-1129`
@@ -20,13 +36,15 @@ software, streaming de VRAM só no VBlank, banking Sega mapper.
 headers = autoridade #8), gates do harness `tools/sms_wrapper/` (mesmo harness que deu
 FAIL — ele é o veredito, não opinião minha).
 
-**Spec:** `SMS_projects/luta_mugen/doc/11-gdd.md` §"Escala do lutador — TRAVADA" +
-`doc/15-tdd.md` §"Corte jogável" + `doc/10-memory-bank.md` (estado real).
+**Referência vigente:** `SMS_projects/luta_mugen/doc/11-gdd.md` §"Padrão de entrega vigente",
+`doc/05_technical/mugen_engine_standard.md`, o workflow atual e
+`doc/10-memory-bank.md`. A especificação 1:4 nas tarefas abaixo é histórico T10.
 
 ## Global Constraints
 
-- Escala travada (GDD 2026-09-25, decisão humana): `SPRITEMODE_TALL` 8×16; lutador
-  **≤4 sprites TALL por scanline** (~32 px) × **≤3 de altura** (~48 px); downscale
+- Escala histórica de T10 (GDD 2026-09-25; supersedida 2026-09-26): `SPRITEMODE_TALL` 8×16; alvo de
+  no máximo metade do orçamento físico por linha para cada lutador (~32 px) × **≤3
+  de altura** (~48 px); downscale
   **1:4 fixo** no conversor; pose que ainda estourar vira `manual` e **não entra no
   build**; flicker/rotação de prioridade para mascarar overflow é proibido.
 - Cena versus: 2 lutadores = pico 8/scanline **exato** (teto físico), SAT ≤ 64.
@@ -218,7 +236,7 @@ const unsigned char patt_<slug>[];                                   /* StepCode
 
 - [x] **Step 5: Gate do harness tem que virar verde.** Rodar o round Ken local; o
   worst-scene do `s4_generation_report.json` agora conta **por formato de runtime**:
-  2 lutadores × ≤4 sprites/linha + entradas de espelho não contam na scanline.
+  2 lutadores, cada um limitado a metade do teto físico por linha; entradas de espelho não contam na scanline.
 
 ```bash
 python3 -m generators.smsdev "/mnt/sdcard/Projects/Mugenesis/Base de Estudo/chars/street-fighter/ken_masters_adv.zip" \
@@ -353,26 +371,72 @@ extern volatile unsigned char dbg_frame;  /* __at() só com volatile (L009) */
 
 ### Task 6: Banking + streaming de VRAM (paga a dívida medida do S3: 1,16 MB de tiles/lutador)
 
+**Estado medido (2026-09-26): Task 6 concluída para a arena de fixture sintético.**
+L082 invalidou as leituras antigas: `t6_phase_profile_verified.json` (`3d08c5fd…`)
+marcava 2.968/3.000 derramamentos porque o predicado de VCounter estava
+invertido. As leituras corrigidas em builds posteriores encontraram derrames
+reais e conduziram a duas mudanças: upload direto do bank e separação de CPU do
+bloco VBlank. A primeira captura após a separação revelou outro defeito visual:
+`SMS_VRAMmemcpy_brief` recebe destino em **bytes**; o stream passava índice de
+tile. Ambos os caminhos agora convertem `base_tile * 32 + offset_bytes`.
+
+ROM validada: SHA `b5d5db7b6295e8c6947b0125f0d4ef468fc179fb4e4d72215b5b5573227fafc5`
+(65.536 B). Evidências da mesma build em `out/evidence/t6_vblank_cpu_split_byte_addr*`:
+
+- `measure_worst_frame.py`: PASS, 3.000 frames selados, `vovf_delta=0`,
+  `vline_min=200 (0xC8)`. O perfil por etapa é inválido porque só guarda um
+  frame com derrame; a medição não alega uma distribuição sem amostras.
+- `measure_frame_advance.py`: PASS em 60 s, 27 estados completos, 59,9 fps,
+  zero durações fora da tolerância; `measure_fps.py`: 6/6 a 59,9 quadros/s.
+- `measure_runtime_probe.py`: PASS em duas janelas de 8 s (59,29 e 59,43 fps);
+  input vivo: cinco eixos PASS na RAM, incluindo hit B1 e padrões.
+- Captura do boot e `screenshot_semantic_gate.py`: PASS; paleta 100%, sem
+  assinatura de lixo de VRAM. `audit_deterministic_boot.py`: 2/2 idênticos.
+
+O recorte provado continua sendo fixture sintético de bancada. Isso fecha o
+budget do loop atual, mas não declara entrega visual do Ken real nem áudio.
+
+**Atualização do checkpoint citado no resumo colado:** aquele estado foi
+superado pela instrumentação ROM-sealed e pelas medições posteriores. Na build
+atual Ken, o próprio `measure_worst_frame.py` selou 3.000 frames e PASS (`vovf_delta=0`,
+`vline_min=201`; `out/evidence/t9_current_worst_frame.json`). Portanto as
+opções (a/b/c) daquele checkpoint ficaram obsoletas; nenhum limiar ou ferramenta
+central foi alterado.
+
 **Files:**
-- Modify: `SMS_projects/luta_mugen/src/stream.c` (novo), `inc/luta.h`
-- Consumes: `SMS_loadTiles` (SMSlib.h:130), `SMS_mapROMBank`/`save/restore`
+- Modify: `SMS_projects/luta_mugen/src/stream.c`, `src/main.c`, `src/fight.c`
+- Consumes: `SMS_VRAMmemcpy_brief` (SMSlib.h:394; endereço e tamanho em bytes),
+  `SMS_mapROMBank`/`save/restore`
   (SMSlib.h:70-83), arte > 48 KB só com header SDSC/mapper correto (padrão
   MSSF2T spec-banking; verificar `sdk/README.md` antes).
 
-- [ ] **Step 1:** Layout: slot 2 (16 KB) bancado para dados; código fixo nos 32 KB
-  iniciais. Troca de bank **somente dentro do callback de VBlank**
-  (`SMS_saveROMBank(); SMS_mapROMBank(b); SMS_loadTiles(...); SMS_restoreROMBank();`).
-- [ ] **Step 2:** Streaming por pose: só os tiles da pose ativa (≤2 KB/slot de
-  lutador no corte TALL; +espelhos +P2 — medir e declarar no spec-cenas). Fila:
-  pose pedida no frame N é carregada no VBlank N+1 e aplicada no N+2 (latência é
-  design, não bug: documentar no TDD).
-- [ ] **Step 3:** `measure_worst_frame.py --project ... --rom ...` dentro do
-  orçamento; gate FAIL no derrame → voltar ao humano (lição MSSF2T: derramou lá).
-  Commit: `feat(luta_mugen): banking Sega mapper + streaming por pose medidos no VBlank`.
+- [x] **Step 1:** ROM bancária de 65.536 B, dados no slot 2 e código fixo; mapa
+  de bank trocado no bloco VBlank depois de `SMS_waitForVBlank()`. Upload lê
+  diretamente da janela ROM e restaura o bank no mesmo escopo.
+- [x] **Step 2:** buffers duplos por lutador e até 96 B/lutador por VBlank.
+  Pedido em N → upload a partir de N+1 → buffer completo alternado; metasprite
+  preparado em CPU e apresentado pela SAT no próximo VBlank. Se uma pose exigir
+  mais de um chunk, a apresentação espera a carga completa.
+- [x] **Step 3:** `measure_worst_frame.py` PASS sem derrame na ROM SHA acima;
+  frame advance, fps, runtime probe, input vivo e boot determinístico também
+  medidos. A captura inicial com unidade de destino errada foi renomeada como
+  rejeitada e não sustenta nenhum claim.
+
+O commit sugerido no plano não foi criado: o workspace já contém outras
+alterações locais extensas e a sessão não autorizou stage/commit.
 
 ---
 
-### Task 7: Cena 02 `ken_vs_dummy` — 2 lutadores por dados, HUD de tiles, áudio PSG
+### Task 7: Cena 02 `ken_vs_dummy` — base implementada; estado atual em T10
+
+**Estado medido (2026-09-26): T10 integra os cortes Ken e Ryu; fechamento parcial.**
+A ROM SHA `af9eb127…dc97` contém Ken P1 e Ryu P2 em bancos distintos. Input,
+cadência do loop, FPS do emulador, pior quadro, áudio, semântica e vínculo dos
+assets têm evidência PASS ou parcial específica da SHA atual. O DAP 2×120 s
+passou (58,10/59,78 FPS, spread 1,68); a execução 2×240 s quebrou o canal DAP
+antes da segunda janela e ficou como diagnóstico.
+A captura continua época `probe`; KO/reset,
+partida longa e promoção visual permanecem abertos.
 
 **Files:**
 - Create: `SMS_projects/luta_mugen/src/hud.c`, `src/sfx.c` + reautoría de áudio em
@@ -380,24 +444,49 @@ extern volatile unsigned char dbg_frame;  /* __at() só com volatile (L009) */
   áudio com sha256 → `audit_audio_provenance.py`)
 - Modify: `main.c` (loop da cena 02)
 
-- [ ] **Step 1:** P2 = shift de índices (Task 2) com ACT alternativos do acervo
-  local; dummy = mesmo `states_` com IA espeIHO simples (idle, recua, soca a cada
-  60 frames) — sem IA avançada (GDD).
-- [ ] **Step 2:** Vida = barra de tiles na BG (24×2, `SMS_setTileatXY` no VBlank);
+- [x] **Step 1 (parcial de escopo):** P2 usa perfil/corte Ryu (32 poses, banks
+  5–6) com dummy determinístico simples, sem IA avançada (GDD). A ROM inclui Ken
+  P1 (44 poses, banks 2–4). O PASS range-synced de input/dano está em
+  `out/evidence/t10_input_memory_range_sync_pass.json`: gap 16 medido com o jogo
+  pausado antes do B1, vida 152→102. O whiff anterior após B1 chegar permanece
+  em `out/evidence/t10_input_memory_idle_wait_retry_whiff.json` como diagnóstico;
+  helper agora reamostra o alcance após IDLE. As combinações de poses atingíveis passaram o simulador em
+  `out/evidence/t10_ken_ryu_line_sim.json`.
+- [ ] **Step 2 (implementado; KO/reset sem prova dedicada):** Vida = barra de tiles na BG (24×2, `SMS_setTileatXY` no VBlank);
   KO por vida 0 → pose KO (hitstop final), round reinicia; `PSGPlay(bgm)` +
   `PSGFrame()` no loop, `PSGSFXPlay(sfx, SFX_CHANNELS2AND3)` nos golpes.
-- [ ] **Step 3:** Gates da cena: boot determinístico, input, fps (`measure_fps.py`
+  O screenshot confirma o HUD e a captura isolada/audits confirmam sinal PSG;
+  falta observar KO, reinício do round e partida mais longa.
+- [x] **Step 3 (parcial):** Gates da cena: boot determinístico, input, fps (`measure_fps.py`
   ≥5 amostras 50–60) E frame advance, `audit_psg_channel_binding`, `audit_psg_quality`,
-  evidência selada (`seal_fresh_evidence_bundle.py`). Commit + memory bank atualizado.
+  `reconcile_claims.py`, `audit_claims.py`, doc-sync, learning capture e gates estáticos têm resultados T10.
+  DAP 2×120 s PASS (58,10/59,78 FPS,
+  spread 1,68); 2×240 s falhou como rota diagnóstica. Só os resultados T9
+  pertencem ao relatório antigo. Bundle T10 com 38 artefatos está selado.
+  KO/round reset e
+  gameplay longo continuam sem prova dedicada. Commit não criado por
+  escopo/autorização; memory bank atualizado.
 
 ---
 
 ### Task 8: Cena 03 `golden_slice` + PROVA DO CONTRATO + fechamento de claims
 
-- [ ] **Step 1:** Melhor-de-3 com timer em tiles, 1 especial por lutador
+T10 integra Ken e Ryu simultaneamente em `out/rom/luta_mugen.sms`: Ken ocupa
+banks 2–4 e Ryu banks 5–6, com perfis de animação, CLSN e física próprios.
+P2 continua dummy. A prova antiga `out/evidence/t9_ryu_def_switch.json` só
+documenta substituição no build; a composição T10 não prova ainda a troca de
+`.def` sem alterar C do núcleo.
+
+Preparação de dados (2026-09-26): cortes regenerados em
+`out/local_study/generated/versus_cut/`; Ken 44 poses nos banks 2–4 e Ryu 32
+poses nos banks 5–6. Os arquivos derivados estão fora do Git; o manifesto
+`.mddev/project.json` aponta para os cinco banks.
+
+- [ ] **Step 1 (parcial):** completar melhor-de-3 com timer em tiles, 1 especial por lutador
   (QCB+1 remapeado, Task 5); segundo lutador trocado **apenas por `.def`** no build
   local (prova do contrato do GDD: nenhum `.c` do núcleo muda — documentar os dois
-  builds e os SHAs).
+  builds e os SHAs). Ken QCF+B1 está provado; especial de Ryu, ciclo de rounds e
+  substituição data-only na composição atual ainda não.
 - [ ] **Step 2:** Rodar TODOS os gates do AGENTS.md aplicáveis na cena pesada COM
   áudio; `reconcile_claims.py`, `audit_claims.py`, `audit_rom_asset_binding.py`;
   teto de claims: `protótipo jogável de engine de luta MUGEN→SMS dirigida por dados`.

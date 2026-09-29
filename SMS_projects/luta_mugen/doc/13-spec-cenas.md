@@ -1,5 +1,20 @@
 # 13-spec-cenas — luta_mugen
 
+> **Revisão vigente 2026-09-26:** `engine_quality_contract.json` e
+> `16-engine-review-2026-09-26.md` supersedem a escala 1:4/48 px como limite do
+> motor. Números e tarefas T10 abaixo são histórico do perfil
+> `legacy_probe_quarter`, sem aceite no novo piso. Próxima cena precisa medir
+> corpo idle 45–55% da área útil (perfil inicial: 72–88 px), custos simultâneos
+> e capacidade expansível. Técnicas opcionais exigem A/B; não estão implementadas
+> por constarem no contrato.
+
+> Atualização 2026-09-29: a entrega também exige zero flicker visível, zero
+> corrupção gráfica, <=8 sprites/scanline e <=64/SAT. O clone rápido 72–88 px
+> ainda reprova o critério visual; veja
+> `18-gap-diagnostico-plano-prompt-2026-09-29.md`. O storyboard e o palco
+> autoral continuam pendentes.
+
+
 > Budget REAL por cena. **Autoridade #3.**
 > Regra: **"estimado" é proibido neste arquivo.** Todo número aqui é medido,
 > com o método da medição citado. Folga não medida é timidez (§18).
@@ -52,8 +67,9 @@ confirmada 100% (`audit_render_fidelity.py` PASS em [90,131]).
 - **Headroom**: >98% da janela de VBlank — mas NUNCA medido em ciclo de CPU;
   o contrato real de worst-frame chega com Ken (Task 6/`measure_worst_frame.py`)
 - **Método**: contagem instrumentada do código de frame + captura de evidência
-- **Degrau seguinte medido**: banco + streaming dos pools de Ken (Task 6) —
-  376 KB de arte gerada contra 16 KB de VRAM é o débito que paga o teste
+- **Validação seguinte**: Task 6 mediu o bloco VDP bancado na ROM de fixture
+  (seção abaixo). O corte de arte do Ken real continua sujeito a orçamento e
+  medição próprios.
 
 ### Sprites por scanline (pico)
 `audit_sprite_line_sim.py` sobre `out/evidence/cena01_line_sim_scene.json`
@@ -61,5 +77,85 @@ confirmada 100% (`audit_render_fidelity.py` PASS em [90,131]).
 zero violações** — dentro do contrato GDD de lutador (≤4/linha).
 
 ### fps observado
-`measure_fps.py` — 6 amostras, todas **60 fps** (`constante_50_60: true`),
-janela `Emulicious - 100% (60 fps)`: `out/evidence/cena01_fps.json`.
+`measure_fps.py` — 6 amostras a **59,9 quadros/s** (atualização nominal de
+60 Hz, `constante_50_60: true`), janela `Emulicious - 100%`:
+`out/evidence/cena01_fps.json`.
+
+## Loop T6 — arena de fixture sintético bancária (2026-09-26)
+
+Esta medição valida o loop e o transporte de poses do fixture; não declara
+entrega visual do Ken real.
+
+| Grandeza | Resultado medido | Evidência |
+|----------|------------------|-----------|
+| ROM | 65.536 B, SHA `b5d5db7b6295e8c6947b0125f0d4ef468fc179fb4e4d72215b5b5573227fafc5` | `out/build_record.json` |
+| VDP/VBlank | 3.000 frames, `vovf_delta=0`, `vline_min=0xC8`; PASS | `out/evidence/t6_vblank_cpu_split_byte_addr.json` |
+| Frame advance da ROM | 59,9 fps; 27 estados completos; 0 fora da tolerância; PASS | `out/evidence/t6_vblank_cpu_split_byte_addr_frame_advance_60s.json` |
+| FPS do emulador | 6/6 a 59,9 quadros/s; PASS | `out/evidence/t6_vblank_cpu_split_fps.json` |
+| FPS via probe na RAM | 59,29 e 59,43 em duas janelas de 8 s; PASS | `out/evidence/t6_vblank_cpu_split_byte_addr_runtime_probe.json` |
+| Input ao vivo | direções, pulo, soco com dano, agachar e padrões; PASS | `out/evidence/t5_input_memory.json` |
+| Captura de boot | informativa, paleta 100%, lixo VRAM 0%; PASS sem claim de gameplay | `out/evidence/t6_vblank_cpu_split_byte_addr.png` + `_semantic.json` |
+
+O perfil por etapa não foi capturado porque não houve derrame; os campos do
+perfil são inválidos quando `vovf_delta=0`. Input, física e preparo de
+metasprites rodam fora do bloco VDP. Arte do Ken real e áudio seguem abertos.
+
+## Cena 02 / Cena 03 parcial — T10 Ken vs Ryu dummy (2026-09-26)
+
+Build T10 integra dois cortes distintos no mesmo runtime: Ken P1 (44 poses,
+banks 2–4) e Ryu P2 (32 poses, banks 5–6). P2 segue dummy determinístico;
+esta ROM não fecha a troca de `.def` sem C editado, especial de Ryu ou o ciclo
+completo de KO/reset.
+
+| Grandeza | Resultado medido | Evidência |
+|----------|------------------|-----------|
+| ROM | 131.072 B, SHA `af9eb127895ed07de6884592bbac420e31c660b39d371d4c9f5faaacd629dc97` | `out/build_record.json` |
+| Cortes e bancos | Ken 44 poses (2–4); Ryu 32 poses (5–6) | `out/local_study/generated/versus_cut/versus_scene_manifest.json` |
+| Sprite budget combinado | PASS, 16 sprites no pior par medido, pico 8/linha | `out/evidence/t10_ken_ryu_line_sim.json` |
+| Worst-frame | PASS, 3.000 frames, `vovf_delta=0`, `vline_min=200`; perfil por etapa inválido sem derrame | `out/evidence/t10_current_worst_frame.json` |
+| Frame advance | PASS, 27 transições em 59,81 s, mediana 58,6 fps, `constante=true` | `out/evidence/t10_current_frame_advance.json` |
+| FPS do emulador | PASS, 6/6 entre 59 e 60 quadros/s, média 59,8 | `out/evidence/t10_current_fps.json` |
+| Runtime probe DAP | PASS, duas janelas de 120 s: 58,10/59,78 fps, spread 1,68; boot e avanço PASS. Tentativa 2×240 s quebrou o canal antes da 2ª janela | `out/evidence/t10_current_runtime_probe_120.json` |
+| Input/gameplay | PASS parcial range-synced: direções, pulo, soco/dano (vida 152→102), agachar, guard e QCF+B1; reteste anterior de whiff preservado; KO/reset e partida longa pendem | `out/evidence/t10_input_memory_range_sync_pass.json`, `out/evidence/t10_input_memory_idle_wait_retry_whiff.json` |
+| Boot/semântica | captura 256×192 e gate semântico PASS; duas execuções determinísticas; imagem permanece época `probe` | `out/evidence/t10_ken_ryu_pair.png` + `_semantic.json` |
+| Áudio | sinal isolado por 15,6 s, peak 5853, 100% ativo, `audit_audio.py` PASS; 0/7 streams reprovados no piso PSG | `out/evidence/t10_current_audio.wav`, `t10_current_audio_audit.log`, `t10_psg_quality.json` |
+| Vínculo asset→ROM | PASS, cinco bancos e fontes SHA vinculados à ROM atual | `doc/rom_asset_binding.json`, `out/evidence/t10_rom_asset_binding.json` |
+| Claims | PASS, nenhum claim acima do teto | `out/evidence/t10_audit_claims.log` |
+| Evidência fresca | PASS, bundle selado com 38 artefatos posteriores à ROM | `out/evidence/t10_fresh_bundle.json` |
+
+`audit_visual_delivery.py --delivery` reprova `wrong_visual_epoch`: o contrato
+de entrega visual ainda não existe. A captura mostra lutadores pequenos numa
+arena vazia, portanto é evidência de `probe`, não de entrega. T10 permanece o
+perfil histórico 1:4; o GDD vigente exige idle 72–88 px sem flicker visível.
+Roteiro/storyboard e arte do palco ainda estão vazios.
+
+## Histórico — Cena 02 T7 Ken vs dummy (2026-09-26)
+
+Esta build exercita o runtime com o corte Ken local. O P2 ainda usa o mesmo
+conjunto de animações do Ken, ACT alternativa e dummy determinístico; não é a
+partida Ken-vs-Ryu prevista na fatia golden.
+
+| Grandeza | Resultado medido | Evidência |
+|----------|------------------|-----------|
+| ROM | 131.072 B, SHA `2210b0161dd2d40f1574f8664cb54b56527f5ea85e882d41f94b1482b7ebf21f` | `out/build_record.json` |
+| Corte Ken | 44 poses/fighter, banks 2–4 | `out/local_study/generated/scene_cut/ken_scene_manifest.json` |
+| Sprite budget | PASS, pico 8/linha no corte versus, sem violação | `out/evidence/t8_ken_line_sim.json` |
+| Worst-frame | PASS, 3.000 frames, `vovf_delta=0`, `vline_min=201`; perfil por etapa inválido sem derrame | `out/evidence/t9_current_worst_frame.json` |
+| Frame advance | PASS, 27 transições em 59,96 s, 57,8 fps, `constante=true` | `out/evidence/t9_current_frame_advance.json` |
+| FPS do emulador | PASS, 6/6 amostras entre 59–60, média 59,8 | `out/evidence/t9_current_fps.json` |
+| Runtime probe DAP | PASS em janelas de 240 s: 58,87 e 59,86 fps, spread 0,99; a tentativa de 120 s teve spread 2,05 e ficou como diagnóstico | `out/evidence/t9_current_runtime_probe_240.json` + `t9_current_runtime_probe_120.json` |
+| Input/gameplay | PASS parcial: movimento, pulo, dano, agachar, guard e especial provados via RAM; Ken vs dummy | `out/evidence/t9_ken_input_memory.json` |
+| Boot/semântica | captura e gate semântico PASS; imagem permanece época `probe`, com lutadores pequenos | `out/evidence/t9_ken_restored.png` + `_semantic.json` |
+| Áudio | sinal presente por 11,146 s, 100% ativo; audit de captura PASS; qualidade musical ainda precisa de escuta | `out/evidence/t9_current_audio.json` + `.wav` |
+
+O worst-frame acima é o veredito do gate da ROM. A ausência de quadros com
+derrame invalida apenas o perfil opcional por etapas, não o PASS do contador
+de overflow. A observação de tela também não promove a época visual além de
+`probe`; a cena ainda precisa de arte com silhueta legível antes de qualquer
+claim de entrega.
+
+Experimento independente de troca de dados: `t9_ryu_def_switch.json` registra
+uma build Ryu de 65.536 B com 32 poses e dois banks. `src/main.c`,
+`src/fight.c` e `inc/fight.h` mantiveram os mesmos SHA nas builds Ken e Ryu.
+Isso comprova a troca de piloto no build, não dois `.def` distintos na mesma
+partida.

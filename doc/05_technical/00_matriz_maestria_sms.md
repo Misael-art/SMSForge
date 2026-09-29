@@ -14,7 +14,7 @@ build + evidência de emulador em algum projeto (`doc/curation/` promove).
 ## 1. VDP / tiles BG
 | # | Técnica | Nota dura |
 |---|---------|-----------|
-| V01 | Grid 8×8, pattern table 32 bytes/tile | name table = 1 byte/tile: sem flip nem paleta por tile |
+| V01 | Grid 8×8, pattern table 32 bytes/tile | name table = entrada 16-bit com flags flip/paleta/prioridade (probe `pnt_16bit`, L069) |
 | V02 | Metatile 16×16 via camada de índices | economiza name table e lógica de colisão |
 | V03 | Scroll global X/Y (regs) + trava 1ª coluna | sem scroll fino por linha nativo |
 | V04 | Line interrupt para split de scroll/raster | jitter de Z80: medir estabilidade em evidência |

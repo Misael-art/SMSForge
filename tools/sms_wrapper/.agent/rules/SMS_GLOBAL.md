@@ -28,9 +28,17 @@ Fim de sessão: memory bank atualizado + handoff curto (o que mudou, próximo pa
 bloqueios). Handoff nunca substitui memory bank nem evidência.
 
 ## 6. Lei do VDP (tiles BG)
-- Grid 8×8; pattern table 32 bytes/tile; **máx 256 tiles BG**.
-- Name table = **1 byte por tile** (índice 0–255). Não existe flip nem paleta
-  por tile no BG — variação vem de tiles distintos ou metatiles.
+- Grid 8×8; pattern table 32 bytes/tile (4bpp); espaço de pattern do BG são os
+  primeiros 14KB = **448 tiles (índices 0–447)**; acima disso a leitura cai na
+  própria name table. A metade alta é dos sprites conforme a base do reg 6 (§27).
+- Name table = **entrada de 16 bits por tile** (stride 2 em `XYtoADDR`,
+  `SMSlib.h:112`). Flags da entrada: `TILE_FLIPPED_X` 0x0200, `TILE_FLIPPED_Y`
+  0x0400, `TILE_USE_SPRITE_PALETTE` 0x0800, `TILE_PRIORITY` 0x1000
+  (`SMSlib.h:124-127`). **Provado no framebuffer do emulador** (probe
+  `_laboratorio/pnt_16bit`, L069): flip X/Y renderiza, subpaleta de sprite por
+  tile funciona, índice 300 (>255) renderiza. "1 byte por tile, sem flip" é
+  lei do **SG-1000**, não do SMS — a doutrina teve isso invertido até 2026-09-24.
+  `TILE_PRIORITY` só tem efeito com sprite sobreposto: permanece `mapped`.
 - Scroll global X/Y. A trava da 1ª coluna **deixa de ser opcional** quando o
   H-scroll está ao vivo: `SMS_setBGScrollX` ≠ 0 exige
   `VDPFEATURE_LEFTCOLBLANK`. Sem isso os 8 px da esquerda mostram lixo do
@@ -111,8 +119,8 @@ Mapa conceitual SGDK→SMSlib (NÃO é 1:1):
 |---|---|
 | DMA queue | transferências manuais dentro do VBlank |
 | PAL_setPalette | SMS_loadBGPalette / SMS_loadSpritePalette |
-| VDP_setTileMapXY | SMS_setTileatXY (name table 1 byte) |
-| sprite flip por atributo | NÃO EXISTE no BG; sprites: revisão-dependente (§7) |
+| VDP_setTileMapXY | SMS_setTileatXY (entrada 16-bit com flags — §6) |
+| flip por atributo | BG: flag na entrada da name table (§6, L069); sprites: revisão-dependente (§7) |
 | XGM2 | PSGlib (+ PSG samples) |
 Função que não estiver no header não existe.
 
@@ -580,11 +588,12 @@ Gate: `prove_input_memory.py` (punch_window, linha_tempo_b1, P1_STATES).
 Orçamento "declarado" em spec não fecha eixo nenhum — e o degrau seguinte é
 um instrumento que mora na ROM, não na bancada. Padrão do probe SMRT:
 `probe_vline` (VCounter lido NO FIM do trabalho do frame, antes do wait de
-VBlank) + `probe_vovf` (contador saturante de frames com vline >= limiar de
-VBlank). O contador é a evidência dura (imune a amostragem); o vline é o
-contexto. Derrame não derruba fps — espreme o streaming de VRAM, então
-"fps 60" não absolve orçamento estourado: mediu-se 247 frames derramados em
-~2700 com fps 60 (MSSF2T v085, modo atração). Pior caso declarado é o que a
+VBlank) + `probe_vovf` (word não saturante de frames que terminaram fora do
+VBlank). `0xC0` é a ENTRADA do VBlank em NTSC; o período seguro continua pelas
+linhas de contador `0xC0–0xDA, 0xD5–0xFF`. O trabalho derramou quando o contador
+deu a volta e a leitura caiu abaixo de `0xC0`. O contador é a evidência dura
+(imune a amostragem); o vline é o contexto. Derrame não derruba fps — espreme
+o streaming de VRAM, então "fps 60" não absolve orçamento estourado. Pior caso declarado é o que a
 medição usa (troca de pose + HUD + projéteis), não o caminho vazio.
 Gate: `measure_worst_frame.py` (por projeto; molde com `--self-check`).
 
@@ -642,3 +651,365 @@ Editar `axes` a mao e proibido (release-rom). Divergencia "memory bank diz
 testado / build_record diz false" e esperada ate o rebuild com evidencias
 mais novas que a ROM — autoridade #1 continua o memory bank.
 Gate: `reconcile_claims.py` (reprova `true` sem lastro; nao promove a mao).
+
+## 54. Doutrina de hardware é claim medido contra o header (L069)
+Até 2026-09-24 o §6 ensinava a name table do **SG-1000** (1 byte/tile, sem
+flip, 256 tiles) como lei do SMS — em 7 arquivos. Os testes de host passaram
+59/59 com a doutrina errada porque nenhum gate lia `SMSlib.h` contra a prosa:
+`audit_hardware_constants` confere número entre consoles, `audit_doc_sync`
+casa gate↔doc. Nenhum casava **doc↔API**.
+
+Regra: a autoridade #8 vira **dado**, não comentário.
+1. `audit_header_claims.py` parseia os defines reais (`TILE_FLIPPED_X/Y`,
+   `TILE_USE_SPRITE_PALETTE`, `TILE_PRIORITY`, stride de `XYtoADDR`) e
+   reprova as formas erradas na doutrina — nota de correção e fixture
+   reprovada podem citar o errado (mesma política de contexto do §L001).
+2. O §6 é obrigado a citar os quatro defines **com os valores do header**:
+   se o SDK mudar e a prosa não acompanhar, o gate pega em flagrante.
+3. A lei nova é provada em pixel, não em man page: probe
+   `_laboratorio/pnt_16bit` (flip X/Y, subpaleta de sprite por tile e índice
+   300 renderizados no framebuffer 256×192 do Emulicious). Entrada da PNT é
+   16-bit; espaço de pattern do BG são 448 tiles (0–447).
+Gate: `audit_header_claims.py` (--self-check com as 5 formas que o acervo
+carregou como regressão).
+
+## 55. SMS_init não limpa VRAM; evidência estática precisa de pulso (L070)
+Observado na primeira captura do probe `pnt_16bit`: com a name table zerada e
+tile 0 nunca carregado, o "fundo preto" saiu como ruído colorido — o padrão de
+tile 0 era lixo de power-on. Consequências executáveis:
+1. Toda cena/probe que confia em "tile 0 = apagado" **carrega** o padrão zero
+   (`SMS_loadTiles(zeros, 0, 32)`) — VRAM não nasce limpa.
+2. `capture_video.py` reprova tela congelada por design (§45). Um probe de
+   padrão estático precisa de um elemento **incidental** animado (faixa
+   piscante fora da área medida) para a gravação existir; a animação não é o
+   objeto da leitura e o veredito continua vindo da comparação entre células.
+Gate: leitura mecânica `SMS_projects/_laboratorio/pnt_16bit/probe_read.py`
+(predicados relacionais espelhoX/espelhoY/cor-forma entre células — não
+depende de interpretar o formato planar).
+
+## 56. RAM fixa é contrato: um endereço, um mapa, todas as ferramentas (L071)
+Observado na reconciliação do kage_matsuri (2026-09-25): o probe local vivia
+`s0_x/s1_x` em 0xC7EC/0xC7ED — exatamente onde o `measure_worst_frame.py`
+canônico lê o byte ALTO da word `vovf` (0xC7EB) e a `phase` (0xC7ED). Duas
+ferramentas liam a mesma RAM com mapas diferentes: os números de worst-frame
+do kage misturavam coordenada de samurai com contador de derrame. E o
+contador era byte com guarda `!= 0xFF` — saturação, reset e estouro
+indistinguíveis, o defeito que o curador apontou.
+
+Regra:
+1. O esquema SMRT é canônico e aditivo: magic 0xC7E0–E3, schema 0xC7E4,
+   vline 0xC7EA, **vovf como word em 0xC7EB**, phase 0xC7ED,
+   `worst_done` 0xC7EE, `vline_min` 0xC7EF, frame 0xC7F0, state 0xC7F6.
+   Esses endereços são reservados pelo contrato comum; nenhum probe local os
+   reutiliza para coordenadas.
+2. Acumulador de evidência (`vovf`) é word, sem guarda de saturação, e zera
+   **só no boot** — reset de partida não pode comer a contagem no meio da
+   janela de medida.
+3. A folga do banco manda: cada `__at` guardado custa ~5–7 B; contador
+   redundante (incrementado sob a mesma condição de outro e nunca consumido)
+   é removido antes de pedir banking (o `probe_missed` comeu o build do
+   MSSF2T inteiro: Bank 1 overflow por 16 B).
+Correção L082: números históricos de `vovf_delta` e `vline_max` colhidos pela
+condição antiga (`vline >= 0xC0`) não provam derrame; a condição contava frames
+que ainda estavam no VBlank. Repetir essas medições com o critério corrigido.
+Gate: `measure_worst_frame.py --self-check` (vline-baixo-sem-contador =
+sem_lastro) + fixture de fonte com janela selada.
+
+## 57. Gate calibrado em captura escalada não vale em escala nativa (L072)
+Observado na reconciliação do kage: o boot em 256×217 (escala 1) reprovava o
+`screenshot_semantic_gate` com "6,7% dos blocos 8×8 ≥8 cores — lixo de VRAM",
+limiar 5% calibrado em 2026-09-01 sobre capturas de janela escalada, onde o
+bloco 8×8 da janela cobre só parte do tile. Em escala nativa o bloco **é** o
+tile: arte densa legítima passa de 5% fácil. Separação medida no acervo:
+arte autoral nativa 2,3–6,7%; ruído de VRAM sintético em escala nativa
+**100%**.
+
+Regra: a unidade de forma de um gate de pixel é o TILE, não o pixel da
+janela. Onde isso não puder ser normalizado, o limiar declara a escala a que
+pertence. O gate agora escolhe o teto por escala (5% escalada / 30% nativa)
+e o `--self-check` carrega as duas fixtures da fronteira: arte densa nativa
+aprova, ruído nativo reprova. Consequência geral: ao trocar o ambiente de
+captura (ini do Emulicious, scale, moldura), revalidar todo gate cujo
+veredito dependa de geometria de pixel — a troca é mudança de unidade de
+medida, não detalhe de UI.
+
+## 58. ROM com SHA que muda com o calendário não sustenta selo (L073)
+Recorrência declarada: o MSSF2T perdeu o selo em 2026-09-09 por
+`SMS_EMBED_SDSC_HEADER_AUTO_DATE` (2 bytes de data no SDSC); o kage_matsuri
+chegou 2026-09-25 com o mesmo macro e o mesmo sintoma — bank anunciando SHA
+de outro dia (`283e250a…` vs `1e6c4e9b…` em disco), o que o curador leu
+corretamente como "memória operacional vencida". Pinado nos dois
+(`SMS_EMBED_SDSC_HEADER[_16KB](...,data fixa)`), provado por dois rebuilds
+byte-idênticos.
+
+Regra: projeto que sela evidência por SHA usa SDSC pinado; rebuild não pode
+mudar o binário sem mudar código. Ainda usam AUTO_DATE no acervo:
+`arena_nocturna`, `laboratorio_01` — ao selar evidência neles, pinar primeiro
+e registrar a SHA nova no bank. Degrau aberto (handoff curadoria): gate que
+casa "bank anuncia SHA X" contra "rebuild produz X" e contra AUTO_DATE no
+fonte; enquanto não existe, a recorrência fica registrada aqui e no ledger.
+
+## 59. Receita de combate: o contrato do golpe é datado do fonte, não do relato (L074)
+
+A capacidade de combate do MSSF2T vivia só no memory bank ("soco −7 provado").
+Regra: capacidade de gameplay promovida ao agente canônico sai como **receita
+de seis partes** — contrato, exemplo mínimo (código real, com arquivo e linha),
+comando de reprodução, caso válido/inválido (com a fixture que reprova), vídeo
+nativo e SHA da ROM — e a evidência nativa é re-gerada contra a ROM selada,
+nunca reutilizada de binário antigo. O contrato do golpe: janela
+startup/active/recovery por movimento, um-golpe-um-acerto (`hit_used`), dano
+atribuível por movimento (soco 7, chute 10, projétil 12, chip 2), guarda
+posicional (trás + de frente + no chão), snapshot de contatos antes do
+veredito (trade/duplo-KO não dependem de ordem P0/P1), impacto com hitstop +
+shake + pose. Skill: `skills/sms-recipe-combate-1v1.md`.
+
+## 60. Receita de animação: pose não mente, dívida não some — entra escrita (L075)
+
+A receita de animação/impacto só vale com a limitação dentro dela: hoje cada
+golpe é UM frame estático e o chute reusa a pose do soco; animação por
+movimento (2–4 frames/golpe) depende de banking aprovado e **não pode ser
+claimada antes**. O que está pago e é claimável: folha própria por pose (8 no
+molde), convenção única de orientação (folhas face-left) com flip em runtime,
+upload de pose medido no orçamento de VBlank (worst-frame com contador WORD:
+181/235 no MSSF2T, 67/245 no ciclo kage — números selados, não promessa),
+física por altura (`airborne()`) e não por estado. Skill:
+`skills/sms-recipe-animacao-impacto.md`.
+
+## 61. Receita de asset→ROM: todo pixel com gate por arco e vínculo por hash (L076)
+
+"Tenho um PNG" e "este pixel está nesta ROM" são afirmações de mundos
+diferentes. A receita canônica da cadeia: fonte com proveniência → PNG no
+contrato (mestra 6-bit, índice 0, ≤15 úteis, grid 8) → tiles 4bpp de 32 B
+(caminho 2bpp é outro: `SMS_load2bppTiles`) → símbolo com tamanho derivado da
+folha → build com pré-gates → binding asset→ROM **por hash** → SHA invariante
+de fonte (SDSC pinado). Cada furo da cadeia já existiu no acervo e tem gate
+nomeado na skill: L006, L051, L052, L058, L065/L073. Skill:
+`skills/sms-recipe-asset-a-rom.md`.
+
+## 62. Gate mede contrato de instrumentação, não endereço (L077)
+
+Auditoria do corpus (25/09): `measure_worst_frame.py` deu **pass** a uma ROM
+sem probe nenhum (`laboratorio_01`) — lia 0xEA/0xEB sem autenticar nada, e
+RAM sem dono tem exatamente a assinatura de "orçamento folgado": lixo baixo e
+contador parado. `arena_nocturna` reprovara por sorte (lixo ≥ 0xC0 gerou a
+contradição do `sem_lastro`), não por desenho. O header `SMRT` na RAM também
+não basta: arena escreve magic+schema e não instrumenta worst-frame —
+identidade sem instrumentação não é medição.
+
+Regra: gate de leitura de RAM responde **"quem escreve este byte?"** com
+verificação, não com suposição. `measure_worst_frame` agora exige (a) fonte
+da ROM declarando a triade canônica — vline 0xEA, **vovf WORD** 0xEB (rejeita
+byte: é a regressão L071), phase 0xED — antes de abrir emulador, e (b) header
+SMRT+schema na RAM. Veredito novo `sem_contrato` (exit 1): ROM sem
+instrumentação não tem orçamento — nem "pass", nem "derramou" — e não entra
+no ledger. Generaliza §56: um endereço só vale onde uma ferramenta provou que
+a ROM o escreve.
+
+## 63. Presença de áudio não é áudio: o piso musical é medido no stream (L078)
+Feedback humano de 2026-09-25: "todos os sons foram ruídos nos testes e
+péssimos de se ouvir". Medido: o gate de presença (`audit_audio.py`: peak,
+% ativo) nunca reprova um buzzer, e os "arranjos" do acervo são literal
+um buzzer — `make_psg_assets.py` escreve a mesma nota nos 3 canais a cada
+frame com atenuação 1 e ruído periódico colado, com loop de 0,2–1,9 s
+(documentado em `doc/psg_quality_ledger.json`: 7/7 músicas reprovam).
+O SN76489 não tem acorde, não tem ataque, não tem timbre — as técnicas que
+os jogos clássicos arrancam do chip (arpejo multiplexado ~30 Hz simulando
+acorde, envelope de volume simulando ataque/eco, ruído branco gateado como
+percussão, contraponto para preencher espectro, SFX que roubam o canal menos
+ativo sem matar a música) são o próprio piso, não enfeite.
+
+Regra: o eixo `audio` de uma entrega exige `audit_psg_quality.py` passando
+no stream (M1 ritmo ≥ 2 frames/nota, M2 ≥ 2 atenuações por canal ativo,
+M3 uníssono ≤ 50%, M4 percussão branca ≥ 50% com envelope, M5 loop ≥ 125
+frames, M6 ≥ 2 canais; SFX com decaimento e ≤ 45 frames). "Soa estranho" é
+entrada de medição, não opinião: cada cláusula aponta o byte do stream
+responsável.
+
+## 64. Registrador mal lido vira defeito audível; arranjo declarado é o do STREAM (L079)
+Dois achados da mesma FAMILY (L069: afirmação sobre hardware sem verificar
+a codificação). (a) No latch de ruído `0xE0|fb|per`, bit 2 = modo
+PERIÓDICO: o gerador mais rico do acervo chama "bumbo" a 0x06 e "caixa" a
+0x04 — 99% da "percussão" do tema do Ken é assobio tonal; branco legítimo
+é 0x00–0x03. (b) O bank declarava o tema em 4 papéis; o `.psg` em disco não
+tem UM evento de nota em ch1 (o arpejo nunca chegou ao binário) e a faixa
+é byte-idêntica à `music_battle`.
+
+Regra: claim de arranjo é claim sobre o stream medido (canais ativos, modos
+de ruído, envelopes), nunca sobre o fonte do gerador ou o comentário do
+manifesto. `audit_psg_quality.py` decodifica o binário `.psg`; periodicidade
+de ruído em música e canal declarado-silencioso caem ali.
+
+## 65. Andamento percebido e identidade são medidos; com referência, o arranjo é transcrição (L080)
+O piso L078 deixa passar faixa que "soa acelerada": todas as camadas escrevendo
+todo frame não é andamento, é metralhadora — o ouvido chama de rápido o que
+nunca respira. E "tema X" portado de memória por compositor-de-código não é o
+tema X: quando o acervo tem referência hasheada (MID com sha256 no manifesto de
+áudio), identidade é claim verificável.
+
+Regra: (a) M7 — a camada de maior intervalo médio entre notas precisa de gap ≥
+8 frames; LOOP_MIN = 250 frames. (b) Havendo referência hasheada, o stream é
+TRANSCRIDO dela por script determinístico com `--self-check` (parse SMF →
+grade de semicolcheias → colapso de uníssonos → fusão de runs de acompanhamento
+→ percussão com simultaneidades a 1 frame), nunca escrito "de memória" à mão.
+(c) Claim de voz/anúncio ("FIGHT") é síntese por formantes em stream SFX ≤ 45
+frames com decaimento (S1), tocada via `PSGSFXPlay` em canal declarado no
+manifesto. (d) Economia PSG: só se escreve latch de registro que MUDA —
+re-articulação em mesma nota custa mute-de-1-frame (2–3 B), não par de tone;
+um arranjo que não respeita isso paga o dobro de bytes e soa igual.
+`audit_psg_quality.py` mede tudo; a transcrição de 8 compassos do Ken (750 B)
+coube na ROM onde o arranjo-de-memória de 7 compassos (919 B) estourava.
+
+## 66. Gate que não conhece a sintaxe da API que audita aprova em silêncio o que não enxerga (L081)
+`audit_psg_channel_binding.py` casava canal por literal único
+(`SFX_CHANNEL[A-Z0-9]+`). Máscaras compostas — `SFX_CHANNEL1 | SFX_CHANNEL2 |
+SFX_CHANNEL3`, forma legítima dos defines do PSGlib.h (autoridade #8: masks
+são bits) — não casavam com NENHUMA regex do gate: a chamada ficava invisível,
+e símbolo ausente do mapeamento é comparado com nada: [PASS] fabricado por
+cegueira. Recorrência da família L069/L041.
+
+Regra: gate que valida sintaxe de API casa a forma REAL do header, não a que o
+regex autor lembra. Um único classificador cobre toda chamada do padrão; todo
+2º-argumento não-literal para símbolo declarado vira "não provado" (nunca
+skip); comparação de máscara é por conjunto ordenado de tokens (ordem dos
+termos não é arranjo). O `--self-check` da ferramenta inclui o escape que ela
+fechou (mascara+variavel no rabo reprova) — gate sem caso-cego testado é gate
+que ainda não caiu.
+
+## 67. VCounter marca o início do VBlank; o derrame é detectado depois da volta (L082)
+O pior-frame lia `vline >= 0xC0` como derrame, mas `0xC0` é a entrada do
+VBlank. No NTSC 192 linhas, as 70 linhas seguras do VDP aparecem no contador
+como `0xC0–0xDA, 0xD5–0xFF`; após `0xFF` ele volta a zero e o display ativo
+recomeça. Assim, o contrato antigo contou frames dentro do blank e ignorou
+frames que terminavam em `0x00–0xBF`. A documentação do VDP lista a sequência
+e o fórum de desenvolvimento confirma o teto seguro antes da volta ao ativo
+(Charles MacDonald VDP notes; SMS Power HOW-TO, fontes referenciadas em
+`doc/curation/2026-09-26_l082_vcounter_vblank_deadline.json`).
+
+Regra: `probe_vovf` incrementa quando `vline < 0xC0`; `probe_vline_min` guarda
+o mínimo observado. Para excluir atraso do depurador, a ROM mede uma janela
+contínua, sela `vovf`/mínimo com `worst_done` e só então o gate anexa o DAP.
+Saída antiga com predicado `>= 0xC0` não é evidência de derrame e deve ser
+recolhida antes de fechar orçamento. Gate: `measure_worst_frame.py` e seu
+`--self-check` (limite 0xC0 nos dois lados, janela curta e selo ausente).
+
+## 68. Referência de excelência não é teto de probe nem promessa de técnica (L083)
+
+Para engines MUGEN→SMS, usar `doc/05_technical/mugen_engine_standard.md`,
+`mugen_engine_contract_v1.json` e workflow `mugen-engine-quality.md`.
+Decisão humana de 2026-09-26: Sangokushi III é piso de ambição; 1:4/48 px do
+luta_mugen é perfil histórico e não limite universal. Área útil e corpo opaco
+idle definem a escala. Portfólio registra baseline/candidata/rejeitada como descrita,
+prova e fallback; técnicas não testadas não são capacidades entregues.
+Gate `audit_mugen_engine_contract.py`: planning valida contrato; delivery exige
+aceites e artefatos próprios vinculados à ROM. Não substitui visual, orçamento,
+input, áudio, frescor ou revisão independente e nunca declara AAA.
+A CLI copiada de outro console deve executar --help e suas rotas reais antes de
+ser anunciada como motor. O fork SMS remove comandos dependentes de módulos MD
+ausentes. Método é doável; hardware, status e API precisam de prova local.
+
+## 69. makesms ignora mapas bancários além de oito; agrupe páginas contíguas (L084)
+O `makesms` do devkitSMS declara `MAX_MERGES=8`; depois de oito `-mbank`,
+`addMerge()` retorna erro, mas o parser não verifica o retorno. A ROM pode
+buildar sem os mapas restantes. No piloto 80 px, 35 entradas produziram ROM de
+192 KiB e omitiram o banco 25 de Ryu, apesar do build registrar sucesso.
+
+Regra: consolidar cada sequência contígua de páginas de 16 KiB num único arquivo
+e mapear com `-mbank arquivo:0:quantidade:banco_inicial`. `audit_mugen_engine_contract.py`
+reprova manifest com mais de oito entradas ou argumento incompleto. `makesms`
+deve continuar recebendo no máximo oito mapas, e o build/ROM deve provar os
+bancos-limite; tamanho alegado no JSON não prova presença dos dados.
+
+## 70. Ferramentas de medição em subdiretórios também entram no self-check (L085)
+
+`validate_measurement_tools.py` deve descobrir ferramentas de medição na raiz
+e em subdiretórios do wrapper. Uma ferramenta de análise não deixa de ser gate
+por viver em `mugen2sms/analysis/`.
+
+Regra: prefixos `audit_`, `measure_`, `validate_`, `capture_`, `seal_` e
+`reconcile_`, sufixos de gate e ferramentas doutrinárias registradas são
+descobertos recursivamente, exceto diretórios de cache. Cada uma expõe e passa
+`--self-check`; o autocheck do validador inclui uma fixture nested para provar
+que a busca não parou na raiz. Gate: `validate_measurement_tools.py`.
+
+## 71. Pivô espelhado usa a grade arredondada; máscara mede o pixel visível (L086)
+
+Metasprites SMS espelhados são montados sobre colunas de 8 px. Uma pose com
+largura não múltipla de 8 ganha padding na grade; no facing esquerdo, esse
+padding aparece como uma coluna transparente antes da imagem visível. Ancorar
+pela largura exata desloca o pivô, e comparar a imagem contra a origem da grade
+cria um falso erro de máscara.
+
+Regra: origem de METAL usa `ceil(width/8)*8`; a origem raster visível inclui o
+padding transparente à esquerda. O renderer canônico, o diagnóstico e o
+orçamento usam a mesma geometria. `scale_pilot.py --self-check` cobre largura
+31/51 px; `--video` acumula o framebuffer e compara a máscara alfa do frame 0,
+incluindo origem e IoU. A captura mede silhueta/pivô dessa pose, não AIR,
+flicker por frame ou gameplay.
+
+## 72. Lições podem apontar ferramenta nested pelo caminho relativo (L087)
+
+`audit_learning_capture.py` rejeitou a lição L086 porque extraía apenas
+`scale_pilot.py` e procurava na raiz, apesar de o medidor existir em
+`mugen2sms/analysis/`. O inventário de ferramentas (§70/L085) já aceita essa
+estrutura, mas a captura de lições não.
+
+Regra: `tool_that_measures` pode usar caminho relativo ao wrapper; resolver e
+validar esse caminho integral, sem truncar o diretório. O `--self-check` mede
+uma ferramenta nested existente e deve reprovar a mesma referência quando o
+arquivo falta. Gate: `audit_learning_capture.py`.
+
+## 73. Metadados e tiles devem pertencer ao mesmo pool de paleta/facing (L088)
+
+Um metasprite guarda índices absolutos do pool de padrões. Gerar `_TILES` e
+`_P2_TILES` independentemente pode mudar a ordem ou a quantidade de padrões
+deduplicados; a paleta alternativa não pode herdar `META/METAL` por suposição.
+No corte legado, Ken P2 referenciava tile 114 embora seu blob tivesse 57 pares,
+e o header não exportava metadata própria de Ryu P2. Os ZIPs fonte agora foram
+localizados no acervo de estudo e o corte 72–88 px foi regenerado com metadata
+por paleta em todas as 44/32 poses. Uma ROM clone-only provou o binding do idle
+Ryu P2 frame 0 com IoU 1,0; isso ainda não prova AIR nem integração do header
+integral. O probe de reconstrução confirma a razão da regra: apenas 88/2.660
+pares referidos do Ken e 50/1.404 do Ryu coincidem byte-a-byte; máscara parecida
+não autoriza recuperar índices.
+
+Regra: para cada pose, facing e paleta, todo ID par da SAT precisa endereçar um
+par 8×16 dentro do blob selecionado. P2 usa seus próprios `META/METAL`, ou o
+gerador prova igualdade exata do layout e do mapeamento de padrões. Arrays de
+metadata podem compartilhar armazenamento somente por igualdade byte a byte:
+preservar um alias por símbolo e `_SIZE`, ensinar parser e auditor a resolver
+aliases, e medir o objeto depois do link. No corte Ken/Ryu, 196 aliases exatos
+retiraram 18.055 B: `_CODE` ficou em 16.669 B e o header integral linkou com
+15.550 B livres no banco 1. O build/emulador provou inclusão das tabelas e
+somente a máscara/pivô dos idles frame 0; não provou reprodução AIR. O metadata
+continua no segmento fixo deste corte e elenco maior pode precisar de bancos.
+O medidor deve falhar em índice fora do blob, ausência de metadata por paleta
+sem prova, pool current+next acima da VRAM reservada ou stream acima do AIR. Gates:
+`mugen2sms/analysis/scale_pilot.py` e `audit_symbol_size_sync.py`; os self-checks
+cobrem alias válido, destino ausente/ciclo, metadata P2 e tamanho divergente.
+O mesmo analisador soma pares 8×16 novos por transição e divide por AIR ticks;
+Ken idle 0→1 pede 480 B/VBlank e Ryu P2 idle 0→1 pede 183 B/VBlank neste
+corte. Isso é demanda derivada dos bytes, não throughput do VDP: aceitar exige
+ROM e probe de pior quadro. VRAM current+next caber não significa prefetch a
+tempo. Build, vídeo de todas as poses AIR, gameplay e budget de cena continuam
+gates distintos. O relatório pré-arte também emite `idle_cache_plan` cíclico:
+slot por padrão físico, metadata remapeada por quadro e origem bank/offset de
+carga, preservando eixo, dx/dy, terminador e AIR. No corte Ken/Ryu, os slots
+0–63 e 64–127 produzem 6.464 B de idle current+next. É um mapa-fonte para a
+integração, não throughput nem prova de VRAM; aceite requer repetir as cargas
+na ROM e provar a cadência em todas as poses.
+
+## 74. Janela DAP do pior quadro precisa cobrir o selo em ROM lenta (L089)
+
+Um timeout fixo de 90 s classificou como `sem_lastro` uma ROM de 2,35 FPS após
+218/3.000 frames: o probe não havia selado a janela, então esse resultado não
+era PASS nem FAIL de VDP. A ROM piloto de 25,2 FPS também excedia o tempo
+estimado no comentário do runner; com espera de 150 s, o selo fechou 3.000
+frames e mediu `vovf_delta=3000`.
+
+Regra: separar janela medida (3.000 frames contínuos sem DAP) da espera de
+pareamento. `measure_worst_frame.py --wait-seconds` aceita 90–1.800 s, mantendo
+90 s como padrão e recusando encurtamento que possa ocultar o selo. Timeout ou
+snapshot parcial permanece `sem_lastro`; somente `done=1` fecha veredito. O
+self-check cobre limites da espera e janela incompleta. Medir o tempo real da
+ROM antes de aumentar a espera; não extrapolar aprovação de budget de um probe
+parcial.
