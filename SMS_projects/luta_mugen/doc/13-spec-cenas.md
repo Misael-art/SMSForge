@@ -32,7 +32,9 @@ ROM de 655360 B, SHA-256
 | FPS da ROM NTSC | 59,59 e 59,75 em janelas independentes de 30,14/30,09 s; spread 0,16; delta 3594 frames | PAL separado; não mede duração AIR |
 | VBlank worst-frame | 3000 frames; `vovf_delta=0`; `vline_min=211`; DAP confirmou 1 entrada P1 e 1 dano antes do selo | inclui um soco que conecta; não cobre todas as ações/poses |
 | RAM estática | `_DATA` até `0xC720`, `_INITIALIZED` até `0xC726`; SAT própria até `0xD1F0`; SP `0xDFF0`; reserva 3584 B | profundidade de stack não medida |
-| Glitch no vídeo final | L091 `flicker`, janela 8: 0/14960 quadros reprovados, extra máximo 0, antes do primeiro conteúdo 0 | não significa zero flicker; quadros individuais mostram omissões |
+| Glitch no vídeo final, L091 v1 | 0/14960 reprovados, extra máximo 0; `images_seen` só `ken0_ryu0` | inválido como prova visual: a máscara luma contou palco/HUD claro como ator; não usar esse PASS para ausência de glitch/cobertura |
+| Glitch no idle, L091 v2 | captura fresca 781 quadros; placa RGB (SHA em evidência), HUD ignorado; 0/781 reprovados, extra máximo 0, ausência instantânea máxima 901 px | toda pose legal coberta em janela de 8; só idle, não prova combate nem zero flicker |
+| Visibilidade por região, L091 v2 | Ken duty 87,292%, P05 67,135%, mínimo 65,262%; Ryu duty 78,048%, P05 48,262%, mínimo 47%; ausência total máxima 0 frames, Ryu abaixo de 50% por até 3 frames | métrica usa limiar RGB 32 e tolerância de borda 1 px; Ryu tem omissões visíveis; julgamento humano de “flicker mínimo” não foi promovido |
 | Round/match | vídeo 14960 quadros/249,66 s termina em `WIN 1`, placar 2–0 após timeouts; trace DAP chega ao round 2 | 25 socos aceitos, 10 causam dano, 15 erram; KO não alcançado; chute/rematch não exercitados |
 | Áudio isolado | 11,1 s durante entrada de soco, peak 5887, ativo 100%; `audit_audio.py` PASS | não é revisão musical subjetiva nem separação por canal |
 

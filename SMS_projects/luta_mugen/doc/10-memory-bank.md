@@ -73,13 +73,29 @@ O build/self-check passou antes das leituras. `build_luta_integrada.py
   `81e428ce0b0b8e7fbaaac456e4b546c1bd61c7adfaedfe06740b5a94ac37233b`.
   Input script `a=400,s=125000,a=400,s=130000`. Os quadros mostram o timeout
   do primeiro round e, depois, `WIN 1` com placar 2–0 após dois timeouts.
-  Áudio foi anexado, peak 13105. L091 `--mode flicker --window 8`: PASS,
-  0/14960 quadros reprovados, extra máximo 0, vídeo mais novo que a ROM,
-  0 pixels iluminados antes do primeiro conteúdo. Isso prova que o matcher
-  não encontrou pixels extras/resíduo; não prova ausência de flicker. Os
-  quadros individuais ainda exibem omissões visíveis nas peças dos lutadores;
-  `max_missing=48468` é contagem de pixels ausentes no pior quadro, não duração
-  nem percentual de flicker.
+  Áudio foi anexado, peak 13105. O veredito L091 v1 desse vídeo (`0/14960`,
+  extra máximo 0) está **invalidado para claims visuais**: a máscara por
+  luminância contou o palco azul/verde e o HUD como ator, e só casou
+  `ken0_ryu0`. O `max_missing=48468` do relatório antigo é contaminado pelo
+  fundo; não é contagem útil de omissão do lutador.
+- Retificação L092, mesma ROM sem rebuild: captura fresca de framebuffer
+  `lote_c_idle_rgb_mask_fresh.mp4`, 256×192, 781 quadros/13,033 s, SHA-256
+  `c09a8e7857e8d1937062a206f11adf8db50e598f8a0eb833b9bac66c80726a06`.
+  `lote_c_background_reference.png` (SHA-256
+  `beeb5402b78fb533e9a5b2cf1a6049422047f59d347dadd1dda743f6b03d7db8`) foi
+  calibrada por linha a partir das 24 referências legais; a cor modal teve
+  pelo menos 74,479% dos pixels de cada linha. A análise usou diferença RGB
+  máxima por canal >32 e ignorou a faixa de HUD `(0,0,256,24)`. O gate v2
+  `lote_c_idle_rgb_mask_fresh_glitch_regions.json` (SHA-256
+  `e80182aec8a15afe048e52f038541a0f09e95d9a870796f9ef24af265734cbcb`) passou
+  0/781, extra máximo
+  0, ausência instantânea máxima 901 px e 12 poses idle casadas. Duty relativo
+  à pose legal, com tolerância de borda de 1 px: Ken 87,292% ponderado, P05
+  67,135%, mínimo 65,262%; Ryu 78,048%, P05 48,262%, mínimo 47,000%. Nenhum
+  lutador teve quadro de cobertura zero; Ryu ficou abaixo de 50% por até 3
+  quadros, Ken por 0. A aprovação da janela 8 é mecânica; Ryu ainda mostra
+  omissões perceptíveis e “flicker mínimo” não foi aprovado por julgamento
+  visual humano. Esta captura é idle e não estende a evidência às ações.
 - Captura isolada `lote_c_audio_punch_isolated.wav`: 11,1 s, peak 5887,
   100% de amostras ativas; `audit_audio.py` PASS durante o ensaio de entrada
   P1. `audit_audio_provenance`, `audit_psg_channel_binding` e piso PSG dos
@@ -90,14 +106,14 @@ O build/self-check passou antes das leituras. `build_luta_integrada.py
   vitória `lote_c_best_of_three_verified_f14.png` e
   `lote_c_best_of_three_verified_f15.png`. Todas as evidências e ROMs acima
   permanecem em `out/` (gitignored); este registro mantém os caminhos e hashes.
-  Bundle fresco selado: `lote_c_fresh_bundle_final.json`, oito artefatos, todos
-  posteriores à ROM e dentro de 120 minutos da sessão. SHA-256 do bundle:
-  `e0563ce56fa8db239c5e2b856915315c75e0787988005d53911a066c98139ae3`.
-  Inclui vídeo/relatório L091, WAV, worst-frame, probe NTSC de 30 s, auditoria
-  asset→ROM e trace DAP de tentativas de KO. O PASS do L091 prova ausência de
-  pixels extras e cobertura de cada pose dentro da janela de oito quadros; o
-  matcher não mede duty cycle nem estabelece sozinho que o flicker observado
-  atende ao julgamento humano de “mínimo”.
+  O bundle original `lote_c_fresh_bundle_final.json` era fresco na sessão do
+  Lote C e expirou a janela de 120 minutos; seu relatório L091 v1 não deve ser
+  usado como prova visual. O bundle complementar atual de correção visual,
+  `lote_c_visual_correction_bundle.json`, vincula a captura, o sidecar, a
+  placa e calibração do fundo, quatro frames-chave e o veredito L091 v2 ao
+  mesmo SHA da ROM; contém 9 artefatos pós-ROM, selados dentro de 120 min.
+  SHA-256 do bundle `f6720b1c7324383863db5ba07e76162289ce10f2a0fa4bbad1e4055b6d776f98`.
+  Ele não renova os eixos anteriores de áudio, gameplay ou worst-frame.
 
 ### Budget e limites do lote
 

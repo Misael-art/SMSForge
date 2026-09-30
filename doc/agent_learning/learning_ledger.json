@@ -380,6 +380,17 @@
         "SMS_projects/luta_mugen/out/local_study/scale_pilot_rom_idle_cache/out/evidence/idle_cache_worst_frame_profiled.json"
       ],
       "dedup_key": "l089_worst_frame_wait_slow_rom_2026_09_26"
+    },
+    {
+      "ts": "2026-09-30",
+      "kind": "curation",
+      "summary": "L092: fundo azul/verde entrava na máscara de sprites do L091 e podia sustentar cobertura falsa; RGB foreground agora subtrai placa hasheada, ignora HUD dinâmico e mede duty/ausência por região.",
+      "sources": [
+        "doc/curation/2026-09-30_l092_render_glitch_background_mask.json",
+        "tools/sms_wrapper/audit_render_glitch.py",
+        "SMS_projects/luta_mugen/out/local_study/luta_integrada/out/evidence/lote_c_idle_rgb_mask_fresh_glitch_regions.json"
+      ],
+      "dedup_key": "l092_render_glitch_background_mask_2026_09_30"
     }
  ]
 }

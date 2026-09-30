@@ -1042,3 +1042,22 @@ O julgamento começa no primeiro conteúdo sustentado; o que acende antes é
 registrado (`pre_content_lit_pixels`), nunca apagado. Tolerância de borda de
 1 px (h264): glitch mais estreito não é detectado. Ligar o display só depois
 da 1ª SAT e dentro do VBlank.
+
+## 77. Fundo claro não conta como cobertura de sprite (L092)
+
+Uma máscara por luminância trata céu, piso e HUD claro como pixels do ator. A
+união desses pixels permanentes pode aprovar uma janela mesmo quando peças ou
+lutadores estão ausentes. `audit_render_glitch.py` deve falhar fechado quando
+mais de 20% da imagem legal estiver acesa sem placa de fundo. Para palco claro
+ou detalhado, passe uma placa RGB 256×192 sem atores; o gate subtrai essa mesma
+placa das referências legais e do framebuffer. Exclua HUD ou outras áreas
+dinâmicas com `--ignore-rect`, sem remover a região dos lutadores.
+
+Quando solicitado por `--region`, o relatório mede cobertura/duty cycle por
+retângulo, ausência máxima no quadro e sequências com cobertura abaixo de 50%,
+25% ou zero. O SHA da placa, o limiar RGB, as regiões e as exclusões ficam no
+veredito. `--mode flicker --window 8` continua significando que a união cobre
+a pose em até oito quadros; não significa flicker zero nem substitui a leitura
+da visibilidade por região. O self-check reproduz fundo azul/verde com ambos
+os atores ausentes, testa uma captura válida, rejeita palco claro sem placa e
+exercita HUD dinâmico e regiões nomeadas.

@@ -115,7 +115,10 @@ aguarda substituição por um modelo alinhado ao Ken Masters ADV/CPS2.
   linhas onde o par disputa a cota. Aceite de imagem: `audit_render_glitch.py
   --mode flicker` PASS (nenhum pixel fora da pose legal; toda peça coberta em
   cada janela de 8 quadros; sem resíduo, sprite perdido ou flash de boot após o
-  primeiro conteúdo). Zero flicker continua sendo meta onde a geometria permitir
+  primeiro conteúdo). Em palco claro, a comparação usa placa RGB de fundo
+  subtraída das imagens e do framebuffer, ignora o HUD dinâmico e registra
+  cobertura por lutador; janela de 8 quadros não significa flicker zero.
+  Zero flicker continua sendo meta onde a geometria permitir
   (ex.: lutadores em linhas distintas), nunca à custa da altura 72–88 px.
 - **Decisões do Lote C (2026-09-30), registradas antes do código do round.**
   O runtime anterior deste projeto (`src/main.c`) já compilava o round em 99
