@@ -4,6 +4,148 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Lote B — um quadro NTSC e latência de input — 2026-09-29
+
+O Lote A2 não foi reescrito. A ROM e os vídeos de lá continuam no disco:
+base `c265b029a9df9defb24e24b8f2cdbce347d950b051a316c16cca3a59ff4ec79d`,
+`idle_sat.mp4` `cb54322e78e13dd1e3fabf6f104ef7404cdc7dfc8da9f40e79e47afd5c6e3ae1`
+(baseline e `out/evidence/`), `idle_sat_allocfix.mp4`
+`62c84787040b4cbd64a851a123dba65c3cf437583ec0d0669aaef631d5844c15`.
+O fim de DATA citado no A2 (`0xC6AE`) é o da ROM `1f14626e`. Nesta ROM
+`_DATA` tem `0x6AB` bytes e termina em `0xC6AB`; `_INITIALIZED` (+6)
+termina em `0xC6B1`. `_sa_limit` está em `0xC6AB`. Não ler `0xC6A8` nem
+`0xC6A9`.
+
+### Perfil da ROM que ainda perdia o VBlank
+
+ROM `1f14626e6ba0b6d0a53466975864355c1813a2c0c24dc9cdadf96ad7169bf08f`,
+28 pausas DAP, `sa_limit` vivo 112 no endereço antigo. O retorno de
+`SMS_waitForVBlank` cai em VCounter 194 (`0xC2`). O orçamento até o
+próximo `0xC0` é `(192-194)&255` = 254 tiques. As 28 iterações passaram
+de 254. Duas populações, com SAT ~17, `fight_step` ~24+20 e emit ~60–66
+em todo quadro. Upload longo ~139–194 mais varredura estável ~14 dava
+totais ~283–326. Upload curto (reclaim bloqueia a cópia, 2–20) mais
+track/reclaim ~29–30, varredura de troca de pose ~119 e emit ~60 dava
+totais ~276–420. Exemplo 00: 17+171+5+24+19+3+1+13+1+60 = 314. Exemplo
+01: 18+2+29+24+20+2+1+119+1+60 = 276. `tl_render_end_max` ficou 184.
+`probe_vline_spill_max` ficou 0 porque `sample_worst_frame` lê o
+VCounter logo depois do upload (~210–212). Pool 97–100, pico 100, falha
+0: não era a causa. Um allocate por lutador, sozinho, não coube.
+`sa_limit` 0x20 com a parada ainda atravessando a área ativa (ROM
+`ea856217e81eff72ac8fdc50439dbd1123802fc2227143f032e83763d2a6a292`)
+mediu 33,28/33,25. Parar em `0xE8` e adiar o corpo instável do segundo
+lutador (ROM `61067811b8561263`, sobrescrita depois) mediu 44,83/44,45.
+
+### Cortes que produziram o quadro único
+
+Um `fight_step` por lutador por iteração. A duração AIR não é
+decrementada duas vezes. PAL não foi medido.
+
+1. O upload rápido para em VCounter `>= 0xE0` (`cp #0xE0` / `jp nc`).
+   `STREAM_LIMIT_DEFAULT` continua `0x20` e só vale se o laço entrar
+   já na área ativa. O comentário do fonte foi alinhado a `0xE0` depois
+   do probe; não houve rebuild por causa do comentário.
+2. `fight_draw` percorre os lutadores em `alloc_turn ^ pass`. No máximo
+   um corpo instável por iteração (`heavy_used`). O outro, se `meta`
+   já existe, mantém a pose na tela (só refresca x) e vira `alloc_turn`
+   no quadro seguinte. O boot ainda monta os dois porque `meta == 0`.
+   `stream_will_allocate` continua limitando um allocate real dentro
+   do lutador que corre.
+3. `compute_schedules` adia quando `sched_valid` e `rows_changed`
+   (`sched_due = 1`). Essa iteração não emite, chama
+   `stream_cancel_present()` e restaura `prepared_pose`. A seguinte
+   vê `fight_skip_stream()`, pula `stream_step` e então calcula a
+   escala e emite. O boot (`!sched_valid`) ainda calcula e emite na hora.
+4. Depois do primeiro emit (`emitted_once`), um quadro que alocou
+   (`n_alloc`) e não está apresentando pula o emit e restaura
+   `prepared_pose`. Um quadro que apresenta a pose nova não pula.
+   Pular o emit sem restaurar `prepared_pose` faria `visible_pose`
+   mentir e o reclaim soltaria slots ainda na tela.
+
+### ROM medida a ~59 Hz
+
+`out/local_study/luta_integrada/out/rom/scale_pilot_80px.sms`,
+655360 B, SHA-256
+`b58e16e25f968d2900ddeadd09f61b8b69e6410dc512212cb92f17ec50269e47`.
+Receita: `python3 tools/sms_wrapper/build_luta_integrada.py`.
+Self-check de `measure_runtime_probe.py` antes da leitura. Comando:
+`--project SMS_projects/luta_mugen/out/local_study/luta_integrada --rom <ROM acima> --seconds 8 --janelas 2 --out idle_60hz_sched_probe`.
+Magic `SMRT`, schema 1, `probe_frame` em `0xC7F0`. Janelas 59,04 e
+59,06 fps, spread 0,02, delta total 962. Boot, `frame_advance` e
+`fps_constante` passaram. `audio_active_pct` null. Snapshot sem input
+(`probe_keys` 0). JSON `out/evidence/idle_60hz_sched_probe.json`.
+Reserva estática de pilha 3584 B; profundidade de chamada não medida.
+
+Vídeo fresco de framebuffer, idle, sem input:
+`out/evidence/idle_60hz.mp4`, SHA-256
+`723a2ed23b0e62d756019784a821441d3f9ab594477046224a9630651b551a73`,
+h264 256×192, 598 quadros, 9,98 s, `motion_fraction` 0,0583, mais novo
+que a ROM. Áudio não anexado (peak 0, L048): não é prova de som.
+`capture_video.py --seconds 9 --out idle_60hz --frames 4`, depois do
+`--self-check`. Gate, depois do `--self-check` de
+`audit_render_glitch.py`: `--mode flicker --window 8 --edge-tolerance 1 --video <mp4> --rom <ROM> --expected-dir out/legal_idle -o out/evidence/idle_60hz_glitch.json`.
+**PASS**: 0/598, extra máximo 0, ausência máxima 898, 24 imagens
+legais, pixels acesos antes do conteúdo 0. PASS de janela 8 não é
+ausência de flicker. Omissão dentro da janela é legal.
+
+Cadência AIR não foi atingida. Antes de qualquer tecla, `tl_dur_hist`
+em `0xC7AC` leu `[0, 0, 0, 12, 0, 0, 0, 15]` no `probe_frame` 331:
+cada pose visível concluída ficou no balde 3+ (segurada pelo menos 3
+quadros além da duração AIR). Idle não é estátua. Não declarar 4,00
+quadros por pose. A janela `0xE0` é o limite medido desta ROM; não
+subir `sa_limit` nem reabrir o VBlank sem um perfil novo.
+
+### Input, mesma ROM, sem rebuild
+
+`emulator_input.py --self-check` passou (Wayland, kdotool+ydotool).
+Foco uma vez; teclas seguintes com refocus desligado. Direções
+continuam mascaradas em `read_pad`: só B1 = soco (`K_LP` 0x10) e
+B2 = guarda (`K_GUARD` 0x40). Mapa neste Emulicious: P1 soco `a`
+(evdev 30), P1 guarda `s` (31), P2 soco `g` (34), P2 guarda `h` (35).
+`probe_keys = k[0] | (k[1] << 4)` perde os botões do P2. Prova do P2:
+`tl_presses[1]` em `0xC7AB` e `probe_over` (estado do lutador 1) em
+`0xC7F5`. `tl_lat_accept` é escrito 0 no quadro da borda; 0 com
+`tl_presses` incrementado é aceite no mesmo quadro, não “sem medida”.
+A guarda não escreve `tl_lat_hitbox`. O contador visível não é zerado
+numa borda nova: valor igual ao anterior é ambíguo.
+
+Segundos de tecla, uma ação a partir de idle, leitura depois de soltar
+e de 0,4 s. Os quatro aceites incrementaram `tl_presses`. Conversão a
+59,04 fps, não um segundo probe: 17 quadros ~0,29 s, 22 ~0,37 s,
+30 ~0,51 s, 31 ~0,53 s, 43 ~0,73 s, 127 ~2,15 s.
+
+- P1 soco (`a`): presses 0→1, aceite 0, visível 0→30, hitbox 0→127,
+  pose 2→30, estado terminou 6, frames 401→599. Pose 0 do soco Ken é
+  a absoluta 26 (`ken_frames_all+26` = `{2, 26, …}`, base 0). O
+  snapshot final 30 é um quadro posterior do mesmo soco; o contador
+  30 indica que a pose 26 já tinha aparecido.
+- P1 guarda (`s`): presses 1→2, aceite 0, visível 30→31, hitbox ficou
+  127 (não se aplica), pose 32→0, estado 0, frames 645→851. Pose 0 da
+  guarda Ken é a absoluta 25. A escrita 31 é real. O snapshot final
+  já era idle.
+- P2 soco (`g`): presses 1→2 no jogador 1, aceite 0, visível 0→17,
+  hitbox 0→43, pose 47→45, estado 0, frames 874→1075. `probe_keys`
+  permaneceu 0. Pose 0 do soco Ryu é a absoluta 65 (base 44 + local
+  21). O snapshot depois de soltar já era a pose 45.
+- P2 guarda, primeira leitura depois de soltar: presses 2→3, visível
+  ficou 17, pose 46→44, estado 0. Ambíguo, porque 17 era o soco
+  anterior e a pose 44 é o idle local 0.
+
+Remedida com a tecla `h` ainda baixa, boot limpo, mesma ROM. Idle no
+frame 320: estado 0, pose 46, visível 0, máximo 0, presses 0. Doze
+amostras em estado 5, presses 1, `probe_keys` 0x00. No frame 344
+(24 quadros depois) a pose ainda era 47 e o visível 0. No frame 367 a
+pose era 64, visível 22, máximo 22, e assim até o frame 600. Pose 0
+da guarda Ryu é 64 (base 44 + `ryu_frames_all[20]` = `{1, 20, …}`,
+anim índice 5). Ao soltar, no frame 621 o estado já era 0 e a pose
+visível ainda era 64. Latência visível da guarda do P2: 22 quadros.
+Hitbox de guarda não entra na métrica.
+
+Não declara combate, dano, HUD, áudio, palco, round nem entrega.
+Não há vídeo de framebuffer do soco ou da guarda; a prova é o
+contador mais o id da pose lido na RAM com o emulador rodando.
+A doutrina compartilhada do wrapper não foi reescrita.
+
 ## Lote A2 — glitch da SAT: offset do par, PASS L091 flicker — 2026-09-29
 
 Causa, no `allocate_asm` de `integrada/src/stream.c`. O byte alto de
