@@ -4,6 +4,56 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Lote A — fontes preservadas, RAM/bancos medidos, SAT reprovada — 2026-09-29
+
+Divergência de doutrina, aplicada e não editada no wrapper: o workflow
+`mugen-engine-quality.md` ainda trata omissão visível como reprovação da
+entrega e chama multiplexação de diagnóstico. A decisão humana vigente no
+GDD e neste arquivo é a opção 3 (flicker mínimo, nenhum glitch). A doutrina
+compartilhada não foi reescrita nesta sessão: curadoria do wrapper continua
+exigindo autorização explícita e os gates dela. O trabalho abaixo segue a
+opção 3.
+
+Fontes próprias do estudo integrado, antes só em `out/local_study/luta_integrada/`
+(gitignored), estão em `SMS_projects/luta_mugen/integrada/` (`src/`, headers
+de mão, geradores, `.mddev/project.json`). Bancos, header de cena e ROM
+continuam locais. Receita: `tools/sms_wrapper/build_luta_integrada.py`
+(e `integrada/build.sh`). Não houve rebuild: a ROM medida é a já existente.
+
+ROM `out/local_study/luta_integrada/out/rom/scale_pilot_80px.sms`, 655360 B,
+SHA-256 `c265b029a9df9defb24e24b8f2cdbce347d950b051a316c16cca3a59ff4ec79d`.
+Mapa `out/obj/scale_pilot_80px.map`. Self-check de `check_ram_layout.py` e
+`check_rom_binding.py` passou antes da leitura.
+
+RAM (layout estático, não “toda a RAM segura”):
+- `_DATA` 0xC000+0x6A8 termina 0xC6A8; `_INITIALIZED` +6 termina 0xC6AE;
+  `l__BSS` = 0. Soma DATA+INITIALIZED em 0xC6AE não é o veredito.
+- Primeiro absoluto `_tl_snap` em 0xC790: 226 B entre o segmento e a telemetria.
+- SAT própria: `_sat_y` 0xD000+72, `_sat_xt` 0xD048+144, `_tmpl` 0xD100+240
+  termina 0xD1F0.
+- `ld sp,#0xDFF0` nos primeiros 16 B da ROM. Reserva estática até o SP:
+  3584 B (piso do checker 256 B). Profundidade de chamada não medida.
+- Sem sobreposição entre segmentos e os `__at` do fonte. Símbolo obrigatório
+  ausente agora falha; o checker antigo tratava essa ausência como comprimento 0.
+
+Bancos: banco 37 da ROM igual a `pose_meta_37.bin`. Bancos citados por
+`pose_table.h` (2–23 e 25–36) iguais à imagem concatenada. O banco 24 não
+é citado por essa tabela e não entrou na prova.
+
+Smoke da SAT própria, idle, sem input, NTSC, palco preto. Vídeo de
+framebuffer `out/evidence/idle_sat.mp4` (256×192, 539 quadros, 8,99 s,
+mais novo que a ROM). Imagens legais: 24 pares idle Ken×Ryu gerados dos
+mesmos metas e bancos (`integrada/tools/render_legal_idle.py`); ken0×ryu
+mede 78–80 px de altura opaca. `audit_render_glitch.py --self-check` passou;
+`--mode flicker` na captura **reprova**: 547 falhas em 539 quadros, extra
+máximo 444 px. 4 quadros têm extra 0 (subconjunto legal); a mediana fica
+em 186 px. Na maioria dos quadros ruins os pixels extras não cabem em
+nenhuma pose autoral colocada na mesma âncora — não é só omissão de
+flicker. Há quadros em que um lutador coincide com a pose e o outro não.
+PASS de janela 8 não foi obtido e não significaria ausência de flicker.
+Nada promovido. Cadência continua a do registro anterior (~30 Hz). Input,
+combate, HUD e áudio não foram exercitados nesta captura.
+
 ## Integração do motor 72–88 (em curso) — 2026-09-29
 
 Clone `out/local_study/luta_integrada/` (FSM de `fight.c` + input por porta
