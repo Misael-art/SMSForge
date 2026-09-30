@@ -740,6 +740,16 @@ typedef struct {
 static DrawCache dc[2];
 static unsigned char keep_par[2][2 * ROWS_MAX];  /* schedule for parity 0/1 */
 static unsigned char sched_valid;
+/* Fighter allowed to allocate when both need a new target this iteration.
+ * The one deferred becomes first on the next fight_draw. */
+static unsigned char alloc_turn;
+/* Row schedule moves to the next iteration, which then skips the upload. */
+static unsigned char sched_due;
+static unsigned char emitted_once;
+
+unsigned char fight_skip_stream(void) {
+    return sched_due;
+}
 
 /* Scheduler in assembly (the C version cost ~165 lines per pose change for
  * the two parities). Same rule as schedule_rows(): keep = min(n, 8); for
@@ -841,16 +851,22 @@ static void compute_schedules(void) {
 }
 
 void fight_draw(void) {
-    unsigned char i, rows_changed = 0;
+    unsigned char i, pass, rows_changed = 0, defer_emit = 0;
+    unsigned char n_alloc = 0, heavy_used = 0, deferred = 0xFFu;
+    unsigned char held_pose[2];
     signed int sx[2];
     unsigned char sy8;
+
+    held_pose[0] = prepared_pose[0];
+    held_pose[1] = prepared_pose[1];
 
     tl_rd_start = fight_vcounter;
     render_dropped = 0;
     /* pruned metasprites and row tables are read from POSE_META_BANK */
     SMS_saveROMBank();
     SMS_mapROMBank(POSE_META_BANK);
-    for (i = 0; i < 2; i++) {
+    for (pass = 0; pass < 2; pass++) {
+        i = (unsigned char)(alloc_turn ^ pass);
         Fighter *p = &fighters[i];
         DrawCache *c = &dc[i];
         unsigned char display_pose;
@@ -870,6 +886,22 @@ void fight_draw(void) {
             sx[i] = c->sx;
             continue;
         }
+        /* The second unstable fighter keeps the pose already on screen.
+         * Both of them in one iteration measured scan ~130 on ROM ea856217
+         * and crossed the next VBlank. Boot still builds both (meta == 0). */
+        if (heavy_used && c->meta) {
+            deferred = i;
+            prepared_pose[i] = c->disp_pose;
+            if (p->x != c->x_cached) {
+                c->x_cached = p->x;
+                c->sx = c->disp_facing
+                    ? FIGHTER_MIRRORED_ORIGIN_X((signed int)(p->x >> 8), c->ax, c->width)
+                    : (signed int)(p->x >> 8) + c->ax;
+            }
+            sx[i] = c->sx;
+            continue;
+        }
+        heavy_used = 1;
         c->stable = 0;
         tl_np[0] = fight_vcounter;
         if (c->anim != p->anim || c->frame != p->frame || c->facing != p->facing ||
@@ -886,11 +918,30 @@ void fight_draw(void) {
         tl_np[1] = fight_vcounter;
         /* Prefetch: while the wanted pose is displayed, stream the pose AIR
          * shows next, so it is resident when the logic advances and each pose
-         * keeps exactly its AIR duration. Input changes drop it. */
-        if (stream_shows(i, c->want_pt, p->facing))
-            stream_request(i, c->next_pt, p->facing, c->next_pose_c);
-        else
-            stream_request(i, c->want_pt, p->facing, c->want_pose);
+         * keeps exactly its AIR duration. Input changes drop it.
+         * At most one allocate per iteration. The other fighter keeps the
+         * pose already on screen and is first on the next fight_draw. */
+        {
+            const PoseTiles *req_pt;
+            unsigned char req_pose, skip = 0;
+            if (stream_shows(i, c->want_pt, p->facing)) {
+                req_pt = c->next_pt;
+                req_pose = c->next_pose_c;
+            } else {
+                req_pt = c->want_pt;
+                req_pose = c->want_pose;
+            }
+            if (stream_will_allocate(i, req_pt, p->facing)) {
+                if (n_alloc) {
+                    skip = 1;
+                    deferred = i;
+                } else {
+                    n_alloc = 1;
+                }
+            }
+            if (!skip)
+                stream_request(i, req_pt, p->facing, req_pose);
+        }
         tl_np[2] = fight_vcounter;
         {
             const unsigned char *meta, *map, *rowt;
@@ -919,8 +970,10 @@ void fight_draw(void) {
             : (signed int)(p->x >> 8) + c->ax;
         /* Stable once the displayed pose is the wanted one and the prefetch
          * of its successor has been requested (it will be presented only
-         * when the logic advances, which changes anim/frame). */
-        if (display_pose == c->want_pose && c->disp_facing == p->facing &&
+         * when the logic advances, which changes anim/frame). A deferred
+         * allocate must not mark stable: the early-out would never request. */
+        if (deferred != i &&
+            display_pose == c->want_pose && c->disp_facing == p->facing &&
             stream_shows(i, c->want_pt, p->facing))
             c->stable = 1;
         sy8 = (unsigned char)(FLOOR_PX + c->ay - (signed int)(p->y >> 8));
@@ -930,19 +983,36 @@ void fight_draw(void) {
         }
         tl_np[4] = fight_vcounter;
     }
+    if (deferred != 0xFFu) alloc_turn = deferred;
     tl_rd_scan = fight_vcounter;
-    if (rows_changed || !sched_valid) {
+    /* Presenting and scheduling in the same iteration measured ~300 ticks
+     * from VCounter 194 (budget 254). The schedule runs next frame, with
+     * the upload skipped, and this frame keeps the SAT already on screen. */
+    if (!sched_valid || (sched_due && !rows_changed)) {
         compute_schedules();
         sched_valid = 1;
+        sched_due = 0;
+    } else if (rows_changed) {
+        sched_due = 1;
+        defer_emit = 1;
+        stream_cancel_present();
     }
+    if (emitted_once && n_alloc && !stream_presenting())
+        defer_emit = 1;
     tl_rd_sched = fight_vcounter;
-    er_ydst = (unsigned char *)sat_y;
-    er_xdst = (unsigned char *)sat_xt;
-    emit(0, &keep_par[sched_frame & 1u][0], (unsigned char)sx[0], dc[0].sy);
-    emit(1, &keep_par[sched_frame & 1u][ROWS_MAX], (unsigned char)sx[1], dc[1].sy);
-    sat_count = (unsigned char)(er_ydst - (unsigned char *)sat_y);
-    if (sat_count > 64u) sat_count = 64u;   /* budget says <= 63; never more */
-    if (sat_count < 64u) sat_y[sat_count] = 0xD0u;   /* list terminator */
+    if (defer_emit) {
+        prepared_pose[0] = held_pose[0];
+        prepared_pose[1] = held_pose[1];
+    } else {
+        er_ydst = (unsigned char *)sat_y;
+        er_xdst = (unsigned char *)sat_xt;
+        emit(0, &keep_par[sched_frame & 1u][0], (unsigned char)sx[0], dc[0].sy);
+        emit(1, &keep_par[sched_frame & 1u][ROWS_MAX], (unsigned char)sx[1], dc[1].sy);
+        sat_count = (unsigned char)(er_ydst - (unsigned char *)sat_y);
+        if (sat_count > 64u) sat_count = 64u;   /* budget says <= 63; never more */
+        if (sat_count < 64u) sat_y[sat_count] = 0xD0u;   /* list terminator */
+        emitted_once = 1;
+    }
     tl_rd_emit = fight_vcounter;
     SMS_restoreROMBank();
     tl_rd_add = fight_vcounter;

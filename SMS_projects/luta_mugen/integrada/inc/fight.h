@@ -38,6 +38,9 @@ void fight_set_ko(Fighter *p);
 unsigned char fight_step(Fighter *p, unsigned int keys,
                          unsigned int opp_keys);
 void fight_draw(void);
+/* 1 when the next iteration should not upload pairs: the scheduler was
+ * deferred onto that iteration so it still finishes before the VBlank. */
+unsigned char fight_skip_stream(void);
 void fight_upload_palette(void);
 void sat_setup(void);                      /* VDP reg 5: SAT at 0x3F00 */
 void sat_upload(void);                     /* RAM SAT -> VRAM, in VBlank */            /* chamada no VBlank */

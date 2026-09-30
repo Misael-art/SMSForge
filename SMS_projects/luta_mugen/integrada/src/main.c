@@ -222,8 +222,12 @@ void main(void) {
         fight_sat_copied();
         probe_profile_sat = SMS_VCounterPort;
         sample_worst_frame();                /* only the SAT is VBlank-bound */
-        stream_step();
-        probe_profile_stream = SMS_VCounterPort;
+        if (fight_skip_stream())
+            probe_profile_stream = SMS_VCounterPort;
+        else {
+            stream_step();
+            probe_profile_stream = SMS_VCounterPort;
+        }
         stream_reclaim();
 
         track_after_sat(0);

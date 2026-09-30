@@ -2,9 +2,12 @@
  *
  * The upload loop is the one proven in scale_pilot_rom_flicker_asmstream
  * (Ken 4.00 frames/pose at AIR 4, gate L091 PASS): per 64 B pair, OUTI copy
- * while VCounter is 0xC0-0xE7, 30 cycles/byte display-safe copy at
- * 0xE8-0xFF and below 0x70, stop at 0x70-0xBF so render + wait make the next
- * VBlank. Target slots are never in the displayed SAT.
+ * while VCounter is 0xC0-0xDF. The phase profile of ROM ea856217 (sa_limit
+ * 0x20) still crossed the next VBlank whenever that copy ran on to ~line 46
+ * (~90 ticks from the SAT stamp). The loop stops at VCounter >= 0xE0
+ * (cp #0xE0 / jp nc). sa_limit remains the backstop if a copy is still
+ * running in the active display.
+ * Target slots are never in the displayed SAT.
  *
  * Measured in the first integrated build: scanning all 128 slots twice and
  * copying the whole target struct at every commit took ~90 lines right
@@ -261,6 +264,16 @@ void stream_request(unsigned char who, const PoseTiles *pt, unsigned char facing
     if (!allocate(n)) n->pt = 0;
 }
 
+unsigned char stream_will_allocate(unsigned char who, const PoseTiles *pt,
+                                   unsigned char facing) {
+    Target *n = NEXT(who);
+    Target *sh = SHOWN(who);
+    if (presenting[who]) return 0;
+    if (sh->pt == pt && sh->facing == facing) return 0;
+    if (n->pt == pt && n->facing == facing) return 0;
+    return 1;
+}
+
 /* ---- upload loop (assembly; interface through globals) ---- */
 static const PairLoad *sa_ptr;
 static unsigned char sa_left, sa_done, sa_mode;
@@ -289,10 +302,9 @@ static void stream_pairs_asm(void) __naked {
         ld a, #1
         jr sa_go
     sa_vblank:
-        cp #0xE8
-        ld a, #0
-        jr c, sa_go
-        ld a, #1
+        cp #0xE0
+        jp nc, sa_exit
+        xor a
     sa_go:
         ld (_sa_mode), a
         ld a, (hl)
@@ -412,6 +424,14 @@ void stream_load_now(unsigned char who, const PoseTiles *pt, unsigned char facin
 
 unsigned char stream_shows(unsigned char who, const PoseTiles *pt, unsigned char facing) {
     return SHOWN(who)->pt == pt && SHOWN(who)->facing == facing;
+}
+
+unsigned char stream_presenting(void) {
+    return (unsigned char)(presenting[0] | presenting[1]);
+}
+
+void stream_cancel_present(void) {
+    presenting[0] = presenting[1] = 0;
 }
 
 /* NEXT is presented only when it is exactly the target the logic wants:
