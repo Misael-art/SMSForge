@@ -8,11 +8,37 @@
 > e capacidade expansível. Técnicas opcionais exigem A/B; não estão implementadas
 > por constarem no contrato.
 
-> Atualização 2026-09-29: a entrega também exige zero flicker visível, zero
-> corrupção gráfica, <=8 sprites/scanline e <=64/SAT. O clone rápido 72–88 px
-> ainda reprova o critério visual; veja
-> `18-gap-diagnostico-plano-prompt-2026-09-29.md`. O storyboard e o palco
-> autoral continuam pendentes.
+> Histórico de critério, 2026-09-29: uma revisão anterior exigiu zero flicker
+> visível, além de zero corrupção gráfica, <=8 sprites/scanline e <=64/SAT.
+> Essa exigência de flicker foi supersedida pela decisão humana posterior
+> registrada no GDD: opção 3, flicker mínimo e sem glitch. A linha fica aqui
+> para rastreabilidade; ela não define o aceite vigente.
+>
+> Lote C, 2026-09-30: a planta técnica do palco fixo é
+> `res/stage/planta_arena.png` e o contrato (HUD nas linhas 0–1, piso em
+> y=128, âncoras 96/152, tiles a partir de 256) está no GDD. O critério de
+> flicker deste projeto é a opção 3 já registrada no GDD. Esta spec não
+> separa custo de CPU/VDP atribuído ao palco; o Lote C mede somente o quadro
+> integrado com os sistemas juntos.
+
+## Lote C — estudo integrado da arena técnica (2026-09-30)
+
+Estado: `testado_em_emulador`, época visual `probe`, não é entrega de arte.
+ROM de 655360 B, SHA-256
+`c958278fa0196e84deecab1fef01f976100072cd9851e9c233f82a694a882999`.
+
+| Grandeza | Medição | Limite da conclusão |
+|----------|---------|---------------------|
+| FPS da ROM NTSC | 59,59 e 59,75 em janelas independentes de 30,14/30,09 s; spread 0,16; delta 3594 frames | PAL separado; não mede duração AIR |
+| VBlank worst-frame | 3000 frames; `vovf_delta=0`; `vline_min=211`; DAP confirmou 1 entrada P1 e 1 dano antes do selo | inclui um soco que conecta; não cobre todas as ações/poses |
+| RAM estática | `_DATA` até `0xC720`, `_INITIALIZED` até `0xC726`; SAT própria até `0xD1F0`; SP `0xDFF0`; reserva 3584 B | profundidade de stack não medida |
+| Glitch no vídeo final | L091 `flicker`, janela 8: 0/14960 quadros reprovados, extra máximo 0, antes do primeiro conteúdo 0 | não significa zero flicker; quadros individuais mostram omissões |
+| Round/match | vídeo 14960 quadros/249,66 s termina em `WIN 1`, placar 2–0 após timeouts; trace DAP chega ao round 2 | 25 socos aceitos, 10 causam dano, 15 erram; KO não alcançado; chute/rematch não exercitados |
+| Áudio isolado | 11,1 s durante entrada de soco, peak 5887, ativo 100%; `audit_audio.py` PASS | não é revisão musical subjetiva nem separação por canal |
+
+Manifesto asset→ROM: `doc/rom_asset_binding_lote_c.json`; evidência primária
+em `out/local_study/luta_integrada/out/evidence/`. O vídeo L091 permanece
+opção 3 com janela 8; não declarar ausência de flicker.
 
 
 > Budget REAL por cena. **Autoridade #3.**
@@ -126,8 +152,9 @@ completo de KO/reset.
 `audit_visual_delivery.py --delivery` reprova `wrong_visual_epoch`: o contrato
 de entrega visual ainda não existe. A captura mostra lutadores pequenos numa
 arena vazia, portanto é evidência de `probe`, não de entrega. T10 permanece o
-perfil histórico 1:4; o GDD vigente exige idle 72–88 px sem flicker visível.
-Roteiro/storyboard e arte do palco ainda estão vazios.
+perfil histórico 1:4. O critério vigente de flicker é a opção 3 do GDD
+(2026-09-29). A planta do Lote C está em `res/stage/planta_arena.png`;
+os números T10 acima não a medem.
 
 ## Histórico — Cena 02 T7 Ken vs dummy (2026-09-26)
 

@@ -237,7 +237,44 @@ void fight_set_ko(Fighter *p) {
     enter_state(p, slot, ST_KO);
 }
 
+/* Anim clock shared by the idle hold and the full step. Behavior matches
+ * the block that used to live inside fight_step: the tick advances only
+ * while the wanted pose is the one on screen. */
+static void tick_anim(Fighter *p, unsigned char pslot) {
+    const CharacterData *cd = &characters[pslot];
+    const Anim *a = &cd->anims[p->anim];
+    const Frame *fr = &a->frames[p->frame];
+    unsigned char wanted_pose = (unsigned char)(cd->pose_base + fr->pose);
+    if (visible_pose[pslot] != wanted_pose || fr->dur == 255) return;
+    if (++p->tick < fr->dur) return;
+    p->tick = 0;
+    if (p->frame + 1 >= a->n_frames) {
+        if (a->loop_start != 255) p->frame = a->loop_start;
+        else enter_state(p, pslot, ST_IDLE);
+    } else {
+        p->frame++;
+    }
+}
+
+/* Grounded idle, no key held. The full step's SDCC frame is 37 bytes and
+ * costs ~18 scanlines per fighter; an idle probe never needs that frame.
+ * Idle rows are S_CONTROL, vel 0, without S_AIR or S_HIT. */
+static unsigned char fight_step_full(Fighter *p, unsigned int keys, unsigned int opp_keys);
+
 unsigned char fight_step(Fighter *p, unsigned int keys, unsigned int opp_keys) {
+    unsigned char pslot;
+    Fighter *o;
+    if (p->hitstop || p->state != ST_IDLE || p->y != 0 || keys != 0)
+        return fight_step_full(p, keys, opp_keys);
+    pslot = (p == &fighters[0]) ? 0 : 1;
+    o = pslot ? &fighters[0] : &fighters[1];
+    p->facing = (o->x > p->x) ? 0 : 1;
+    p->keys_prev = 0;
+    tick_anim(p, pslot);
+    return FIGHT_EVENT_NONE;
+}
+
+static unsigned char fight_step_full(Fighter *p, unsigned int keys, unsigned int opp_keys) {
     const StateDef *sd;
     const CharacterData *cd;
     Fighter *o;
@@ -304,26 +341,10 @@ unsigned char fight_step(Fighter *p, unsigned int keys, unsigned int opp_keys) {
         clamp_x(p);
     }
 
-    /* tick de animacao */
-    {
-        const Anim *a = &cd->anims[p->anim];
-        unsigned char wanted_pose = (unsigned char)(cd->pose_base +
-            a->frames[p->frame].pose);
-        /* A logica espera o padrao da pose atual estar realmente visivel.
-         * Sem isso, um frame de ataque curto pode atravessar o buffer duplo
-         * antes de seus tiles chegarem a VRAM e a janela CLSN nunca aparece. */
-        if (visible_pose[pslot] == wanted_pose &&
-            a->frames[p->frame].dur != 255 &&
-            ++p->tick >= a->frames[p->frame].dur) {
-            p->tick = 0;
-            if (p->frame + 1 >= a->n_frames) {
-                if (a->loop_start != 255) p->frame = a->loop_start;
-                else enter_state(p, pslot, ST_IDLE);
-            } else {
-                p->frame++;
-            }
-        }
-    }
+    /* A logica espera o padrao da pose atual estar realmente visivel.
+     * Sem isso, um frame de ataque curto pode atravessar o buffer duplo
+     * antes de seus tiles chegarem a VRAM e a janela CLSN nunca aparece. */
+    tick_anim(p, pslot);
 
     /* checagem de hit: janela = frame com caixa de golpe no blob CLSN
      * (destilado do HitDef trigger time=3 — o frame startup E a janela). */

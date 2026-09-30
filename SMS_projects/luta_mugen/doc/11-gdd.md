@@ -117,6 +117,24 @@ aguarda substituição por um modelo alinhado ao Ken Masters ADV/CPS2.
   cada janela de 8 quadros; sem resíduo, sprite perdido ou flash de boot após o
   primeiro conteúdo). Zero flicker continua sendo meta onde a geometria permitir
   (ex.: lutadores em linhas distintas), nunca à custa da altura 72–88 px.
+- **Decisões do Lote C (2026-09-30), registradas antes do código do round.**
+  O runtime anterior deste projeto (`src/main.c`) já compilava o round em 99
+  segundos. Não há `Time` autorado num `system.def` deste corte. O round
+  integrado conta **99 segundos em quadros da ROM NTSC: 60 quadros por
+  segundo**. PAL não herda 60 Hz e não está medido neste lote.
+  Empate (vidas iguais no timeout) e KO duplo não marcam ponto: o vencedor
+  do round fica 2. A partida é melhor de três; o primeiro a 2 pontos vence.
+  Rematch: borda nova de B1 do P1 com a partida encerrada.
+  Nesta fatia integrada os controles aceitos continuam **B1 = soco, B2 =
+  guarda, direções mascaradas**. O mapa de produto (B1 soco, B2 chute,
+  recuo = guarda) segue sendo o alvo do GDD e não é o que esta ROM lê.
+  Palco deste lote: uma arena técnica estática, câmera fixa, sem scroll.
+  Planta em `res/stage/planta_arena.png`; tiles em
+  `res/stage/arena_tecnica.png`. Piso na linha de pixels 128, âncoras
+  x=96 e x=152, HUD nas linhas 0–1 da name table, padrões de fundo a
+  partir do tile 256 (a metade baixa permanece o pool dos lutadores).
+  No máximo 2 células de HUD por VBlank. Arte final de cenário CPS2 não
+  entra neste lote.
 - Perfil 1:4/48 px do conversor atual é `legacy_probe_quarter`: preservado
   para reproduzir T10, explicitamente bloqueado para delivery.
 - Capacidade alvo de ROM 1 MiB, banking Sega de 16 KiB e provas de fronteira.

@@ -4,6 +4,128 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Lote C — palco, HUD, PSG e ciclo de rounds — 2026-09-30
+
+O estado vigente de flicker continua sendo a decisão humana opção 3:
+**flicker mínimo, nenhum glitch**. Os trechos históricos posteriores de A2/B
+que preservam o critério antigo de zero flicker continuam como histórico; não
+definem o aceite atual. PASS de L091 com janela 8 não significa flicker zero.
+
+### ROM e build
+
+Fontes próprias em `integrada/`; receita `tools/sms_wrapper/build_luta_integrada.py`.
+Os geradores de palco/HUD e PSG agora ficam em `tools/sms_wrapper/` e recebem
+o caminho do projeto como argumento; o build integral numa cópia isolada gerou
+a mesma ROM SHA abaixo. A ROM de evidência canônica não foi sobrescrita.
+ROM `out/local_study/luta_integrada/out/rom/scale_pilot_80px.sms`, 655360 B,
+SHA-256 `c958278fa0196e84deecab1fef01f976100072cd9851e9c233f82a694a882999`.
+O build/self-check passou antes das leituras. `build_luta_integrada.py
+--check-only` repetido depois: PASS em RAM estática e vínculo banco→ROM.
+
+- `_DATA` termina em `0xC720`; `_INITIALIZED` em `0xC726`; os símbolos
+  absolutos ocupam até `0xC800`. SAT própria: `_sat_y` `0xD000..0xD047`,
+  `_sat_xt` `0xD048..0xD0D7`, `_tmpl` `0xD100..0xD1EF`. Reset define SP
+  `0xDFF0`; reserva estática medida: 3584 B. Profundidade de chamada não
+  medida.
+- Banco 37 coincide com `pose_meta_37.bin`; bancos citados 2–23 e 25–36
+  coincidem com a imagem. Banco 24 não é citado pela tabela de poses.
+- `doc/rom_asset_binding_lote_c.json` liga a ROM, o PNG técnico do palco,
+  streams PSG e fontes/bancos dos dois lutadores; auditoria de vínculo PASS.
+  Ryu segue piloto técnico temporário de bootleg NES; Ken segue o alvo visual
+  CPS2. A arena é fixture técnica original, não arte final.
+
+### Sistemas integrados e medidos
+
+- `stage.c`: arena estática sem scroll, piso em y=128, âncoras x=96/152,
+  tiles de fundo a partir do tile 256. `hud.c`: barras, timer, placar e
+  mensagens em tiles da name table, fila fixa, até duas células sujas por
+  VBlank. Vídeo idle mostra palco, os dois lutadores de 78–80 px e HUD.
+- `main.c`: intro ROUND/FIGHT, luta ativa, resultado e fim de partida.
+  Timer de 99 s por round, contado em 60 frames NTSC da própria ROM; empate
+  no timeout/KO duplo não pontua; melhor de três, primeira pessoa a 2 pontos
+  encerra. `B1` do P1 reinicia após vitória.
+- Probe NTSC final `lote_c_integrado_ntsc_stability30.json`: 59,59 e 59,75
+  FPS em janelas independentes de 30,14/30,09 s, spread 0,16, delta total
+  3594 frames; boot, avanço e cadência constante passaram. Uma leitura curta
+  de 8 s deu 58,26/58,44 FPS; a medição mais longa confirmou a faixa-alvo.
+  PAL não medido.
+- DAP, mesma ROM: P1 soco aceito na borda (`tl_presses` +1), pose visível em
+  26 frames, hitbox em 125; P2 perdeu 50 de 1000 pontos de vida (`damage_events`
+  +1). Outro trace: P2 soco aceito, pose em 18 e hitbox em 39 frames, mas
+  errou pela distância fixa. P2 guarda visível em 20 frames. A leitura visual
+  da guarda de P1 ficou ambígua. Direções seguem mascaradas; o piloto lê B1
+  como soco e B2 como guarda, divergindo do mapa final do GDD.
+  Comparação descritiva com a linha de base B: P1 soco 30→26 frames até pose
+  e 127→125 até hitbox; P2 soco 17→18 até pose e 43→39 até hitbox; guarda P2
+  22→20. As variações são pequenas e não aprovam responsividade; guarda P1
+  continua sem leitura conclusiva.
+- Trace funcional DAP `lote_c_ko_trace_dap.json`, SHA-256
+  `ed55b0dca38971bdd8ec11c29c9811f6383c6d9227c556fab1c56c2d1c5f2b25`:
+  25 socos P1 aceitos, 10 causaram dano (50 cada) e 15 erraram. O primeiro
+  round terminou por timeout com P2 em 500/1000; o placar passou a 1–0 e o
+  round 2 iniciou (timer 98). Nenhum KO foi observado. As leituras DAP pausam
+  e retomam a emulação, portanto este trace é funcional, não evidência de FPS.
+  O código aplica recuo após acerto e mantém direções mascaradas; a separação
+  é uma explicação compatível com os misses, mas posições não foram gravadas
+  neste trace. O artefato fica em `out/` (gitignored).
+- Vídeo de framebuffer `lote_c_best_of_three_verified.mp4`, 256×192,
+  14960 quadros/249,66 s, SHA-256
+  `81e428ce0b0b8e7fbaaac456e4b546c1bd61c7adfaedfe06740b5a94ac37233b`.
+  Input script `a=400,s=125000,a=400,s=130000`. Os quadros mostram o timeout
+  do primeiro round e, depois, `WIN 1` com placar 2–0 após dois timeouts.
+  Áudio foi anexado, peak 13105. L091 `--mode flicker --window 8`: PASS,
+  0/14960 quadros reprovados, extra máximo 0, vídeo mais novo que a ROM,
+  0 pixels iluminados antes do primeiro conteúdo. Isso prova que o matcher
+  não encontrou pixels extras/resíduo; não prova ausência de flicker. Os
+  quadros individuais ainda exibem omissões visíveis nas peças dos lutadores;
+  `max_missing=48468` é contagem de pixels ausentes no pior quadro, não duração
+  nem percentual de flicker.
+- Captura isolada `lote_c_audio_punch_isolated.wav`: 11,1 s, peak 5887,
+  100% de amostras ativas; `audit_audio.py` PASS durante o ensaio de entrada
+  P1. `audit_audio_provenance`, `audit_psg_channel_binding` e piso PSG dos
+  sete streams passaram. Isso prova sinal no runtime integrado; não prova
+  qualidade subjetiva da música nem mixagem nota a nota. O stream `music_battle`
+  escreve canais 0–3; SFX usa 2/3.
+- A captura `lote_c_best_of_three_verified.mp4` também conserva os frames de
+  vitória `lote_c_best_of_three_verified_f14.png` e
+  `lote_c_best_of_three_verified_f15.png`. Todas as evidências e ROMs acima
+  permanecem em `out/` (gitignored); este registro mantém os caminhos e hashes.
+  Bundle fresco selado: `lote_c_fresh_bundle_final.json`, oito artefatos, todos
+  posteriores à ROM e dentro de 120 minutos da sessão. SHA-256 do bundle:
+  `e0563ce56fa8db239c5e2b856915315c75e0787988005d53911a066c98139ae3`.
+  Inclui vídeo/relatório L091, WAV, worst-frame, probe NTSC de 30 s, auditoria
+  asset→ROM e trace DAP de tentativas de KO. O PASS do L091 prova ausência de
+  pixels extras e cobertura de cada pose dentro da janela de oito quadros; o
+  matcher não mede duty cycle nem estabelece sozinho que o flicker observado
+  atende ao julgamento humano de “mínimo”.
+
+### Budget e limites do lote
+
+O worst-frame anterior da mesma ROM mediu 3000 frames sem input, `vovf_delta=0`,
+`vline_min=212`; era IDLE e o perfil por etapa foi inválido. No novo ensaio,
+um B1 foi enviado durante a janela: na leitura DAP do frame 2850,
+`tl_presses[0]=1`, `damage_events=1` e a vida de P2 era 950. A janela selada
+terminou com `vovf_delta=0`, `vline_min=211`, 3000 frames medidos; o perfil por
+etapa continua inválido sem derrame. Isso sustenta o pior quadro deste caminho
+com um soco que conecta, não todas as ações ou combinações. PAL e todas as
+demais poses/estados continuam fora da prova.
+
+KO foi tentado, mas não alcançado; permanecem sem medição/aprovação chute,
+caminhada/direções, salto, hitstop completo, resposta aceitável, cadência AIR,
+PAL, HUD sob toda a gama de
+dano, pior caso de todos os golpes/poses, restauração musical julgada por
+audição humana, arte final do palco, época visual `delivery` e AAA. A máquina
+fechou o ciclo best-of-three por timeout; isso não transforma a ROM em jogo
+entregue nem apaga o atraso de input/AIR do Lote B.
+
+| Eixo | Estado do Lote C |
+|------|------------------|
+| documentado | sim: GDD, spec, TDD e este memory bank atualizados |
+| implementado | sim: palco técnico, HUD, PSG e round manager no runtime integrado |
+| buildado | sim: ROM SHA acima |
+| testado_em_emulador | sim: NTSC, dano P1, timeouts, best-of-three, áudio e L091 |
+| validado_budget | parcial; RAM/layout e probes de frame medidos, escopo de ações incompleto |
+
 ## Lote B — um quadro NTSC e latência de input — 2026-09-29
 
 O Lote A2 não foi reescrito. A ROM e os vídeos de lá continuam no disco:

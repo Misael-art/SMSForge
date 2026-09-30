@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Build the luta_mugen 72-88 integrated study.
+"""Build the luta_mugen 72–88 integrated study.
 
-Hand-written sources, headers and generators live in
-SMS_projects/luta_mugen/integrada/ (tracked). Tile banks, the scene header
-and the ROM stay in out/local_study/luta_integrada/ because they are derived
-from restricted character data and are gitignored. This recipe copies the
-tracked sources into that tree, regenerates pose metadata, builds via
-build_inner.py, then checks RAM layout and the banks the runtime reads.
+Hand-written sources and headers live in SMS_projects/luta_mugen/integrada/
+(tracked). Build generators and orchestration live in tools/sms_wrapper/.
+Tile banks, the scene header and the ROM stay in out/local_study/luta_integrada/
+because they are derived from restricted character data and are gitignored.
+This recipe copies tracked sources into that tree, regenerates metadata,
+builds via build_inner.py, then checks RAM layout and banks read by the runtime.
 
   python3 tools/sms_wrapper/build_luta_integrada.py [--check-only]
 """
@@ -19,9 +19,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CANON = ROOT / "SMS_projects" / "luta_mugen" / "integrada"
+PROJECT = ROOT / "SMS_projects" / "luta_mugen"
+CANON = PROJECT / "integrada"
 STUDY = ROOT / "SMS_projects" / "luta_mugen" / "out" / "local_study" / "luta_integrada"
-HAND_HEADERS = ("fight.h", "input.h", "luta.h", "stream.h")
+WRAPPER = ROOT / "tools" / "sms_wrapper"
+HAND_HEADERS = ("fight.h", "input.h", "luta.h", "stream.h",
+                "stage.h", "hud.h", "audio.h")
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> None:
@@ -46,6 +49,17 @@ def sync() -> None:
     for src in sorted((CANON / "tools").glob("*.py")):
         shutil.copy2(src, tool_dst / src.name)
     shutil.copy2(CANON / ".mddev" / "project.json", STUDY / ".mddev" / "project.json")
+
+
+def generate_assets() -> None:
+    py = sys.executable
+    inc = STUDY / "inc"
+    run([py, str(WRAPPER / "luta_mugen_gen_stage_hud.py"),
+         "--project", str(PROJECT),
+         "--out-dir", str(inc), "--check-planta"])
+    run([py, str(WRAPPER / "luta_mugen_gen_psg_blobs.py"),
+         "--project", str(PROJECT),
+         "--out", str(inc / "psg_blobs.h")])
 
 
 def regenerate() -> None:
@@ -99,6 +113,7 @@ def main() -> int:
     if args.check_only:
         measure()
         return 0
+    generate_assets()
     regenerate()
     run([py, str(ROOT / "tools" / "sms_wrapper" / "build_inner.py"),
          "--project", str(STUDY)])

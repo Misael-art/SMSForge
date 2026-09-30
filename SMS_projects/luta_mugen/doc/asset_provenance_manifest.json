@@ -71,6 +71,26 @@
       "sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3",
       "generated_sha256": "8400e0c0ea6ec78026a2e7966076996fd75085b1dd21c191e4b5666bc497a80a",
       "source_sha256": "822936f0de76a51db6174ffced7f1cbce6c54bb532fda4e68fd177bf6aaf25a3"
+    },
+    {
+      "file": "res/stage/arena_tecnica.png",
+      "origin": "res/stage/arena_tecnica.png",
+      "author": "SMSForge",
+      "tool": "tools/sms_wrapper/luta_mugen_gen_stage_hud.py",
+      "role": "arena_tecnica",
+      "source_kind": "indexed PNG, SMS 6-bit palette",
+      "license_status": "original",
+      "sha256": "9a9282c8d0a2d898702527bdb5da90c7dd63a2b5ad191672839e888061628375"
+    },
+    {
+      "file": "res/stage/planta_arena.png",
+      "origin": "res/stage/planta_arena.png",
+      "author": "SMSForge",
+      "tool": "tools/sms_wrapper/luta_mugen_gen_stage_hud.py",
+      "role": "arena_tecnica",
+      "source_kind": "indexed PNG, SMS 6-bit palette",
+      "license_status": "original",
+      "sha256": "ecb61f0cec05b62b3fe0406d8ca3774fee7f5895b187ad4f35649fa0db1db076"
     }
   ]
 }

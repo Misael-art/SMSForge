@@ -97,7 +97,7 @@ Distribuição de largura de sprite (colunas de 8 px): mediana 69×83 px;
 |-------------|---------|
 | sons PCM (33, todos unsupported) | **Nada porta direto.** Reautoria PSG: 6 SFX (soco, chute, especial, hit, KO, round) + 1 BGM, declarados em manifest de áudio. Ken audível = zero PCM. |
 | comandos com b/c/x/y/z (77) | **Remapeio manual**: tabela de comandos do runtime só aceita {direções, A, start}; combo especial passa para QCB+A etc. na faixa `manual`, reautorado 1 lutador. |
-| `scanline>8` (243 poses) | **Decisão histórica 2026-09-25, supersedida no padrão 2026-09-26**: 1:4/32×48 sobrevive apenas em `legacy_probe_quarter` para reproduzir T10. Rota vigente: idle opaco 72–88 px na área útil inicial de 160 px, razão uniforme por personagem/cena, pivôs/CLSN preservados e custo por pose medido. O pedido de 2026-09-29 fixa zero flicker visível como aceite de entrega: multiplexação é diagnóstico, não fallback. Poses/budgets fora do contrato bloqueiam promoção. Ver GDD vigente, `mugen_engine_standard.md` e `18-gap-diagnostico-plano-prompt-2026-09-29.md`. |
+| `scanline>8` (243 poses) | **Decisão histórica 2026-09-25, supersedida no padrão 2026-09-26**: 1:4/32×48 sobrevive apenas em `legacy_probe_quarter` para reproduzir T10. Rota vigente: idle opaco 72–88 px na área útil inicial de 160 px, razão uniforme por personagem/cena, pivôs/CLSN preservados e custo por pose medido. O pedido anterior de zero flicker visível foi supersedido pela decisão humana posterior registrada no GDD: opção 3, flicker mínimo e nenhum glitch. Poses/budgets fora do contrato bloqueiam promoção. Ver GDD vigente, `mugen_engine_standard.md` e `18-gap-diagnostico-plano-prompt-2026-09-29.md`. |
 | `sat>64` (232 frames de efeito) | **Fora do MVP** — intros/victory screens fullscreen não cabem na SAT; ficam no IR como documentação do acervo. |
 | `sprite-ausente` (11 frames) | **Fora** — dependem de sprites de sistema (fightfx) que não estão no pacote do personagem. |
 | paleta >15 úteis (16 sprites) | Quantização no conversor + revisão visual; `manual` até passar em `audit_validate_resources`. |
@@ -143,8 +143,51 @@ origem 99 personagem + 27 common_forge)_
 - Canais declarados: BGM em 0+1 e SFX em 2+3 via
   `PSGSFXPlay(sfx, SFX_CHANNELS2AND3)`; `audit_psg_channel_binding.py` deve
   confirmar que chamadas e manifesto continuam alinhados.
+- **Resolução medida em 2026-09-30, sem reautoria.** O stream
+  `music_battle.psg` (1001 bytes, SHA-256
+  `c9861a780dbc98f9ccbd9554e156678ed263a34bae70f9ffca5115cefc1ee8fa`)
+  escreve os quatro canais: tom 0, tom 1, tom 2 e ruído 3. A frase
+  “BGM em 0+1 e SFX em 2+3” acima é o roteamento desejado; os bytes
+  autorados não o obedecem. O lote integrado não altera o manifesto para
+  fazer o gate passar e não reautora a música. Os SFX mantêm a máscara
+  literal do manifesto (`SFX_CHANNEL2`, `SFX_CHANNEL3`,
+  `SFX_CHANNELS2AND3`) e ocupam 2 e/ou 3 enquanto tocam, por cima da
+  música de quatro canais. `PSGRestoreVolumes` não é chamado; o TDD não o
+  trata como rotina de retorno de SFX. A captura isolada do Lote C durante
+  entrada de soco tem 11,1 s, peak 5887, 100% ativo e `audit_audio.py` PASS.
+  Ela prova sinal integrado durante a ação, mas não julga qualidade musical
+  nem separa a restauração nota a nota dos canais 2/3.
 - YM2413/FM é **opcional**: o jogo tem que funcionar sem ele.
 - Medido: 33/33 sons PCM → **zero bytes portados**; só reautoria PSG entra.
+
+## Lote C — integração de palco, HUD, áudio e rounds (2026-09-30)
+
+- `stage.c` carrega na inicialização um mapa estático e paleta de fundo;
+  não usa scroll. A arte é uma arena técnica original, ainda fixture de
+  engenharia, não cenário final.
+- `hud.c` mantém as células desejadas/mostradas em arrays fixos e escreve no
+  máximo duas células sujas por VBlank. Barras, timer, placar e banners ficam
+  na name table; não consomem SAT.
+- `audio.c` chama `PSGFrame()` e `PSGSFXFrame()` uma vez por iteração e aplica
+  ranking fixo para round, soco, hit e KO. A música autora escreve nos quatro
+  canais; SFX ocupa temporariamente 2/3, conforme manifesto.
+- `main.c` implementa estados de intro ROUND/FIGHT, luta ativa, resultado e
+  partida encerrada. Timer NTSC usa 60 quadros da ROM por segundo, 99 s por
+  round; empate/KO duplo não pontua; primeira pessoa a dois pontos encerra a
+  partida. Rematch fica em B1 do P1. PAL não está validado.
+- O runtime integrado ainda lê B1=soco e B2=guarda; direções estão
+  mascaradas. Não equiparar esse piloto ao mapa final do GDD (B1 soco, B2
+  chute, recuo guarda).
+- Trace funcional por DAP, mesma ROM: 25 socos P1 aceitos, 10 com dano de 50
+  cada e 15 misses; P2 ficou em 500/1000 ao timeout. A FSM marcou 1–0 e iniciou
+  o round 2, sem KO observado. O fonte aplica recuo e o input não aceita
+  direções, hipótese compatível com a série de misses, mas o trace não grava
+  coordenadas para provar a causa exata. O DAP pausa a emulação durante as
+  leituras; não usar este trace para FPS.
+- Esta integração não altera a cadência AIR nem remove a latência já medida.
+  O worst-frame de 3000 quadros incluiu um B1 que conectou e terminou sem
+  overflow, mas seu perfil por etapa é inválido sem quadro derramado. Cobre
+  esse caminho, não todos os golpes/poses nem o orçamento completo.
 
 ## Orçamento de frame
 O loop atual foi medido em emulador: no fixture de luta, `stream_step`, carga
