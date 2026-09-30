@@ -4,6 +4,68 @@
 > Registre o que FOI OBSERVADO, nunca o que se pretende. Estado de sessão
 > não substitui este arquivo.
 
+## Lote A2 — glitch da SAT: offset do par, PASS L091 flicker — 2026-09-29
+
+Causa, no `allocate_asm` de `integrada/src/stream.c`. O byte alto de
+`off + id*64` fazia `adc` depois de dois `srl` do id. O `srl` descarta o
+carry da soma do byte baixo e deixa o bit 1 do id. Todo par com
+`id ≡ 2 ou 3 (mod 4)` era gravado 256 bytes adiante, salvo quando o byte
+baixo da base da pose estourava pelo mesmo valor (Ken idle 1, 3 e 5, base
+`…80`, saíam certos por coincidência). A SAT continuava com o `dx`/`dy` da
+meta e o slot de `map[id]`; o upload copiava os bytes nomeados (VRAM == ROM
+no offset gravado). O desenho mostrava o padrão de `id+4` na célula certa.
+Âncoras no dump: P1 facing 0, x=96 em Q8.8, y=0; P2 facing 1, x=152, y=0;
+piso 128. Não era âncora nem modelo do VDP.
+
+Relação de quadro: `fight_draw` monta a SAT; `sat_upload` envia no VBlank
+seguinte; `fight_sat_copied` troca SHOWN/NEXT. A pausa DAP foi em PC
+`0x401b`/`0x4022`, antes de `stream_step` (`0x40d3`) e depois do upload, com
+`visible_pose == prepared_pose`. O índice do vídeo não é `probe_frame`. A
+SAT de visible Ken 4 / Ryu 2 (`probe_frame` 161) reconstrói os quadros
+139–140 de `idle_sat.mp4` com extra 0 e ausência 0. Os quadros 523–524
+(444 extras contra a legal `ken4_ryu2`) cabem com extra 0 na imagem bugada
+de `ken4_ryu0`: o melhor encaixe legal tinha escolhido o Ryu errado. 196/196
+offsets dos dois dumps seguem a fórmula bugada.
+
+Correção: `push af` / `pop af` em volta do deslocamento, para o `adc` usar
+o carry da soma baixa. Sem mudança de pool, âncora, máscara ou gate.
+
+ROM nova `out/local_study/luta_integrada/out/rom/scale_pilot_80px.sms`,
+655360 B, SHA-256
+`1f14626e6ba0b6d0a53466975864355c1813a2c0c24dc9cdadf96ad7169bf08f`.
+A ROM-base `c265b029a9df9defb24e24b8f2cdbce347d950b051a316c16cca3a59ff4ec79d`
+e o vídeo `idle_sat.mp4`
+(`cb54322e78e13dd1e3fabf6f104ef7404cdc7dfc8da9f40e79e47afd5c6e3ae1`) ficam em
+`out/local_study/baseline_c265b029/` e também o mp4 original no estudo.
+Receita: `python3 tools/sms_wrapper/build_luta_integrada.py`. Checkers de
+RAM e banco passaram na ROM nova (DATA termina `0xC6AE`, `_tmpl` em
+`0xD1F0`, `ld sp,#0xDFF0`, reserva 3584 B; banco 37 e bancos 2–23/25–36
+coincidem). Profundidade de chamada não medida.
+
+Vídeo fresco de framebuffer, idle, sem input:
+`out/evidence/idle_sat_allocfix.mp4`, SHA-256
+`62c84787040b4cbd64a851a123dba65c3cf437583ec0d0669aaef631d5844c15`,
+256×192, 592 quadros, 9,88 s, mais novo que a ROM. Comando:
+`capture_video.py --project SMS_projects/luta_mugen/out/local_study/luta_integrada --rom <ROM acima> --seconds 9 --out idle_sat_allocfix --frames 4`.
+Gate, depois dos `--self-check` de `audit_render_glitch.py`,
+`capture_video.py`, `check_ram_layout.py` e `check_rom_binding.py`:
+`audit_render_glitch.py --mode flicker --window 8 --edge-tolerance 1 --expected-dir out/legal_idle -o out/evidence/idle_sat_allocfix_glitch.json`.
+**PASS**: 0/592, extra máximo 0, ausência máxima 936 (omissão de flicker
+num quadro; a janela 8 cobre a imagem legal casada), 24 imagens legais,
+pixels acesos antes do conteúdo 0. Pares que venceram o casamento: ken
+0/1/3/4 com ryu 0/1/2. Não declara que todo par idle apareceu como melhor
+casamento.
+
+Cadência desta ROM, medida depois do PASS visual. Self-check de
+`measure_runtime_probe.py` passou; em seguida
+`--seconds 8 --janelas 2 --out idle_sat_allocfix_probe` leu `probe_frame`
+em `0xC7F0` (magic `SMRT`). Janelas 29,96 e 30,58 fps, spread 0,62,
+`fps_constante` false. Boot e `frame_advance` passaram (delta total 489).
+O laço ainda perde um VBlank: um `fight_step` por lutador e uma
+apresentação por iteração. Input não foi injetado (snapshot `probe_keys`
+= 0). Combate, HUD, áudio e entrega não foram medidos. A doutrina
+compartilhada do wrapper não foi reescrita.
+
 ## Lote A — fontes preservadas, RAM/bancos medidos, SAT reprovada — 2026-09-29
 
 Divergência de doutrina, aplicada e não editada no wrapper: o workflow
