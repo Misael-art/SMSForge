@@ -168,10 +168,14 @@ static void allocate_asm(void) __naked {
         add a, b
         ld (hl), a
         inc hl
+        ;; SRL drops the carry of this add and leaves bit 1 of the id.
+        ;; ADC would then add 256 to every id == 2 or 3 (mod 4).
+        push af
         ld a, e
         srl a
         srl a
         ld b, a
+        pop af
         ld a, (_al_off+1)
         adc a, b
         ld (hl), a
